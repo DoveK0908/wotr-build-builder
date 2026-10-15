@@ -1,0 +1,193 @@
+{
+ "attributes": [
+  {
+   "id": "Strength",
+   "name": "力量",
+   "nameEn": "Strength (Str)",
+   "abbr": "STR"
+  },
+  {
+   "id": "Dexterity",
+   "name": "敏捷",
+   "nameEn": "Dexterity (Dex)",
+   "abbr": "DEX"
+  },
+  {
+   "id": "Constitution",
+   "name": "体质",
+   "nameEn": "Constitution (Con)",
+   "abbr": "CON"
+  },
+  {
+   "id": "Intelligence",
+   "name": "智力",
+   "nameEn": "Intelligence (Int)",
+   "abbr": "INT"
+  },
+  {
+   "id": "Wisdom",
+   "name": "感知",
+   "nameEn": "Wisdom (Wis)",
+   "abbr": "WIS"
+  },
+  {
+   "id": "Charisma",
+   "name": "魅力",
+   "nameEn": "Charisma (Cha)",
+   "abbr": "CHA"
+  }
+ ],
+ "skills": [
+  {
+   "id": "SkillAthletics",
+   "name": "运动",
+   "nameEn": "Athletics",
+   "guid": "34001a0f73d635d4e992265eea999296"
+  },
+  {
+   "id": "SkillKnowledgeArcana",
+   "name": "知识：神秘",
+   "nameEn": "Knowledge (arcana)",
+   "guid": "42718b4b850d28e40b005d0ab59a2c40"
+  },
+  {
+   "id": "SkillKnowledgeWorld",
+   "name": "知识：世界",
+   "nameEn": "Knowledge (world)",
+   "guid": "0ee817f3e8df871459afc1eb3ba5653f"
+  },
+  {
+   "id": "SkillLoreNature",
+   "name": "学识：自然",
+   "nameEn": "Lore (nature)",
+   "guid": "36b8bd987d37a3942b5921ab79eca119"
+  },
+  {
+   "id": "SkillLoreReligion",
+   "name": "学识：宗教",
+   "nameEn": "Lore (religion)",
+   "guid": "6e60b71b54121964ab13a697d04f3118"
+  },
+  {
+   "id": "SkillMobility",
+   "name": "灵巧",
+   "nameEn": "Mobility",
+   "guid": "e2ad71df6d715314099debce2845061d"
+  },
+  {
+   "id": "SkillPerception",
+   "name": "察觉",
+   "nameEn": "Perception",
+   "guid": "e372dda68513e6e46989ae96c024136c"
+  },
+  {
+   "id": "SkillPersuasion",
+   "name": "沟通",
+   "nameEn": "Persuasion",
+   "guid": "e3a3ce22b04e6c540a3fb983d2ef8256"
+  },
+  {
+   "id": "SkillStealth",
+   "name": "隐匿",
+   "nameEn": "Stealth",
+   "guid": "e9cd6b5b3fd0b874b8b8ad80342c61f1"
+  },
+  {
+   "id": "SkillTrickery",
+   "name": "巧手",
+   "nameEn": "Trickery",
+   "guid": "d1add7b40372be7458c70176a6951799"
+  },
+  {
+   "id": "SkillUseMagicDevice",
+   "name": "使用魔法装置",
+   "nameEn": "Use Magic Device",
+   "guid": "fcc38901018a35a4099249e638a87634"
+  }
+ ],
+ "alignments": [
+  {
+   "id": "LawfulGood",
+   "name": "守序善良",
+   "nameEn": "Lawful Good",
+   "abbr": "LG",
+   "groups": [
+    "Lawful",
+    "Good"
+   ]
+  },
+  {
+   "id": "LawfulNeutral",
+   "name": "守序中立",
+   "nameEn": "Lawful Neutral",
+   "abbr": "LN",
+   "groups": [
+    "Lawful"
+   ]
+  },
+  {
+   "id": "LawfulEvil",
+   "name": "守序邪恶",
+   "nameEn": "Lawful Evil",
+   "abbr": "LE",
+   "groups": [
+    "Lawful",
+    "Evil"
+   ]
+  },
+  {
+   "id": "NeutralGood",
+   "name": "中立善良",
+   "nameEn": "Neutral Good",
+   "abbr": "NG",
+   "groups": [
+    "Good"
+   ]
+  },
+  {
+   "id": "TrueNeutral",
+   "name": "绝对中立",
+   "nameEn": "True Neutral",
+   "abbr": "N",
+   "groups": []
+  },
+  {
+   "id": "NeutralEvil",
+   "name": "中立邪恶",
+   "nameEn": "Neutral Evil",
+   "abbr": "NE",
+   "groups": [
+    "Evil"
+   ]
+  },
+  {
+   "id": "ChaoticGood",
+   "name": "混乱善良",
+   "nameEn": "Chaotic Good",
+   "abbr": "CG",
+   "groups": [
+    "Chaotic",
+    "Good"
+   ]
+  },
+  {
+   "id": "ChaoticNeutral",
+   "name": "混乱中立",
+   "nameEn": "Chaotic Neutral",
+   "abbr": "CN",
+   "groups": [
+    "Chaotic"
+   ]
+  },
+  {
+   "id": "ChaoticEvil",
+   "name": "混乱邪恶",
+   "nameEn": "Chaotic Evil",
+   "abbr": "CE",
+   "groups": [
+    "Chaotic",
+    "Evil"
+   ]
+  }
+ ]
+}
