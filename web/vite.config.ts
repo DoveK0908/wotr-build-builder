@@ -12,5 +12,10 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: false,
+    // Windows 上编辑器/脚本的原子写入临时目录会被锁住，把点开头与构建产物排除掉，
+    // 否则文件监听会抛 EBUSY 把 dev server 打死。
+    watch: {
+      ignored: ["**/.*/**", "**/dist/**", "**/.smoke/**", "**/node_modules/**"],
+    },
   },
 });

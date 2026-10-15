@@ -22,3 +22,4 @@ dist/
 *.tmp
 .DS_Store
 Thumbs.db
+web/.smoke/

@@ -622,6 +622,21 @@ def build(game_dir: str, out_dir: str) -> dict:
     race_ids = refs(prog.get("m_CharacterRaces"))
     print("  权威名单：职业 %d / 神话 %d / 种族 %d" % (len(class_ids), len(mythic_ids), len(race_ids)))
 
+    # 角色通用的升级表（每个角色都会走一遍）：奇数级给通用专长，
+    # 另外 1 级还带「选择背景」「神祇选择」等槽位。
+    char_prog_id = ref(prog.get("m_FeatsProgression"))
+    basic_feat_sel = ref(prog.get("m_BasicFeatSelection"))
+    deity_sel = ref(prog.get("m_DeitySelection"))
+    char_prog: list[dict] = []
+    if char_prog_id:
+        d = g.by_guid(char_prog_id)
+        if d:
+            char_prog = pad_levels(level_entries(d.get("LevelEntries")), 20)
+            print("  角色通用升级表 %s：%d 级（奇数级给通用专长）"
+                  % (os.path.basename(g.path_of(char_prog_id) or "?"), len(char_prog)))
+        else:
+            ex.warn.append("角色通用升级表 %s 找不到蓝图" % char_prog_id)
+
     stats: dict[str, object] = {}
     classes: "OrderedDict[str, dict]" = OrderedDict()
     archetypes: "OrderedDict[str, dict]" = OrderedDict()
@@ -1179,6 +1194,12 @@ def build(game_dir: str, out_dir: str) -> dict:
         "pointBuyTotal": 25,
         "levelRange": [1, 20],
         "mythicRankRange": [1, 10],
+        # 角色通用升级表：1 级给「选择背景/神祇选择」等，奇数级给通用专长
+        "characterProgressionId": char_prog_id,
+        "characterProgression": char_prog,
+        "basicFeatSelection": basic_feat_sel,
+        "deitySelection": deity_sel,
+        "backgroundSelection": bg_root,
     }
     sizes = {}
     sizes["rules.json"] = dump("rules.json", rules)

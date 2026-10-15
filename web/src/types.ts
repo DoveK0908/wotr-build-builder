@@ -20,6 +20,12 @@ export interface Rules {
   pointBuyTotal: number;
   levelRange: [number, number];
   mythicRankRange: [number, number];
+  /** 角色通用升级表（每个角色都走）：奇数级给通用专长，1 级还带背景/神祇选择 */
+  characterProgressionId?: string;
+  characterProgression?: LevelEntry[];
+  basicFeatSelection?: string;
+  deitySelection?: string;
+  backgroundSelection?: string;
 }
 
 export interface LevelEntry { level: number; features: string[] }
@@ -59,8 +65,12 @@ export interface ArchetypeEntry {
   removeFeatures: LevelEntry[];
   buildChanging?: boolean;
   newSpellbook?: string;
+  replace?: boolean;
+  replaceClassSkills?: boolean;
   desc?: string;
 }
+
+export interface StatBonus { stat: string; value: number; cond?: boolean }
 
 export interface Prereq {
   k: string;
@@ -70,7 +80,7 @@ export interface Prereq {
   ids?: string[];
   amount?: number;
   stat?: string;
-  v?: number;
+  v?: number | string[];
   full?: boolean;
   class?: string;
   arch?: string;
@@ -107,6 +117,10 @@ export interface FeatureEntry {
   paramSub?: string;
   paramVariants?: string[];
   missing?: boolean;
+  statBonuses?: StatBonus[];
+  skillPointsPerLevel?: number;
+  proficiencies?: { armor?: string[]; weapon?: string[] };
+  replace?: boolean;
 }
 
 export interface SpellEntry {
@@ -149,6 +163,8 @@ export interface RaceEntry {
   path?: string;
   size?: string;
   traits?: string[];
+  heritageSelections?: string[];
+  statBonuses?: StatBonus[];
   desc?: string;
   selectableStat?: boolean;
 }
@@ -161,6 +177,8 @@ export interface BackgroundEntry {
   path?: string;
   desc?: string;
   children?: string[];
+  /** 上一层（大类 → 具体背景） */
+  parent?: string;
   companionOnly?: boolean;
   groups?: string[];
 }
