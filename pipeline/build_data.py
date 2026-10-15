@@ -1071,8 +1071,9 @@ def build(game_dir: str, out_dir: str) -> dict:
         if not p:
             continue
         opts = var_map.get(f.get("name") or "")
-        if not opts and p == "SpellSchool":
-            opts = SPELL_SCHOOLS
+        if p == "SpellSchool":
+            # 名字反推只能拿到零星几条（如「法术专攻（神话）」），八个学派必须内置
+            opts = SPELL_SCHOOLS + [o for o in (opts or []) if o not in SPELL_SCHOOLS]
         if not opts and p in ("LearnSpell", "SpellSpecialization"):
             opts = spell_names
         if opts:
