@@ -1,6 +1,6 @@
 {
  "gameDir": "D:\\SteamLibrary\\steamapps\\common\\Pathfinder Second Adventure",
- "generated": "2026-10-15 22:50:48",
+ "generated": "2026-10-15 22:53:15",
  "blueprints": 236661,
  "localization": {
   "zh": 110401,
@@ -19,15 +19,15 @@
   "backgrounds": 55
  },
  "unresolved": {
-  "daca06a3f3355664bba1e87e67f3b5b3": {
-   "count": 1,
-   "type": "BlueprintRace",
-   "path": "Races/MongrelmanRace.jbp"
-  },
   "02b4bdf2ef7b4296923219f361caec92": {
    "count": 1,
    "type": "未知",
    "path": "?? 不在库中"
+  },
+  "daca06a3f3355664bba1e87e67f3b5b3": {
+   "count": 1,
+   "type": "BlueprintRace",
+   "path": "Races/MongrelmanRace.jbp"
   }
  },
  "warnings": [],
@@ -37,14 +37,14 @@
   "rules.json": 1749,
   "classes.json": 128163,
   "archetypes.json": 271505,
-  "features.json": 8236122,
+  "features.json": 8263133,
   "spells.json": 524304,
   "spellLists.json": 66940,
   "spellbooks.json": 47390,
-  "races.json": 14882,
+  "races.json": 16070,
   "backgrounds.json": 30295,
   "mythic.json": 29060,
   "meta.json": 857
  },
- "seconds": 6.7
+ "seconds": 6.8
 }

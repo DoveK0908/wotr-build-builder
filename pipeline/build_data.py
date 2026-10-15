@@ -477,10 +477,76 @@ class Extractor:
             e["prereq"] = pr
         if d.get("IsClassFeature"):
             e["classFeature"] = True
+        sb = self.stat_bonuses(d)
+        if sb:
+            e["statBonuses"] = sb
+        sp = self.skill_points(d)
+        if sp:
+            e["skillPointsPerLevel"] = sp
+        pf = self.proficiencies(d)
+        if pf:
+            e["proficiencies"] = pf
         gr = self.grants(d)
         if gr:
             e.update(gr)
         return e
+
+    # ── 属性/技能加值、每级技能点、熟练（全部来自组件，纯数据）───────────
+    STAT_COMPONENTS = ("AddStatBonus", "AddStatBonusIfHasFact",
+                       "AddStatBonusFromClassLevel")
+
+    def stat_bonuses(self, d: dict) -> list[dict]:
+        """种族属性调整、专长给的点数等都在组件里。stat 可能是属性名
+        （Dexterity）、技能枚举名（SkillPerception）或别的（Speed），
+        这里原样导出，由前端按 rules.json 决定怎么用。"""
+        out: list[dict] = []
+        for c in d.get("Components") or []:
+            t = str(c.get("$type") or "").split(", ")[-1]
+            if t not in self.STAT_COMPONENTS:
+                continue
+            stat = c.get("Stat")
+            val = c.get("Value")
+            if isinstance(val, dict):          # AddStatBonusIfHasFact 把值包了一层
+                val = val.get("Value")
+            if not isinstance(stat, str) or not isinstance(val, int) or not val:
+                continue
+            e = {"stat": stat, "value": val}
+            if t.endswith("IfHasFact"):
+                e["cond"] = True
+            out.append(e)
+        return out
+
+    def skill_points(self, d: dict) -> int:
+        n = 0
+        for c in d.get("Components") or []:
+            t = str(c.get("$type") or "").split(", ")[-1]
+            if t in ("AddSkillPointPerCharacterLevel", "AddSkillPointPerLevel"):
+                v = c.get("Value", c.get("m_Value", 1))
+                if isinstance(v, int):
+                    n += v
+        return n
+
+    def proficiencies(self, d: dict) -> dict:
+        out: dict = {}
+        for c in d.get("Components") or []:
+            t = str(c.get("$type") or "").split(", ")[-1]
+            if t != "AddProficiencies":
+                continue
+            arm = c.get("ArmorProficiencies") or c.get("ArmorProficiency") or []
+            wep = c.get("WeaponProficiencies") or c.get("WeaponProficiency") or []
+            if isinstance(arm, str):
+                arm = [arm]
+            if isinstance(wep, str):
+                wep = [wep]
+            for x in arm:
+                out.setdefault("armor", [])
+                if x not in out["armor"]:
+                    out["armor"].append(x)
+            for x in wep:
+                out.setdefault("weapon", [])
+                if x not in out["weapon"]:
+                    out["weapon"].append(x)
+        return out
 
     # ── 特性通过组件授予的法术 / 法术列表 ───────────────────────────────
     KNOWN_ONE = ("AddKnownSpell", "AddSpellKnownTemporary")
@@ -807,7 +873,18 @@ def build(game_dir: str, out_dir: str) -> dict:
         e["nameEn"] = en
         e["path"] = g.path_of(rid)
         e["size"] = d.get("Size")
-        e["traits"] = refs(d.get("m_Features"))
+        tr = refs(d.get("m_Features"))
+        e["traits"] = tr
+        sb = ex.stat_bonuses(d)
+        if sb:
+            e["statBonuses"] = sb
+        sp = ex.skill_points(d)
+        if sp:
+            e["skillPointsPerLevel"] = sp
+        # 种族自带的选择表（人类额外专长、精灵血统、矮人血统…）
+        her = [t for t in tr if g.type_of(t) == "BlueprintFeatureSelection"]
+        if her:
+            e["heritageSelections"] = her
         desc = ex.desc(d)
         if desc:
             e["desc"] = desc
