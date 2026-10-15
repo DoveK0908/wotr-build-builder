@@ -1050,6 +1050,39 @@ def build(game_dir: str, out_dir: str) -> dict:
         raise SystemExit(2)
     print("  硬校验通过：职业/变体/种族/背景/神话的引用与法术等级全部落地")
 
+    # ── 参数化专长的可选参数（武器种类 / 法术学派 / 具体法术）─────────────
+    # 游戏并没有把变体列表放在 BlueprintParametrizedFeature 上（该蓝图的两个
+    # Variants 字段都是空数组），但每个具体变体都以「基名（变体名）」的形式
+    # 独立存在，例如「武器专攻（弯刀）」。因此用名字反推可选参数。
+    var_map: dict = {}
+    for f in features.values():
+        n = f.get("name") or ""
+        i, j = n.find("（"), n.rfind("）")
+        if 0 < i and j == len(n) - 1:
+            base, v = n[:i], n[i + 1:j]
+            lst = var_map.setdefault(base, [])
+            if v and v not in lst:
+                lst.append(v)
+    SPELL_SCHOOLS = ["防护", "咒法", "预言", "附魔", "塑能", "幻术", "死灵", "变化"]
+    spell_names = sorted({s["name"] for s in spells.values() if s.get("name")})
+    param_kinds: dict = {}
+    for f in features.values():
+        p = f.get("param")
+        if not p:
+            continue
+        opts = var_map.get(f.get("name") or "")
+        if not opts and p == "SpellSchool":
+            opts = SPELL_SCHOOLS
+        if not opts and p in ("LearnSpell", "SpellSpecialization"):
+            opts = spell_names
+        if opts:
+            f["paramVariants"] = opts
+        param_kinds[p] = param_kinds.get(p, 0) + 1
+    print("  参数化专长 %d 个，参数类型 %s；%d 个带可选参数"
+          % (sum(param_kinds.values()),
+             "，".join("%s×%d" % kv for kv in sorted(param_kinds.items())),
+             sum(1 for f in features.values() if f.get("paramVariants"))))
+
     # ── 落盘 ────────────────────────────────────────────────────────────
     os.makedirs(out_dir, exist_ok=True)
 
@@ -1063,6 +1096,7 @@ def build(game_dir: str, out_dir: str) -> dict:
         "attributes": [{"id": a, "name": n, "short": s} for a, n, s in ATTR_ORDER],
         "skills": [{"id": s, "name": n, "nameEn": en} for s, n, en in SKILL_ORDER],
         "alignments": [{"id": a, "name": n} for a, n in ALIGNMENTS],
+        "spellSchools": SPELL_SCHOOLS,
         "pointBuy": {str(k): v for k, v in POINT_BUY.items()},
         "pointBuyTotal": 25,
         "levelRange": [1, 20],
