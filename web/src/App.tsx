@@ -9,6 +9,7 @@ import { Mythic } from "./views/Mythic";
 import { Skills } from "./views/Skills";
 import { Spells } from "./views/Spells";
 import { Summary } from "./views/Summary";
+import { PresetPicker } from "./views/Presets";
 
 const TABS: [string, string][] = [
   ["char", "角色"],
@@ -23,6 +24,7 @@ export function App() {
   const [db, setDb] = useState<Db | null>(null);
   const [err, setErr] = useState("");
   const [pct, setPct] = useState(0);
+  const [presetsOpen, setPresetsOpen] = useState(() => /[#&]presets=1/.test(location.hash));
   const [tab, setTab] = useState(() => {
     const m = /[#&]tab=([a-z]+)/.exec(location.hash);
     return m ? m[1] : "char";
@@ -105,11 +107,16 @@ export function App() {
           ))}
         </nav>
         <div className="top-right">
+          <button className="btn sm" type="button" onClick={() => setPresetsOpen(true)}>
+            预置构筑
+          </button>
           <span className="muted small">
             {build.name || "未命名"} · {derived.level}/20 · 神话 {derived.rank}/10
           </span>
         </div>
       </header>
+
+      {presetsOpen && <PresetPicker db={db} onClose={() => setPresetsOpen(false)} />}
 
       <main className="main">
         {tab === "char" && <Character db={db} />}

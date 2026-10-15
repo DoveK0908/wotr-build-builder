@@ -220,6 +220,51 @@ export interface Meta {
   seconds?: number;
 }
 
+// ── 预置构筑（由 pipeline/import_presets.py 从中文 BD 合集解析） ─────────────
+
+export interface PresetFeat { id: string; param?: string }
+
+export interface PresetLevel {
+  level: number;
+  classId: string | null;
+  /** 选择槽 → 选项 */
+  picks: Record<string, string>;
+  /** 专长 id → 参数（武器/技能/法术名） */
+  params: Record<string, string>;
+  feats: PresetFeat[];
+  spells: string[];
+  /** 没认出来的短名（原样展示给用户参考） */
+  unmatched?: string[];
+  /** 攻略正文（长句） */
+  notes?: string[];
+}
+
+/** [神话阶, 类型, 特性 id 或原文] */
+export type PresetMythic = [number, string, string];
+
+export interface Preset {
+  id: string;
+  /** 队友中文名，如「席拉」 */
+  who: string;
+  /** 职业配比原文，如「14圣武士1传统武僧1受诅巫师3突变斗士1原怒者」 */
+  plan: string;
+  /** 职业 id → 变体 id 列表 */
+  archetypes: Record<string, string[]>;
+  /** 升级属性加点，按 4/8/12/16/20 级的顺序 */
+  attrs: string[];
+  mythic: PresetMythic[];
+  notes?: string[];
+  levels: PresetLevel[];
+  match?: { feats: number; total: number };
+}
+
+export interface PresetData {
+  source: string;
+  generated: string;
+  stats: { presets: number; feats: number; matched: number; slotted: number };
+  presets: Preset[];
+}
+
 export interface Db {
   rules: Rules;
   meta: Meta;
@@ -232,4 +277,5 @@ export interface Db {
   races: Record<string, RaceEntry>;
   backgrounds: Record<string, BackgroundEntry>;
   mythic: MythicData;
+  presets: PresetData;
 }

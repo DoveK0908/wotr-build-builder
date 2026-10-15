@@ -7,6 +7,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { Db, FeatureEntry, Prereq } from "../src/types";
 import { emptyBuild, serialize, deserialize } from "../src/store";
+import { applyPreset } from "../src/presets";
 import type { Build } from "../src/store";
 import {
   attrMod,
@@ -24,7 +25,7 @@ import {
 
 const FILES = [
   "rules", "classes", "archetypes", "features", "spells", "spellLists",
-  "spellbooks", "races", "backgrounds", "mythic", "meta",
+  "spellbooks", "races", "backgrounds", "mythic", "presets", "meta",
 ];
 
 const FIGHTER = "48ac8db94d5de7645906c7d0ad3bcfbd";
@@ -190,6 +191,38 @@ export function run(dir: string): void {
   ok(Number.isFinite(d.bab) && Number.isFinite(d.hp) && Number.isFinite(d.skillPointsTotal),
     "derive 数值无 NaN");
   ok(num(undefined, 3) === 3, "num 默认值");
+
+  // ---- 预置构筑（中文 BD 合集） ----
+  const presets = db.presets?.presets || [];
+  ok(presets.length === 24, "预置构筑 24 套", String(presets.length));
+  ok((db.presets?.stats?.matched || 0) >= 230, "预置专长识别 >= 230",
+    String(db.presets?.stats?.matched));
+  let pBad = "";
+  let pPlaced = 0;
+  let pLeft = 0;
+  for (const p of presets) {
+    const r = applyPreset(db, p);
+    const lv = classLevels(r.build);
+    const n = Object.values(lv).reduce((a, x) => a + x, 0);
+    const dd = derive(db, r.build);
+    if (n < 15 || !Number.isFinite(dd.bab) || dd.bab <= 0) {
+      pBad = `${p.id}:${n}级/bab${dd.bab}`;
+      break;
+    }
+    pPlaced += r.placed;
+    pLeft += r.leftover.length;
+  }
+  eq(pBad, "", "24 套预置都能套用并推导");
+  ok(pPlaced > 100, "预置自动落位总数 > 100", String(pPlaced));
+  ok(pLeft > 0, "预置保留了需要人工确认的条目", String(pLeft));
+  const first = presets[0];
+  if (first) {
+    const r = applyPreset(db, first);
+    ok(Object.values(r.build.classArchetypes).some((x) => x.length > 0),
+      "预置带上了变体", JSON.stringify(r.build.classArchetypes).slice(0, 80));
+    ok(r.build.levels.filter((x) => x.classId).length === 20, "预置铺满 20 级职业");
+    ok(r.build.levels.filter((x) => x.ability).length > 0, "预置带上了升级加点");
+  }
 
   const total = pass + fails.length;
   if (fails.length === 0) {
