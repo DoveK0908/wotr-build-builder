@@ -1,0 +1,24 @@
+# ── 旧 Tkinter 工具：自带独立 git 仓库，作为归档放在这里，不纳入主仓库 ──
+/archive/
+
+# ── Python ──
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# ── Node / 前端 ──
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+
+# ── 提取过程的中间缓存（体积大、可重建）──
+/data/_raw/
+/cache/
+
+# ── 杂项 ──
+*.log
+*.tmp
+.DS_Store
+Thumbs.db
