@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import type { Db } from "./types";
 import { loadDb } from "./load";
 import { act, deserialize, shareUrl, useBuild } from "./store";
-import { attrMod, derive } from "./rules";
+import { attrMod, derive, mythicSpellbook } from "./rules";
 import {
   STEPS, allSteps, normalizeStep, stepFilled, stepGlyph, stepNote, stepValue, stepWarn,
 } from "./steps";
@@ -210,7 +210,14 @@ export function App() {
                 )}
               </div>
 
-              {cur.dynamic && cur.slotId ? (
+              {cur.id.startsWith("mysp:") ? (
+                <Spells
+                  key={cur.id}
+                  db={db}
+                  focusBook={mythicSpellbook(db, build)?.spellbookId}
+                  focusLevel={Number(cur.id.slice("mysp:".length))}
+                />
+              ) : cur.dynamic && cur.slotId ? (
                 cur.id.startsWith("my:") ? (
                   <MythicFeature db={db} slotId={cur.slotId} />
                 ) : (
@@ -272,9 +279,11 @@ export function App() {
               <button
                 className="fbtn right"
                 type="button"
-                onClick={() => setStep(cur.id === "class" ? "summary" : cur.id === "spells" ? "spells" : "class")}
+                onClick={() =>
+                  setStep(cur.id === "class" ? "summary" : cur.id === "spells" || cur.id.startsWith("mysp:") ? "spells" : "class")
+                }
               >
-                {cur.id === "class" ? "总结" : cur.id === "spells" ? "法术书" : "职业成长"}
+                {cur.id === "class" ? "总结" : cur.id === "spells" || cur.id.startsWith("mysp:") ? "法术书" : "职业成长"}
               </button>
             )}
           </div>

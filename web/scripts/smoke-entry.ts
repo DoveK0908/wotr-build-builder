@@ -10,8 +10,8 @@ import { act, buildStore, emptyBuild, migrate, serialize, deserialize } from "..
 import { applyPreset } from "../src/presets";
 import type { Build } from "../src/store";
 import {
-  DYN_MYTHIC_PREFIX, DYN_PREFIX, STEP_IDS, allSteps, classSubSteps, mythicSubSteps, normalizeStep,
-  stepFilled, stepGlyph, stepNote, stepValue,
+  DYN_MYTHIC_PREFIX, DYN_MYTHIC_SPELL_PREFIX, DYN_PREFIX, STEP_IDS, allSteps, classSubSteps,
+  mythicSubSteps, normalizeStep, stepFilled, stepGlyph, stepNote, stepValue,
 } from "../src/steps";
 import {
   alignAllows,
@@ -35,6 +35,7 @@ import {
   livePicks,
   mythicHeroPath,
   mythicSource,
+  mythicSpellbook,
   num,
   ownedFeatures,
   pathStartRank,
@@ -740,6 +741,79 @@ export function run(dir: string): void {
       ok(stepValue(db, mb, derive(db, mb), my[0].id) !== "", "神话子步骤牌匾显示已选值");
       eq(stepGlyph(my[0].id, my[0].name), my[0].name.slice(0, 1), "神话子步骤用名字首字当徽记");
       act.reset();
+    }
+
+    // 道途法术书（游戏里的「法术:等级 N」牌匾）—— 只有要自己挑法术的道途才出这些步骤
+    {
+      const angelP = Object.values(db.mythic.paths).find((p) => p.key === "AngelMythicClass");
+      const azataP = Object.values(db.mythic.paths).find((p) => p.key === "AzataMythicClass");
+      if (angelP) {
+        const ab: Build = { ...emptyBuild(), mythicPath: angelP.id };
+        const amb = mythicSpellbook(db, ab);
+        ok(!!amb, "天使有道途法术书");
+        if (amb) {
+          ok(Object.keys(amb.pool).length > 10, `天使法术池非空（实测 ${Object.keys(amb.pool).length} 条）`);
+          ok(amb.merged === true, "天使法术书并进职业法术书（按角色等级算环位）");
+          ok(!!amb.book.allSpellsKnown, "天使整张法术表都会（allSpellsKnown）");
+          ok(
+            derive(db, ab).spells.some((s) => s.spellbookId === amb.spellbookId),
+            "道途法术书出现在 derive() 的法术书列表里",
+          );
+          const aSteps = mythicSubSteps(db, ab);
+          ok(
+            !aSteps.some((s) => s.id.startsWith(DYN_MYTHIC_SPELL_PREFIX)),
+            "会整表法术的道途不出「法术:等级 N」子步骤",
+          );
+        }
+      }
+      if (azataP) {
+        // 道途法术书的法术位按**角色等级**索引（灵使 6 级才有 [1=2]），所以给 12 级法师
+        const wz = Object.values(db.classes).find((c) => c.key === "WizardClass");
+        const zb: Build = {
+          ...emptyBuild(),
+          mythicPath: azataP.id,
+          levels: Array.from({ length: 20 }, (_, i) => ({
+            classId: i < 12 && wz ? wz.id : null, picks: {}, params: {}, ability: null,
+          })),
+        };
+        // 把它推到神话 5 阶（随意填每阶的槽位）
+        for (let r = 1; r <= 5; r += 1) {
+          for (const s of rankRootSlots(db, zb, r)) {
+            const c = (s.choices || [])[0];
+            if (c && !zb.ranks[r - 1].picks[s.id]) zb.ranks[r - 1].picks[s.id] = c;
+          }
+        }
+        const zmb = mythicSpellbook(db, zb);
+        ok(!!zmb, "灵使有道途法术书");
+        if (zmb) {
+          ok(!zmb.book.allSpellsKnown, "灵使要自己挑法术（allSpellsKnown=false）");
+          ok(zmb.merged === false, "灵使的法术书是独立的（按神话阶层算环位）");
+          const zSteps = mythicSubSteps(db, zb).filter((s) => s.id.startsWith(DYN_MYTHIC_SPELL_PREFIX));
+          ok(zSteps.length >= 1, `灵使带出 ${zSteps.length} 个「法术:等级 N」子步骤`, zSteps.map((s) => s.name).join("/"));
+          if (zSteps.length) {
+            const sid = zSteps[0].id;
+            ok(normalizeStep(sid) === sid, "normalizeStep 放行道途法术子步骤 id");
+            eq(stepGlyph(sid), "法", "道途法术子步骤用「法」当徽记");
+            eq(stepValue(db, zb, derive(db, zb), sid), "", "没选法术时牌匾为空");
+            const L = Number(sid.slice(DYN_MYTHIC_SPELL_PREFIX.length));
+            const first = (zmb.byLevel[L] || [])[0];
+            if (first) {
+              zb.spells[zmb.spellbookId] = [first.id];
+              ok(
+                stepValue(db, zb, derive(db, zb), sid).includes("已选"),
+                "选了法术之后牌匾显示「已选 N」",
+              );
+            }
+          }
+          const zall = allSteps(db, zb);
+          const zi = zall.findIndex((s) => s.id === "mythic");
+          const zsubs = mythicSubSteps(db, zb);
+          ok(
+            zall.slice(zi + 1, zi + 1 + zsubs.length).map((s) => s.id).join(",") === zsubs.map((s) => s.id).join(","),
+            "神话子步骤（含道途法术）按顺序插在「神话」之后",
+          );
+        }
+      }
     }
   }
 

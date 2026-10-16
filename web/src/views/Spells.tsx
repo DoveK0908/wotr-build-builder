@@ -70,12 +70,17 @@ function targetText(sp?: SpellEntry | null): string {
   return rng ? `${what}　${rng}` : what;
 }
 
-export function Spells(props: { db: Db }) {
-  const { db } = props;
+export function Spells(props: { db: Db; focusBook?: string; focusLevel?: number }) {
+  const { db, focusBook, focusLevel } = props;
   const build = useBuild();
   const derived = useMemo(() => derive(db, build), [db, build]);
-  const [clsIdx, setClsIdx] = useState(0);
-  const [lvl, setLvl] = useState(1);
+  // 神话法术书的子步骤（`mysp:<环位>`）会带着要看的法术书进来，第一次渲染就定位到它。
+  const [clsIdx, setClsIdx] = useState(() => {
+    if (!focusBook) return 0;
+    const i = derived.spells.findIndex((s) => s.spellbookId === focusBook || s.classId === focusBook);
+    return i >= 0 ? i : 0;
+  });
+  const [lvl, setLvl] = useState(focusLevel && focusLevel > 0 ? focusLevel : 1);
   const [hover, setHover] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const [showAll, setShowAll] = useState(true);
@@ -100,6 +105,24 @@ export function Spells(props: { db: Db }) {
   const activeLevel = Math.min(lvl, maxLevel);
   const pool = sp.byLevel[activeLevel] || [];
   const bonus = bonusSpells(db, derived);
+
+  // 法术 → 环位：优先用**这本**法术书自己的分环表（神话道途法术书不是按职业分环的，
+  // `spell.levels[classId]` 对它们永远是 undefined）。
+  const levelMap = new Map<string, number>();
+  for (const [L, arr] of Object.entries(sp.byLevel || {})) {
+    for (const e of arr) levelMap.set(e.id, Number(L));
+  }
+  const levelOf = (id: string): number | null => {
+    const hit = levelMap.get(id);
+    if (hit !== undefined) return hit;
+    const fb = db.spells[id]?.levels?.[sp.classId];
+    return fb === undefined || fb === null ? null : fb;
+  };
+  const levelText = (id: string): string => {
+    const l = levelOf(id);
+    if (l === null) return "";
+    return l === 0 ? "戏法" : `${l}环`;
+  };
 
   const list = useMemo(() => {
     const kw = q.trim().toLowerCase();
@@ -216,7 +239,7 @@ export function Spells(props: { db: Db }) {
           <Sect title="各环已选">
             <div className="row wrap">
               {Array.from({ length: maxLevel + 1 }, (_, l) => l).map((l) => {
-                const got = sp.chosen.filter((id) => (db.spells[id]?.levels?.[sp.classId] ?? -1) === l);
+                const got = sp.chosen.filter((id) => levelOf(id) === l);
                 const per = sp.spellsPerDay[l];
                 return (
                   <button
@@ -242,10 +265,7 @@ export function Spells(props: { db: Db }) {
               <div className="muted small">还没选法术。</div>
             ) : (
               <StatRows
-                items={sp.chosen.map((id) => [
-                  db.spells[id]?.name || id,
-                  `${db.spells[id]?.levels?.[sp.classId] === 0 ? "戏法" : `${db.spells[id]?.levels?.[sp.classId]}环`}`,
-                ])}
+                items={sp.chosen.map((id) => [db.spells[id]?.name || id, levelText(id)])}
                 dense
               />
             )}

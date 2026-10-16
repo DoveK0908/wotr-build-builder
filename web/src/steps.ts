@@ -8,8 +8,8 @@ import type { Db } from "./types";
 import type { Build } from "./store";
 import type { Derived } from "./rules";
 import {
-  alignConflicts, archSel, featuresAtClassLevel, label, levelRootSlots, mythicRank, pointBuySpent,
-  rankRootSlots, universalSlots,
+  alignConflicts, archSel, featuresAtClassLevel, label, levelRootSlots, mythicRank, mythicSpellbook,
+  pointBuySpent, rankRootSlots, universalSlots,
 } from "./rules";
 
 export interface Step {
@@ -49,7 +49,9 @@ const ALIASES: Record<string, string> = {
 
 export function normalizeStep(id: string | null | undefined): string {
   if (!id) return STEPS[0].id;
-  if (id.startsWith(DYN_PREFIX) || id.startsWith(DYN_MYTHIC_PREFIX)) return id; // 动态步骤
+  if (id.startsWith(DYN_PREFIX) || id.startsWith(DYN_MYTHIC_PREFIX) || id.startsWith(DYN_MYTHIC_SPELL_PREFIX)) {
+    return id; // 动态步骤
+  }
   const v = ALIASES[id] || id;
   return STEP_IDS.includes(v) ? v : STEPS[0].id;
 }
@@ -60,6 +62,9 @@ export const DYN_PREFIX = "cls:";
 
 /** 神话子步骤的 id 前缀（后面跟槽位 guid）—— 游戏升神话阶层时也会多出这类牌匾 */
 export const DYN_MYTHIC_PREFIX = "my:";
+
+/** 神话法术书的子步骤前缀（后面跟环位）—— 游戏里是「法术:等级 N」 */
+export const DYN_MYTHIC_SPELL_PREFIX = "mysp:";
 
 /** 这些「额外专长」类槽位留在 ⑥ 专长 一步里，不单独出步骤 */
 const GENERIC_SLOT = /额外专长|额外战斗专长|Bonus ?Feat/i;
@@ -171,6 +176,23 @@ export function mythicSubSteps(db: Db, build: Build): Step[] {
       });
     }
   }
+  // 道途法术书（游戏里也会为每一环单独出一块「法术:等级 N」牌匾）。
+  // 只有**要自己挑法术**的法术书才出（`allSpellsKnown` 的道途，比如天使/巫妖，整张表都会，
+  // 游戏里就不给挑选步骤 —— 数据里也确实是 True）。
+  const mb = mythicSpellbook(db, build);
+  if (mb && !mb.book.allSpellsKnown) {
+    for (let l = 1; l <= mb.maxLevel; l += 1) {
+      const pool = mb.byLevel[l] || [];
+      if (!pool.length) continue;
+      out.push({
+        id: DYN_MYTHIC_SPELL_PREFIX + l,
+        name: `法术:等级 ${l}`,
+        num: "",
+        hint: `${mb.pathName}法术书：第 ${l} 环 ${pool.length} 个可选`,
+        dynamic: true,
+      });
+    }
+  }
   return out;
 }
 
@@ -203,6 +225,14 @@ export function mainClass(db: Db, build: Build): { classId: string; levels: numb
 
 /** 牌匾右侧那块「已选值」牌匾上的文字（空串 = 还没选） */
 export function stepValue(db: Db, build: Build, d: Derived, id: string): string {
+  if (id.startsWith(DYN_MYTHIC_SPELL_PREFIX)) {
+    const L = Number(id.slice(DYN_MYTHIC_SPELL_PREFIX.length));
+    const mb = mythicSpellbook(db, build);
+    if (!mb || !Number.isFinite(L)) return "";
+    const picks = build.spells[mb.spellbookId] || [];
+    const n = picks.filter((p) => (mb.pool[p] ?? -1) === L).length;
+    return n ? `已选 ${n}` : "";
+  }
   if (id.startsWith(DYN_PREFIX) || id.startsWith(DYN_MYTHIC_PREFIX)) {
     const slotId = id.slice(id.indexOf(":") + 1);
     for (const lv of build.levels) if (lv.picks[slotId]) return label(db.features[lv.picks[slotId]]);
@@ -240,8 +270,11 @@ export function stepValue(db: Db, build: Build, d: Derived, id: string): string 
       }
       return total ? `${done} / ${total}` : "";
     }
-    case "spells":
-      return Object.values(build.spells).some((l) => l.length) ? `${d.maxSpellLevel || 0} 环` : "";
+    case "spells": {
+      // `d.maxSpellLevel` 是「每本法术书 → 最高环位」的表，牌匾上要的是最大的那个环位
+      const mx = Math.max(0, ...Object.values(d.maxSpellLevel || {}));
+      return mx ? `${mx} 环` : "";
+    }
     case "deity":
       return build.deity ? label(db.features[build.deity]) : "";
     case "align":
@@ -266,6 +299,7 @@ export function stepFilled(db: Db, build: Build, d: Derived, id: string): boolea
 
 /** 牌匾图标里那个字（没有内容图标时，游戏自己也用字母缩写当图标） */
 export function stepGlyph(id: string, name?: string): string {
+  if (id.startsWith(DYN_MYTHIC_SPELL_PREFIX)) return "法";
   if (id.startsWith(DYN_PREFIX) || id.startsWith(DYN_MYTHIC_PREFIX)) return (name || "").trim().charAt(0) || "·";
   const fixed: Record<string, string> = {
     class: "职", race: "种", background: "景", attrs: "属", skills: "技", feats: "专",

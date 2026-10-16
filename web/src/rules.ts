@@ -7,7 +7,7 @@
  */
 import type {
   AttrId, BackgroundEntry, ClassEntry, Db, FeatureEntry, MythicPathEntry, Prereq,
-  RaceEntry, SpellEntry,
+  RaceEntry, SpellEntry, SpellbookEntry,
 } from "./types";
 import { ATTRS, MAX_LEVEL, MAX_RANK, type Build } from "./store";
 
@@ -248,6 +248,75 @@ export function raceRootSlots(db: Db, build: Build): FeatureEntry[] {
   return (race?.heritageSelections || [])
     .map((id) => db.features[id])
     .filter((f): f is FeatureEntry => !!f && !!f.choices && f.choices.length > 0);
+}
+
+/**
+ * 神话道途自己的法术书（天使 / 灵使 / 巫妖 / 恶魔 / 御衡者 / 诡计大师 / 金龙）。
+ *
+ * 数据事实：法术池写在**法术**上的 `mythicLevels[<道途 id>]`（不是法术书 id）——
+ * 天使 85 条、巫妖 131 条、灵使 85 条…；道途蓝图的 `spellbookId` 给的是
+ * 那张 `spellsPerDay` 表（按等级索引 1..20）。
+ *
+ * 天使与巫妖的法术书会**并进**施法职业的法术书（所以可施放环位跟着角色等级走），
+ * 其余道途是独立的法术书（跟神话阶层走）。
+ */
+export interface MythicSpellbook {
+  pathId: string;
+  pathName: string;
+  spellbookId: string;
+  book: SpellbookEntry;
+  /** 法术 id → 环位 */
+  pool: Record<string, number>;
+  /** 环位 → 法术 */
+  byLevel: Record<number, SpellEntry[]>;
+  maxLevel: number;
+  merged: boolean;
+}
+
+/** 会并进职业法术书的两条道途（其余都是独立法术书） */
+const MERGED_MYTHIC_BOOKS = new Set(["AngelMythicClass", "LichMythicClass"]);
+
+export function mythicSpellbook(db: Db, build: Build): MythicSpellbook | null {
+  const path = build.mythicPath ? db.mythic.paths[build.mythicPath] : null;
+  const sbId = path?.spellbookId;
+  if (!path || !sbId) return null;
+  const book = db.spellbooks[sbId];
+  if (!book) return null;
+
+  const pool: Record<string, number> = {};
+  for (const s of Object.values(db.spells)) {
+    const lv = s.mythicLevels?.[path.id];
+    if (lv === undefined || lv === null) continue;
+    pool[s.id] = num(lv);
+  }
+  const byLevel: Record<number, SpellEntry[]> = {};
+  for (const [sid, lv] of Object.entries(pool)) {
+    const L = num(lv);
+    const e = db.spells[sid];
+    if (!e) continue;
+    (byLevel[L] = byLevel[L] || []).push(e);
+  }
+
+  const merged = MERGED_MYTHIC_BOOKS.has(String(path.key || ""));
+  // 实测：所有道途法术书的 spellsPerDay 都是按**角色等级**（1..20）索引的 ——
+  // 合并的两条从 1 级就有（天使 1 级 1 个 1 环），独立的四条从 6 级起（灵使 6 级 [1=2]）。
+  const idx = Math.max(1, Math.min(20, charLevel(build)));
+  const row = (book.spellsPerDay?.[idx] || []).map((x) => num(x));
+  let maxLevel = 0;
+  row.forEach((n, l) => {
+    if (n > 0) maxLevel = Math.max(maxLevel, l);
+  });
+
+  return {
+    pathId: path.id,
+    pathName: path.name || path.nameEn || "",
+    spellbookId: sbId,
+    book,
+    pool,
+    byLevel,
+    maxLevel,
+    merged,
+  };
 }
 
 /** 背景树的根（「选择背景」那张选择表） */
@@ -758,6 +827,27 @@ export function derive(db: Db, build: Build): Derived {
       knownCount: sb?.spellsKnown ? num(sb.spellsKnown[n], -1) : null,
       byLevel,
       chosen: build.spells[cid] || [],
+    });
+  }
+
+  // 神话道途自己的法术书（天使/灵使/巫妖/恶魔/御衡者/诡计大师/金龙）：与职业法术书并列出现，
+  // `classId` 用这张法术书的 id 当 key（选择存在 build.spells[spellbookId]）。
+  const mb = mythicSpellbook(db, build);
+  if (mb) {
+    const idx = mb.merged ? Math.max(1, Math.min(20, level)) : Math.max(1, rank);
+    maxSpellLevel[mb.spellbookId] = mb.maxLevel;
+    spells.push({
+      classId: mb.spellbookId,
+      className: `${mb.pathName} 法术书`,
+      spellbookId: mb.spellbookId,
+      castingAttr: mb.book.castingAttribute as AttrId | undefined,
+      spontaneous: !!mb.book.spontaneous,
+      allSpellsKnown: !!mb.book.allSpellsKnown,
+      maxSpellLevel: mb.maxLevel,
+      spellsPerDay: (mb.book.spellsPerDay?.[idx] || []).map((x) => num(x)),
+      knownCount: null,
+      byLevel: mb.byLevel,
+      chosen: build.spells[mb.spellbookId] || [],
     });
   }
 
