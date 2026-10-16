@@ -35,7 +35,7 @@
 
 ## 游戏里没有、必须内置的常量
 
-- **点买花费表**：全库搜不到 `PointBuy`/`AttributePoints`，标准 25 点表（7:-4 … 18:17）写在 `build_data.py` 的 `POINT_BUY`
+- **购点花费表**：全库搜不到 `PointBuy`/`AttributePoints`，标准 25 点表（7:-4 … 18:17）写在 `build_data.py` 的 `POINT_BUY`
 - **技能 → 关键属性**：蓝图里没有这张映射，写在 `web/src/rules.ts` 的 `SKILL_ATTR`
 - **技能枚举别名**：职业的 `ClassSkills` 里有 `SkillThievery`（= 巧手 Trickery）、`CheckIntimidate`（不是技能，丢弃）
 - **金龙道途的显示名**：`GoldenDragonClass` 的 `m_DisplayName` 与 `LocalizedName` 都是空的，用 `MYTHIC_PATH_NAMES` 硬编码「金龙」
@@ -60,7 +60,7 @@
 
 | 文件 | 内容 |
 | --- | --- |
-| `rules.json` | 6 属性、11 技能、9 阵营、8 法术学派、点买表、角色通用升级表、各种选择表 id |
+| `rules.json` | 6 属性、11 技能、9 阵营、8 法术学派、购点表、角色通用升级表、各种选择表 id |
 | `classes.json` | 40 个职业：生命骰、技能点、本职技能、BAB/三豁免进度表、升级表、变体列表、法术书 |
 | `archetypes.json` | 197 个变体：`addFeatures`/`removeFeatures` 逐级增删、是否 `buildChanging`、换法术书、适用职业 |
 | `features.json` | 10675 条特性（专长/职业能力/种族特性/背景/选择表…）：中文名与描述、选择池 `choices`、参数化专长的参数类型、前置条件、属性加值、授予的法术 |

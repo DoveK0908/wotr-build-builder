@@ -29,7 +29,7 @@ export const STEPS: Step[] = [
   { id: "class", name: "职业", num: "①", hint: "先排 20 级要练哪些职业，以及要不要变体" },
   { id: "race", name: "种族", num: "②", hint: "种族加值、任选属性、种族传承" },
   { id: "background", name: "背景", num: "③", hint: "按层级选：大类 → 具体背景 → 有些还要再选一项" },
-  { id: "attrs", name: "购点", num: "④", hint: "点买、升级提升、装备等外部加值" },
+  { id: "attrs", name: "购点", num: "④", hint: "购点、升级提升、装备等外部加值" },
   { id: "skills", name: "技能", num: "⑤", hint: "把每级的技能点投出去" },
   { id: "feats", name: "专长", num: "⑥", hint: "逐级填专长 / 职业选择，含参数（武器、法术学派…）" },
   { id: "spells", name: "法术", num: "⑦", hint: "每个施法职业的已知法术与额外领域法术" },
@@ -254,7 +254,7 @@ export function stepValue(db: Db, build: Build, d: Derived, id: string): string 
       return build.background ? label(db.backgrounds[build.background]) : "";
     case "attrs": {
       const spent = pointBuySpent(db, build);
-      return spent ? `点买 ${spent}` : "";
+      return spent ? `购点 ${spent}` : "";
     }
     case "skills":
       return d.skillSpent ? `已投 ${d.skillSpent}` : "";
@@ -334,8 +334,8 @@ export function stepNote(db: Db, build: Build, d: Derived, id: string): string {
     case "attrs": {
       const total = db.rules.pointBuyTotal || 25;
       const spent = pointBuySpent(db, build);
-      if (spent > total) return `点买超支 ${spent - total} 点`;
-      return spent < total ? `点买还剩 ${total - spent} 点` : "";
+      if (spent > total) return `购点超支 ${spent - total} 点`;
+      return spent < total ? `购点还剩 ${total - spent} 点` : "";
     }
     case "skills": {
       const left = d.skillPointsTotal - d.skillSpent;

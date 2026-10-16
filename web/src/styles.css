@@ -815,6 +815,9 @@ input.text:focus, textarea.text:focus, .cl-search:focus { border-color: var(--ac
 .sp-name { font-size: 20px; font-weight: 700; line-height: 1.3; }
 .sp-line { font-size: 13px; color: var(--muted); }
 .sp-badge { font-size: 12px; color: var(--muted); margin-top: 2px; }
+/* 角色卡左栏的阵营轮盘（只读）：按栏宽缩到一个小盘子 */
+.sp-wheel { margin: 6px auto 2px; width: 152px; }
+.sp-wheel svg { width: 100%; height: auto; display: block; }
 
 .rings { display: flex; gap: 4px; flex-wrap: wrap; }
 .ring {

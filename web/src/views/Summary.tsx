@@ -2,9 +2,10 @@ import React, { useMemo, useState } from "react";
 import type { Db } from "../types";
 import type { Build } from "../store";
 import { act, deserialize, serialize, shareUrl, useBuild } from "../store";
-import { attrBreakdown, attrMod, derive, label, ownedFeatures } from "../rules";
+import { attrBreakdown, attrMod, alignmentLocks, derive, label, ownedFeatures } from "../rules";
 import { Chip, Collapse, Confirm } from "../ui";
-import { GrowthTable, IconGrid, Sect, StatBox, StatRows, ThreePane } from "../pane";
+import { AlignWheel, GrowthTable, IconGrid, Sect, StatBox, StatRows, ThreePane } from "../pane";
+import { alignAbbr as abbrOf } from "../steps";
 import { featureIcon } from "../skin";
 
 /** 第 ⑪ 步：按游戏「角色卡」排的三栏总结 */
@@ -23,9 +24,12 @@ export function Summary(props: { db: Db }) {
   const owned = useMemo(() => ownedFeatures(db, build).ids, [db, build]);
   const god = build.deity ? db.features[build.deity] : null;
   const alignName = db.rules.alignments.find((a) => a.id === build.alignment)?.name || "—";
-  const alignAbbr = build.alignment
-    ? build.alignment.replace("Lawful", "L").replace("Chaotic", "C").replace("Neutral", "N").replace("Good", "G").replace("Evil", "E").replace("TrueN", "N")
-    : "—";
+  /** 角色卡左栏的阵营轮盘：只读展示，锁住的阵营变淡 */
+  const alignLocks = useMemo(() => alignmentLocks(db, build), [db, build]);
+  const alignLabels = useMemo(
+    () => Object.fromEntries(db.rules.alignments.map((a) => [a.id, a.name])),
+    [db],
+  );
 
   // 拥有的东西按类型拆成「特殊能力 / 专长 / 其它特性」三组图标
   const groups = useMemo(() => {
@@ -85,6 +89,16 @@ export function Summary(props: { db: Db }) {
                 生命值 {d.hp}　·　等级 {d.level}
               </div>
               <div className="sp-badge"> ① {Object.entries(d.classLevels).map(([cid, n]) => `${label(db.classes[cid])} ${n}`).join(" / ") || "—"}</div>
+              {/* 游戏的角色卡左栏也放着一个阵营轮盘（只读） */}
+              <div className="sp-wheel">
+                <AlignWheel
+                  value={build.alignment}
+                  abbr={abbrOf}
+                  locks={alignLocks}
+                  labels={alignLabels}
+                  onPick={() => {}}
+                />
+              </div>
             </div>
           </Sect>
 

@@ -3,7 +3,7 @@
  *
  * 原则：能用游戏数据的都用数据 —— 升级表、变体增删、BAB/豁免、生命骰、技能点、
  * 法术位、法术表、前置条件全部来自 web/public/data/。
- * 只有游戏数据里确实没有的（技能关键属性、点买花费表）才写死，并在注释里说明。
+ * 只有游戏数据里确实没有的（技能关键属性、购点花费表）才写死，并在注释里说明。
  */
 import type {
   AttrId, BackgroundEntry, ClassEntry, Db, FeatureEntry, MythicPathEntry, Prereq,
@@ -565,7 +565,7 @@ export function attrsAtLevel(
   return out;
 }
 
-/** 用构建时选的点买数（不含种族/升级）算点买花费 */
+/** 用构建时选的购点数（不含种族/升级）算购点花费 */
 export function pointBuySpent(db: Db, build: Build): number {
   const table = db.rules.pointBuy || {};
   let sum = 0;
@@ -858,7 +858,7 @@ export function derive(db: Db, build: Build): Derived {
   if (!build.alignment) unfinished.push("未选阵营");
   if (build.name.trim() === "") unfinished.push("未填角色名");
   const remainingPointBuy = db.rules.pointBuyTotal - pointBuySpent(db, build);
-  if (remainingPointBuy < 0) unfinished.push(`点买超支 ${-remainingPointBuy} 点`);
+  if (remainingPointBuy < 0) unfinished.push(`购点超支 ${-remainingPointBuy} 点`);
   if (skillSpent > total) unfinished.push(`技能点超支 ${skillSpent - total} 点`);
   for (const w of alignConflicts(db, build)) unfinished.push(`阵营不符：${w}`);
   for (let i = 0; i < MAX_LEVEL; i += 1) {

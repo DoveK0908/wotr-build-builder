@@ -1,6 +1,6 @@
 /**
  * 规则引擎无头自检：直接拿 public/data 里的真实数据跑一遍
- * derive / 点买 / 属性 / 前置校验 / 存档往返，
+ * derive / 购点 / 属性 / 前置校验 / 存档往返，
  * 由 scripts/smoke.mjs 用 esbuild 打包后执行。
  */
 import fs from "node:fs";
@@ -95,12 +95,12 @@ export function run(dir: string): void {
     String(db.rules.characterProgressionId));
   ok(!!db.features[FIGHTER] === false, "职业不是特性（应 false）");
 
-  // ---- 属性点买 ----
+  // ---- 属性购点 ----
   const b: Build = emptyBuild();
   b.name = "自检角色";
   b.race = HUMAN;
   for (let i = 0; i < 20; i += 1) b.levels[i].classId = FIGHTER;
-  eq(pointBuySpent(db, b), 0, "全 10 点买花费 0");
+  eq(pointBuySpent(db, b), 0, "全 10 购点花费 0");
   b.attributes.Strength = 18;
   eq(pointBuySpent(db, b), 17, "力量 18 花 17 点");
   b.attributes.Intelligence = 12;
