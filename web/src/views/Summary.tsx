@@ -4,7 +4,7 @@ import type { Build } from "../store";
 import { act, deserialize, serialize, shareUrl, useBuild } from "../store";
 import { attrBreakdown, attrMod, derive, label, ownedFeatures } from "../rules";
 import { Chip, Collapse } from "../ui";
-import { IconGrid, Sect, StatBox, StatRows, ThreePane } from "../pane";
+import { GrowthTable, IconGrid, Sect, StatBox, StatRows, ThreePane } from "../pane";
 import { featureIcon } from "../skin";
 
 /** 第 ⑪ 步：按游戏「角色卡」排的三栏总结 */
@@ -213,6 +213,10 @@ export function Summary(props: { db: Db }) {
                 </div>
               );
             })}
+          </Sect>
+
+          <Sect title="成长表（1–20 级）" right={<span className="muted small">每级给了什么特性</span>}>
+            <GrowthTable db={db} build={build} max={20} />
           </Sect>
 
           <Collapse title="升级记录（逐级选了什么）">
