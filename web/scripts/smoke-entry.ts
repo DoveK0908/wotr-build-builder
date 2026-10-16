@@ -832,6 +832,35 @@ export function run(dir: string): void {
       act.reset();
     }
 
+    // 各道途专属子步骤（游戏里升阶时道途自己的牌匾：逼迫凝视 / 骷髅战将 / 精通金龙吐息 / 恶魔之相…）
+    {
+      const expects: Array<[string, string]> = [
+        ["AeonMythicClass", "逼迫凝视"],
+        ["LichMythicClass", "骷髅战将"],
+        ["GoldenDragonClass", "精通金龙吐息"],
+        ["DemonMythicClass", "恶魔之相"],
+      ];
+      for (const [key, want] of expects) {
+        const p = Object.values(db.mythic.paths).find((x) => x.key === key);
+        if (!p) {
+          ok(false, `道途 ${key} 在数据里`);
+          continue;
+        }
+        act.reset();
+        act.setMythicPath(p.id);
+        const lastRank = pathStartRank(db, p) + (p.maxLevel || 1) - 1;
+        for (let r = 1; r <= lastRank; r += 1) {
+          for (const s of rankRootSlots(db, buildStore.get(), r)) {
+            const c = (s.choices || [])[0];
+            if (c && !buildStore.get().ranks[r - 1].picks[s.id]) act.setRankPick(r - 1, s.id, c);
+          }
+        }
+        const names = mythicSubSteps(db, buildStore.get()).map((s) => s.name);
+        ok(names.some((n) => n.includes(want)), `${p.name} 带出「${want}」子步骤`, names.join("/"));
+      }
+      act.reset();
+    }
+
     // 道途法术书（游戏里的「法术:等级 N」牌匾）—— 只有要自己挑法术的道途才出这些步骤
     {
       const angelP = Object.values(db.mythic.paths).find((p) => p.key === "AngelMythicClass");
