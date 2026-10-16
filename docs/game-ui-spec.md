@@ -133,6 +133,7 @@
 | 角色卡式总结页 | ✅ 三栏：左＝角色牌（名字/阵营/生命/职业徽章）+ 属性块 + 攻击框 + 防御与豁免框；中＝角色卡 + **成长表（1–20 级，每级给了什么特性 —— 对应截图 171818 职业页那条轴）** + 种族与背景特性 / 特殊能力 / 专长 图标网格 + 法术环位 + 升级记录 + 未选完清单；右＝技能两栏 + 武艺特性 + 分享与存档 |
 | 阵营九宫轮盘 | ✅ `AlignWheel`（3×3 节点 + 选中紫底；被职业/变体锁住的阵营标小圆点并在右栏给出原因） |
 | 神祇页中间那张**先决条件**表（逐条打勾） | ✅ `web/src/views/Deity.tsx`：标题写成「先决条件（满足数/总数）」，逐条渲染 `evalPrereqs(...).details`（`hide` 的条目跳过），前面一个圆标 —— 绿勾＝`ok`、灰问号＝`unknown`（剧情进度等游戏内才判定得了的）、红叉＝`no`；阵营那一行后面追加「当前阵营：X」。`web/src/rules.ts` 的 `prereqText` 同步补全：`noarch` 会写成「无变体：野性神卫（战斗祭司）」，`align` 走 `alignNeedText` 出中文（`TrueNeutral`→绝对中立、轴 token `Lawful`→任意守序） |
+| 属性页每项属性旁的绿拇指 / 红拇指 | ✅ `attrRecommend(db, build)`（`web/src/rules.ts`）取本职职业蓝图的 `RecommendedAttributes` / `NotRecommendedAttributes`（27 个职业带这份名单；变体带 `OverrideAttributeRecommendations` 时以变体为准，32 个变体命中），素材皮用游戏贴图 `UI_CharGen_IconLike.png` / `IconDislike.png`（实测 52×50），素色皮退化成文字 chip；`web/src/views/Attrs.tsx` 左列表行 + 中栏 chip 两处显示 |
 | 挑选取详情栏的**「前置于」**一行 | ✅ `prereqForIndex(db)`（`web/src/rules.ts`，WeakMap 缓存）扫全库特性的前置里引用到的 `feat` / `hasfeature` / `paramfeat` / `paramweapon` / `oneof` 目标，`PickModal` 收到 `slotId` 后渲染「前置于（N）」+ 图标 chips —— 对应游戏详情栏里「前置于: 额外游荡者天赋」那一行（蓝图里的 `IsPrerequisiteFor` 就是这个反查用的） |
 | 底部 `« ‹ 返回 下一项 › »` + 右侧上下文按钮 | ✅（法术步骤→「法术书」，职业步骤→「总结」，其余→「职业成长」；**最后一步**的「下一项」变成「完成」，点它复制分享链接，右下按钮不再出现 —— 与截图里 150444 的排布一致） |
 | 羊皮纸 / 外框 / 牌匾 / 按钮 / 勾选 / 滚动条 真实贴图 | ✅（881 张 `UI_*`，`pipeline/extract_ui.py` 导出） |

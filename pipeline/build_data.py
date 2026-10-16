@@ -730,6 +730,13 @@ def build(game_dir: str, out_dir: str) -> dict:
         e["skillPoints"] = d.get("SkillPoints")
         e["classSkills"] = skill_list(d)
         e["startingGold"] = d.get("StartingGold")
+        # 游戏属性页会在每项属性旁打「推荐 / 不推荐」（绿拇指 / 红拇指）
+        rec = [str(x) for x in (d.get("RecommendedAttributes") or [])]
+        if rec:
+            e["recommended"] = rec
+        norec = [str(x) for x in (d.get("NotRecommendedAttributes") or [])]
+        if norec:
+            e["notRecommended"] = norec
         pr = ex.prereqs(d)
         if pr:
             e["prereq"] = pr
@@ -815,6 +822,13 @@ def build(game_dir: str, out_dir: str) -> dict:
         e["classes"] = arch_to_class.get(aid, [])
         e["addFeatures"] = level_entries(d.get("AddFeatures"))
         e["removeFeatures"] = level_entries(d.get("RemoveFeatures"))
+        if d.get("OverrideAttributeRecommendations"):
+            arec = [str(x) for x in (d.get("RecommendedAttributes") or [])]
+            if arec:
+                e["recommended"] = arec
+            anorec = [str(x) for x in (d.get("NotRecommendedAttributes") or [])]
+            if anorec:
+                e["notRecommended"] = anorec
         pr = ex.prereqs(d)
         if pr:
             e["prereq"] = pr

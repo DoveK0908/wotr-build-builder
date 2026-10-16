@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from "react";
 import type { AttrId, Db } from "../types";
 import { act, useBuild } from "../store";
-import { attrBreakdown, attrMod, attrsAtLevel, pointBuySpent } from "../rules";
+import { attrBreakdown, attrMod, attrRecommend, attrsAtLevel, pointBuySpent } from "../rules";
 import { Chip, Meter, NumBox, SearchSelect } from "../ui";
+import { ui } from "../skin";
 import { DetailHead, ListPane, ListRow, Sect, StatBox, StatRows, ThreePane } from "../pane";
 
 const ATTR_LEVELS = [4, 8, 12, 16, 20];
@@ -46,6 +47,9 @@ export function Attrs(props: { db: Db }) {
     const bs = build.attributes[x.id] || 10;
     return { id: x.id, def: x, br: bx, base: bs, cost: rules.pointBuy[String(bs)] ?? 0 };
   });
+  // 游戏属性页会在每项属性旁边打「推荐 / 不推荐」（绿拇指 / 红拇指），口径是本职职业的
+  // RecommendedAttributes / NotRecommendedAttributes；变体带覆盖标记时以变体为准。
+  const rec = attrRecommend(db, build);
 
   return (
     <ThreePane
@@ -66,6 +70,8 @@ export function Attrs(props: { db: Db }) {
               sub={r.br.race ? `种族 ${r.br.race > 0 ? "+" : ""}${r.br.race}` : "种族 —"}
               num={
                 <span>
+                  {rec.good.has(r.id) && <img className="row-mark" src={ui("UI_CharGen_IconLike")} alt="" title="本职职业推荐" />}
+                  {!rec.good.has(r.id) && rec.bad.has(r.id) && <img className="row-mark" src={ui("UI_CharGen_IconDislike")} alt="" title="本职职业不推荐" />}
                   <b>{r.base}</b>
                   <span className={attrMod(r.br.total) >= 0 ? "pos" : "neg"}>
                     　{attrMod(r.br.total) >= 0 ? "+" : ""}
@@ -83,6 +89,26 @@ export function Attrs(props: { db: Db }) {
       center={
         <>
           <DetailHead glyph={a.short || a.name.slice(0, 1)} title={`${a.name}（${a.short}）`} en={a.id} big />
+
+          {(rec.good.size > 0 || rec.bad.size > 0) && (
+            <div className="row wrap">
+              {rec.good.has(a.id) && <Chip tone="ok">本职职业推荐</Chip>}
+              {!rec.good.has(a.id) && rec.bad.has(a.id) && <Chip tone="no">本职职业不推荐</Chip>}
+              {rec.good.size > 0 && (
+                <span className="muted small">
+                  推荐：
+                  {rules.attributes.filter((x) => rec.good.has(x.id)).map((x) => x.name).join("、") || "—"}
+                </span>
+              )}
+              {rec.bad.size > 0 && (
+                <span className="muted small">
+                  不推荐：
+                  {rules.attributes.filter((x) => rec.bad.has(x.id)).map((x) => x.name).join("、")}
+                </span>
+              )}
+            </div>
+          )}
+
 
           <Sect title="属性点">
             <div className="row center attrs-row">

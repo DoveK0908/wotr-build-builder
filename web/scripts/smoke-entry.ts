@@ -29,6 +29,7 @@ import {
   evalPrereq,
   evalPrereqs,
   attrBreakdown,
+  attrRecommend,
   backgroundRoot,
   levelCtxList,
   levelRootSlots,
@@ -627,6 +628,25 @@ export function run(dir: string): void {
   const paPower = findByName(db, "猛力攻击");
   const paStr = (paPower?.prereq || []).find((p) => p.k === "stat" && p.stat === "Strength");
   ok(!!paStr && Number(paStr.v) === 13, "猛力攻击仍是「力量 ≥ 13」", JSON.stringify(paPower?.prereq || []));
+
+  // ── 属性推荐（游戏属性页的绿拇指 / 红拇指）──────────────────────────
+  const oracleCls = Object.values(db.classes).find((c) => c.key === "OracleClass");
+  ok(!!oracleCls && (oracleCls.recommended || []).includes("Charisma"),
+    "先知推荐魅力（属性页绿拇指）", JSON.stringify(oracleCls?.recommended || []));
+  ok((oracleCls?.notRecommended || []).length > 0, "先知另有不推荐属性（红拇指）",
+    JSON.stringify(oracleCls?.notRecommended || []));
+  const recCls = Object.values(db.classes).filter((c) => (c.recommended || []).length);
+  ok(recCls.length >= 20, "多数职业都带推荐属性",
+    `${recCls.length}/${Object.keys(db.classes).length}`);
+  ok(Object.values(db.archetypes).some((a) => (a.recommended || []).length), "变体也能覆盖推荐属性");
+  const recBuild: Build = {
+    ...emptyBuild(),
+    levels: emptyBuild().levels.map((l) => ({ ...l, classId: oracleCls?.id || "" })),
+  };
+  const recIdx = attrRecommend(db, recBuild);
+  ok(recIdx.good.has("Charisma") && !recIdx.bad.has("Charisma"), "先知构筑里魅力＝绿拇指");
+  ok(recIdx.bad.has("Wisdom") || recIdx.bad.has("Intelligence"), "先知构筑里感知/智力＝红拇指",
+    JSON.stringify([...recIdx.bad]));
 
   // ── 「前置于」反向索引（游戏详情栏那行「前置于: 额外游荡者天赋」）────────
   const rev = prereqForIndex(db);

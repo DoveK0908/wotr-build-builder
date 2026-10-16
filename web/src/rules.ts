@@ -1246,6 +1246,33 @@ export function prereqText(db: Db, p: Prereq): string {
   }
 }
 
+// ── 属性推荐（游戏属性页的绿拇指 / 红拇指）───────────────────────────────
+// 口径取自本职职业蓝图的 RecommendedAttributes / NotRecommendedAttributes；
+// 变体带 OverrideAttributeRecommendations 时（管线上只在带该标记时导出）以变体为准。
+export function attrRecommend(db: Db, build: Build): { good: Set<string>; bad: Set<string> } {
+  const good = new Set<string>();
+  const bad = new Set<string>();
+  const seen = new Set<string>();
+  for (const lv of build.levels) {
+    if (!lv.classId || seen.has(lv.classId)) continue;
+    seen.add(lv.classId);
+    const cls = db.classes[lv.classId];
+    if (!cls) continue;
+    let rec = cls.recommended || [];
+    let norec = cls.notRecommended || [];
+    for (const aid of build.classArchetypes[lv.classId] || []) {
+      const arch = db.archetypes[aid];
+      if (arch && (arch.recommended || arch.notRecommended)) {
+        rec = arch.recommended || [];
+        norec = arch.notRecommended || [];
+      }
+    }
+    for (const x of rec) good.add(x);
+    for (const x of norec) if (!good.has(x)) bad.add(x);
+  }
+  return { good, bad };
+}
+
 // ── 「前置于」反向索引 ─────────────────────────────────────────────────
 // 游戏里挑选取的详情栏会写一行「前置于: 额外游荡者天赋」，列的是**先决条件里引用了这个槽位**
 // 的那些特性（蓝图里的 IsPrerequisiteFor 就是给这个界面用的反向索引，这里直接现算）。

@@ -43,6 +43,9 @@ export interface ClassEntry {
   classSkills: string[];
   prereq?: Prereq[];
   startingGold?: number;
+  /** 游戏属性页的绿拇指 / 红拇指（AttrId 字符串，如 "Charisma"） */
+  recommended?: string[];
+  notRecommended?: string[];
   desc?: string;
   short?: string;
   bab: number[];
@@ -69,6 +72,9 @@ export interface ArchetypeEntry {
   newSpellbook?: string;
   replace?: boolean;
   replaceClassSkills?: boolean;
+  /** 变体带 OverrideAttributeRecommendations 时会覆盖母职业的推荐/不推荐属性 */
+  recommended?: string[];
+  notRecommended?: string[];
   desc?: string;
 }
 
