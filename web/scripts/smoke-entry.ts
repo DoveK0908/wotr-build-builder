@@ -648,6 +648,18 @@ export function run(dir: string): void {
   ok(recIdx.bad.has("Wisdom") || recIdx.bad.has("Intelligence"), "先知构筑里感知/智力＝红拇指",
     JSON.stringify([...recIdx.bad]));
 
+  // ── 职业页右栏「施法属性 / 施法类型」两格的口径（取自职业自己的法术书）──
+  const wizCls = Object.values(db.classes).find((c) => c.key === "WizardClass");
+  const wizSb = wizCls?.spellbookId ? db.spellbooks[wizCls.spellbookId] : undefined;
+  ok(!!wizSb && wizSb.castingAttribute === "Intelligence" && !wizSb.spontaneous,
+    "法师的法术书＝智力 + 需要准备（法术书）", JSON.stringify(wizSb && { a: wizSb.castingAttribute, s: wizSb.spontaneous, all: wizSb.allSpellsKnown }));
+  const oraSb = oracleCls?.spellbookId ? db.spellbooks[oracleCls.spellbookId] : undefined;
+  ok(!!oraSb && oraSb.castingAttribute === "Charisma" && !!oraSb.spontaneous,
+    "先知的法术书＝魅力 + 自发施法", JSON.stringify(oraSb && { a: oraSb.castingAttribute, s: oraSb.spontaneous }));
+  const cleCls = Object.values(db.classes).find((c) => c.key === "ClericClass");
+  const cleSb = cleCls?.spellbookId ? db.spellbooks[cleCls.spellbookId] : undefined;
+  ok(!!cleSb && !!cleSb.allSpellsKnown && !cleSb.spontaneous, "牧师整张表都会（准备施法·全表）");
+
   // ── 「前置于」反向索引（游戏详情栏那行「前置于: 额外游荡者天赋」）────────
   const rev = prereqForIndex(db);
   const withFeatPrereq = Object.values(db.features)

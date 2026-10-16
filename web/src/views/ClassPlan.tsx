@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import type { Db } from "../types";
+import type { ClassEntry, Db } from "../types";
 import { act, useBuild } from "../store";
 import {
   alignAllows, alignNeedText, alignOverrideOf, alignTokensOf, classLevels, classSelectableAt, derive,
@@ -20,6 +20,21 @@ function babGrade(arr?: number[], maxLevel = 20) {
   const v = arr?.[maxLevel] ?? 0;
   const r = maxLevel ? v / maxLevel : 0;
   return r >= 0.95 ? "高" : r >= 0.7 ? "中" : "低";
+}
+
+/** 游戏职业页右栏「施法属性 / 施法类型」两格 */
+function castAttr(db: Db, c?: ClassEntry) {
+  const sb = c?.spellbookId ? db.spellbooks[c.spellbookId] : undefined;
+  if (!sb) return "—";
+  const a = db.rules.attributes.find((x) => x.id === sb.castingAttribute);
+  return a ? a.name : sb.castingAttribute || "—";
+}
+
+function castKind(db: Db, c?: ClassEntry) {
+  const sb = c?.spellbookId ? db.spellbooks[c.spellbookId] : undefined;
+  if (!sb) return "—";
+  if (sb.spontaneous) return "自发施法";
+  return sb.allSpellsKnown ? "准备施法（全表）" : "准备施法（法术书）";
 }
 
 /** 第 ① 步：排 20 级要练哪些职业、要不要变体 */
@@ -263,6 +278,9 @@ export function ClassPlan(props: { db: Db; onPresets?: () => void }) {
                   { k: "起始金币", v: shown.startingGold },
                   { k: "类型", v: shown.prestige ? "进阶" : "基础" },
                   { k: "最高等级", v: shown.maxLevel },
+                  // 游戏职业页右栏这三格：施法属性 / 施法类型 / 施法（法术书）
+                  { k: "施法属性", v: castAttr(db, shown) },
+                  { k: "施法类型", v: castKind(db, shown) },
                   { k: "施法", v: shown.spellbookId ? db.spellbooks[shown.spellbookId]?.name || "有" : "—" },
                 ]}
               />
