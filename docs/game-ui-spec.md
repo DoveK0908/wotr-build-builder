@@ -144,6 +144,7 @@
 | 衬线中文 | ✅ 素材皮下走 `--serif`＝`Noto Serif SC / Source Han Serif SC / Songti SC / SimSun, serif`（游戏里没有可用的中文 TTF，中文走 TMP 图集，所以用免费衬线替代）；素色皮保持系统无衬线 |
 | 阵营的**花体缩写贴图** | ✅ `UI_CharScreen_alignment_LG…CE`（66×70 灰度字母组合，九张，照游戏把 TrueNeutral 写作 `_TN`）；`web/src/skin.ts` 的 `alignArt(id)` 出图，`AlignWheel`（`web/src/pane.tsx`）在素材皮下用 SVG `<image>` 画在每个瓣的圆牌与正中，素色皮仍用文字缩写。阵营步骤与总结页的角色牌共用同一个轮盘，所以两处一起生效 |
 | 小节标题下的**装饰横线** | ✅ `UI_CharScreen_CaptionArt01`（996×37，中间有个小圆饰）；素材皮下 `.sect-rule` 从 `border-bottom` 换成这条贴图（`background-size: 100% 9px`，`web/src/styles.css` 末段），所有用 `Sect` 的页面（总结/神祇/阵营/职业…）一起变 |
+| 小节标题**底衬的横带** | ✅ `UI_CharScreen_NormalBlock`（981×82：土黄填充 + 手绘上下边框 + 两端小竖挡）；素材皮下 `.sect-head` 用它做背景（`background-size: 100% 30px`），标题与右侧数字压在上面 —— 对应角色卡里每个小节块的样子 |
 
 **有意不做 / 还没做**：
 

@@ -1005,3 +1005,12 @@ img.row-mark { opacity: .95; }
   margin: 3px 0 8px;
   background: url("/assets/ui/UI_CharScreen_CaptionArt01.png") 0 50% / 100% 9px no-repeat;
 }
+
+/* section title band: the game's charscreen block strip */
+[data-skin="game"] .sect-head {
+  background: url("/assets/ui/UI_CharScreen_NormalBlock.png") 0 50% / 100% 30px no-repeat;
+  min-height: 30px;
+  padding: 3px 12px 3px 8px;
+  border-radius: 2px;
+}
+[data-skin="game"] .sect-title { text-shadow: 0 1px 0 rgba(255, 250, 235, .5); }
