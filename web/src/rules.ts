@@ -1206,7 +1206,7 @@ export function prereqText(db: Db, p: Prereq): string {
   switch (p.k) {
     case "feat": return `需要：${nm(p.id)}`;
     case "hasfeature": return `需要：${nm(p.id)}`;
-    case "nofeat": return `不能有：${nm(p.id)}`;
+    case "nofeat": return `无以下特性：${nm(p.id)}`;
     case "oneof": {
       const need = typeof p.amount === "number" ? p.amount : 1;
       const names = ((p.ids as string[]) || []).map(nm).join(" / ");

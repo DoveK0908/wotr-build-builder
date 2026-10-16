@@ -601,6 +601,15 @@ export function run(dir: string): void {
   const noarchTxt = noarchP ? prereqText(db, noarchP) : "";
   ok(noarchTxt.startsWith("无变体：") && !noarchTxt.includes("（未命名）"),
     "「无变体」前置会写出变体名（对齐游戏里的「无变体: 野性神卫」）", noarchTxt);
+  // 游戏的神祇页把「不能拥有某特性」写成「无以下特性: X」，文案要对齐
+  let nofeatP = null as null | (typeof db.features[string]["prereq"][number]);
+  for (const f of Object.values(db.features)) {
+    const p = (f.prereq || []).find((x) => x.k === "nofeat" && !x.hide);
+    if (p) { nofeatP = p; break; }
+  }
+  const nofeatTxt = nofeatP ? prereqText(db, nofeatP) : "";
+  ok(nofeatTxt.startsWith("无以下特性：") && !nofeatTxt.includes("（未命名）"),
+    "「无以下特性」文案与游戏一致（「无以下特性: 活神」）", nofeatTxt);
 
   // ── 候选列表的「已拥有」绿标：拿过的选项要进 owned，且它仍在候选池里 ────
   const pw = Object.values(db.features).find((f) => f.name === "猛力攻击" && (f.prereq || []).length > 0);
