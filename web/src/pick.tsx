@@ -3,6 +3,7 @@ import type { Db, FeatureEntry, SpellEntry } from "./types";
 import { label, livePicks, prereqText } from "./rules";
 import type { Verdict } from "./rules";
 import { Chip, Desc, Modal, VerdictTag } from "./ui";
+import { featureIcon } from "./skin";
 
 const V_ORDER: Record<Verdict, number> = { ok: 0, unknown: 1, no: 2 };
 
@@ -119,6 +120,8 @@ export function PickModal(props: {
   const cur = focus ? cast(db.features[focus] || db.spells[focus]) : null;
   const pr = cur?.prereq || [];
   const held = props.multi ? (props.selected || new Set<string>()) : null;
+  /** 游戏里的 64×64 内容图标；这个蓝图没导出图标就返回 null（列表里就不放图） */
+  const ico = (id: string) => featureIcon(db, id);
 
   return (
     <Modal wide title={`${props.title} — 候选 ${ids.length} 项`} onClose={props.onClose}>
@@ -155,6 +158,7 @@ export function PickModal(props: {
                   onClick={() => (props.multi ? props.onToggle?.(id) : props.onPick(id))}
                 >
                   {props.multi && <input type="checkbox" checked={!!on} readOnly />}
+                  {ico(id) && <img className="row-ico" src={ico(id)!} alt="" />}
                   <span className="pick-name">{label(f)}</span>
                   {f.nameEn && <span className="pick-en">{f.nameEn}</span>}
                   <span className="spacer" />
@@ -167,6 +171,7 @@ export function PickModal(props: {
         <div className="pick-right">
           {cur ? (
             <>
+              {focus && ico(focus) && <img className="detail-ico" src={ico(focus)!} alt="" />}
               <h4>{label(cur)}</h4>
               {cur.nameEn && <div className="muted small">{cur.nameEn}</div>}
               {cur.groups?.length ? (
@@ -219,6 +224,7 @@ export function AutoList(props: { db: Db; ids: string[]; empty?: string }) {
         if (!f) return <div key={id} className="auto-row"><span className="muted">{id}</span></div>;
         return (
           <div key={id} className="auto-row" title={f.desc || ""}>
+            {featureIcon(db, id) && <img className="row-ico sm" src={featureIcon(db, id)!} alt="" />}
             <span className="auto-name">{label(f)}</span>
             {f.nameEn && <span className="pick-en">{f.nameEn}</span>}
           </div>

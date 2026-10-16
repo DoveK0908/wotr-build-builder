@@ -14,6 +14,7 @@ const FILES = [
   "spellbooks.json",
   "spellLists.json",
   "spells.json",
+  "icons.json", // 蓝图 id → 图标文件名（覆盖率有限，缺图标的回退成首字徽记）
   "features.json", // 约 8 MB，最大的一个，放最后
   "presets.json",
   "meta.json",
@@ -30,6 +31,7 @@ const KEYS: Record<string, keyof Db> = {
   "spellbooks.json": "spellbooks",
   "spellLists.json": "spellLists",
   "spells.json": "spells",
+  "icons.json": "icons",
   "features.json": "features",
   "presets.json": "presets",
   "meta.json": "meta",

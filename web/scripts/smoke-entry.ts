@@ -9,7 +9,10 @@ import type { Db, FeatureEntry, MythicPathEntry, Preset, Prereq } from "../src/t
 import { act, buildStore, emptyBuild, migrate, serialize, deserialize } from "../src/store";
 import { applyPreset } from "../src/presets";
 import type { Build } from "../src/store";
-import { STEP_IDS, normalizeStep, stepNote } from "../src/steps";
+import {
+  DYN_PREFIX, STEP_IDS, allSteps, classSubSteps, normalizeStep, stepFilled, stepGlyph, stepNote,
+  stepValue,
+} from "../src/steps";
 import {
   alignAllows,
   alignConflicts,
@@ -43,7 +46,7 @@ import {
 
 const FILES = [
   "rules", "classes", "archetypes", "features", "spells", "spellLists",
-  "spellbooks", "races", "backgrounds", "mythic", "presets", "meta",
+  "spellbooks", "races", "backgrounds", "mythic", "presets", "icons", "meta",
 ];
 
 const FIGHTER = "48ac8db94d5de7645906c7d0ad3bcfbd";
@@ -654,6 +657,69 @@ export function run(dir: string): void {
     }
     ok(worst <= 1, `预置载入后每个职业最多 1 个变体（实测最多 ${worst}）`);
     act.reset();
+  }
+
+  // ── 动态子步骤（游戏里选定职业后牌匾条会长出该职业自己的步骤）───────────
+  {
+    // 没选职业时只有 11 个基础步骤
+    act.reset();
+    eq(allSteps(db, buildStore.get()).length, STEP_IDS.length, "空构筑时没有动态步骤");
+
+    const oracle = Object.values(db.classes).find((c) => c.key === "OracleClass");
+    const fighter = Object.values(db.classes).find((c) => c.key === "FighterClass");
+    if (oracle) {
+      act.reset();
+      for (let i = 0; i < 20; i += 1) act.setClass(i, oracle.id);
+      const b = buildStore.get();
+      const subs = classSubSteps(db, b);
+      const names = subs.map((s) => s.name);
+      ok(subs.length >= 3, `先知带出 ${subs.length} 个职业子步骤（期望 ≥3）`);
+      ok(names.includes("先知诅咒"), "子步骤含「先知诅咒」", names.join("/"));
+      ok(names.includes("秘示域"), "子步骤含「秘示域」", names.join("/"));
+      ok(names.includes("启示"), "子步骤含「启示」", names.join("/"));
+      for (const s of subs) {
+        ok(s.id.startsWith(DYN_PREFIX), `子步骤 id 带 ${DYN_PREFIX} 前缀`);
+        ok(!!db.features[s.slotId || ""]?.choices?.length, `子步骤「${s.name}」指向真实选择表`);
+        eq(s.classId, oracle.id, `子步骤「${s.name}」归属先知`);
+      }
+      const all = allSteps(db, b);
+      eq(all.length, STEP_IDS.length + subs.length, "allSteps = 基础 11 步 + 动态子步骤");
+      const fi = all.findIndex((s) => s.id === "feats");
+      ok(
+        all.slice(fi + 1, fi + 1 + subs.length).every((s) => s.dynamic),
+        "动态子步骤插在「专长」之后",
+      );
+      ok(normalizeStep(subs[0].id) === subs[0].id, "normalizeStep 放行动态步骤 id");
+      // 牌匾上的「已选值」
+      eq(stepValue(db, b, derive(db, b), "class"), "先知", "职业牌匾显示职业名");
+      ok(stepFilled(db, b, derive(db, b), "class"), "选了职业就算已配置");
+      for (let i = 0; i < 20; i += 1) act.setClass(i, null);
+    }
+    if (fighter) {
+      act.reset();
+      for (let i = 0; i < 20; i += 1) act.setClass(i, fighter.id);
+      const subs = classSubSteps(db, buildStore.get());
+      ok(!subs.some((s) => /额外专长|Bonus/i.test(s.name)), "「额外专长」类槽位不单独出步骤");
+    }
+    act.reset();
+    eq(stepValue(db, buildStore.get(), derive(db, buildStore.get()), "align"), "", "未选阵营时牌匾为空");
+    ok(!stepFilled(db, buildStore.get(), derive(db, buildStore.get()), "attrs"), "空构筑时购点牌匾未配置");
+    eq(stepGlyph("mythic"), "神", "神话步骤有字母徽记");
+    eq(stepGlyph("cls:abc", "先知诅咒"), "先", "动态步骤用槽位名首字当徽记");
+  }
+
+  // ── 图标索引（从本机游戏 blueprint.assets 导出）────────────────────────
+  {
+    const byId = db.icons?.byId || {};
+    ok(Object.keys(byId).length >= 800, `图标索引 ≥800 条（实测 ${Object.keys(byId).length}）`);
+    ok(
+      Object.keys(db.spells).some((id) => !!byId[id]),
+      "至少有一部分法术有真实图标",
+    );
+    ok(
+      Object.keys(db.features).some((id) => !!byId[id]),
+      "至少有一部分特性有真实图标",
+    );
   }
 
   const total = pass + fails.length;

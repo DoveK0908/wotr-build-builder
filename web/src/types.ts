@@ -272,6 +272,18 @@ export interface PresetData {
   presets: Preset[];
 }
 
+/**
+ * 内容图标索引（pipeline/extract_ui.py 产出）：蓝图 id → 图标文件名。
+ * 图标是从本机游戏的 `Bundles/blueprint.assets` 里导出的 64×64 PNG，
+ * 放在 web/public/assets/icons/ 下。覆盖率有限（特性约 8%、法术约 69%），
+ * 没有图标的条目回退成首字徽记 —— 游戏自己对背景也是用字母缩写当图标的。
+ */
+export interface IconIndex {
+  source: string;
+  byId: Record<string, string>;
+  stats: Record<string, { total: number; hit: number; pct: number }>;
+}
+
 export interface Db {
   rules: Rules;
   meta: Meta;
@@ -285,4 +297,5 @@ export interface Db {
   backgrounds: Record<string, BackgroundEntry>;
   mythic: MythicData;
   presets: PresetData;
+  icons?: IconIndex;
 }

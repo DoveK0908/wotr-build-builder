@@ -7,13 +7,22 @@
 import type { Db } from "./types";
 import type { Build } from "./store";
 import type { Derived } from "./rules";
-import { alignConflicts, levelRootSlots, pointBuySpent } from "./rules";
+import {
+  alignConflicts, archSel, featuresAtClassLevel, label, levelRootSlots, mythicRank, pointBuySpent,
+  universalSlots,
+} from "./rules";
 
 export interface Step {
   id: string;
   name: string;
   num: string;
   hint: string;
+  /** 动态步骤：由已选职业带出来的子步骤（游戏里也是选定职业后才出现的） */
+  dynamic?: boolean;
+  /** 动态步骤对应的槽位（选择表特性 id） */
+  slotId?: string;
+  /** 动态步骤属于哪个职业 */
+  classId?: string;
 }
 
 export const STEPS: Step[] = [
@@ -40,8 +49,177 @@ const ALIASES: Record<string, string> = {
 
 export function normalizeStep(id: string | null | undefined): string {
   if (!id) return STEPS[0].id;
+  if (id.startsWith(DYN_PREFIX)) return id; // 动态步骤（cls:<槽位 guid>）
   const v = ALIASES[id] || id;
   return STEP_IDS.includes(v) ? v : STEPS[0].id;
+}
+
+// ── 动态子步骤 ──────────────────────────────────────────────────────────
+/** 动态步骤 id 前缀（后面跟槽位 guid） */
+export const DYN_PREFIX = "cls:";
+
+/** 这些「额外专长」类槽位留在 ⑥ 专长 一步里，不单独出步骤 */
+const GENERIC_SLOT = /额外专长|额外战斗专长|Bonus ?Feat/i;
+
+/**
+ * 已选职业自带的子步骤。游戏里选定职业后顶部会多出该职业自己的牌匾
+ * （先知 → 先知诅咒 / 秘示域 / 启示 / 额外法术；法师 → 专精学派 / 奥法契约…）。
+ *
+ * 判别办法：职业升级表里「带 choices 的根槽位」减去角色通用升级表给的那些。
+ * 这些特性在数据里 `groups` 都是空数组，所以只能靠「谁发的」来区分。
+ */
+export function classSubSteps(db: Db, build: Build): Step[] {
+  const sel = archSel(db, build);
+  const universal = new Set<string>();
+  for (let l = 1; l <= 20; l += 1) for (const f of universalSlots(db, l)) universal.add(f.id);
+
+  const out: Step[] = [];
+  const seen = new Set<string>();
+  const names = new Set<string>();
+  const classesDone = new Set<string>();
+
+  for (const lv of build.levels) {
+    const cid = lv.classId;
+    if (!cid || classesDone.has(cid)) continue;
+    classesDone.add(cid);
+    const c = db.classes[cid];
+    if (!c) continue;
+    const max = Math.min(c.maxLevel || 20, 20);
+    for (let cl = 1; cl <= max; cl += 1) {
+      for (const id of featuresAtClassLevel(db, cid, cl, sel[cid] || [])) {
+        const f = db.features[id];
+        if (!f || !f.choices || !f.choices.length) continue;
+        if (universal.has(f.id) || seen.has(f.id)) continue;
+        const nm = label(f);
+        if (GENERIC_SLOT.test(nm) || GENERIC_SLOT.test(f.nameEn || "")) continue;
+        seen.add(f.id);
+        let name = nm;
+        if (names.has(name)) {
+          let n = 2;
+          while (names.has(`${name} ${n}`)) n += 1;
+          name = `${name} ${n}`;
+        }
+        names.add(name);
+        out.push({
+          id: DYN_PREFIX + f.id,
+          name,
+          num: "",
+          hint: `${label(c)} 的「${nm}」：${(f.choices || []).length} 个可选`,
+          dynamic: true,
+          slotId: f.id,
+          classId: cid,
+        });
+      }
+    }
+  }
+  return out;
+}
+
+/** 基础 11 步 + 动态子步骤（插在 ⑥ 专长 之后，跟游戏一样「上一步是专长，下一步是法术」） */
+export function allSteps(db: Db, build: Build): Step[] {
+  const subs = classSubSteps(db, build);
+  if (!subs.length) return STEPS;
+  const i = STEPS.findIndex((s) => s.id === "feats");
+  return [...STEPS.slice(0, i + 1), ...subs, ...STEPS.slice(i + 1)];
+}
+
+// ── 牌匾上的「已选值」 ───────────────────────────────────────────────────
+const ALIGN_ABBR: Record<string, string> = {
+  LawfulGood: "LG", LawfulNeutral: "LN", LawfulEvil: "LE",
+  NeutralGood: "NG", TrueNeutral: "N", NeutralEvil: "NE",
+  ChaoticGood: "CG", ChaoticNeutral: "CN", ChaoticEvil: "CE",
+};
+
+/** 阵营短码（游戏里牌匾上就是 LG/LN/…） */
+export function alignAbbr(id: string | null | undefined): string {
+  return id ? ALIGN_ABBR[id] || id : "";
+}
+
+/** 主职业（级数最多的那个；并列取先出现的） */
+export function mainClass(db: Db, build: Build): { classId: string; levels: number } | null {
+  const n: Record<string, number> = {};
+  const first: Record<string, number> = {};
+  build.levels.forEach((lv, i) => {
+    if (!lv.classId) return;
+    n[lv.classId] = (n[lv.classId] || 0) + 1;
+    if (first[lv.classId] === undefined) first[lv.classId] = i;
+  });
+  const ids = Object.keys(n);
+  if (!ids.length) return null;
+  ids.sort((a, b) => n[b] - n[a] || first[a] - first[b]);
+  return { classId: ids[0], levels: n[ids[0]] };
+}
+
+/** 牌匾右侧那块「已选值」牌匾上的文字（空串 = 还没选） */
+export function stepValue(db: Db, build: Build, d: Derived, id: string): string {
+  if (id.startsWith(DYN_PREFIX)) {
+    const slotId = id.slice(DYN_PREFIX.length);
+    for (const lv of build.levels) if (lv.picks[slotId]) return label(db.features[lv.picks[slotId]]);
+    return "";
+  }
+  switch (id) {
+    case "class": {
+      const m = mainClass(db, build);
+      if (!m) return "";
+      const arch = (build.classArchetypes[m.classId] || [])[0];
+      const cn = label(db.classes[m.classId]);
+      const an = arch ? label(db.archetypes[arch]) : "";
+      return an ? `${cn} ${an}` : cn;
+    }
+    case "race":
+      return build.race ? label(db.races[build.race]) : "";
+    case "background":
+      return build.background ? label(db.backgrounds[build.background]) : "";
+    case "attrs": {
+      const spent = pointBuySpent(db, build);
+      return spent ? `点买 ${spent}` : "";
+    }
+    case "skills":
+      return d.skillSpent ? `已投 ${d.skillSpent}` : "";
+    case "feats": {
+      let done = 0;
+      let total = 0;
+      for (let i = 0; i < build.levels.length; i += 1) {
+        if (!build.levels[i].classId) continue;
+        for (const s of levelRootSlots(db, build, i + 1)) {
+          total += 1;
+          if (build.levels[i].picks[s.id]) done += 1;
+        }
+      }
+      return total ? `${done} / ${total}` : "";
+    }
+    case "spells":
+      return Object.values(build.spells).some((l) => l.length) ? `${d.maxSpellLevel || 0} 环` : "";
+    case "deity":
+      return build.deity ? label(db.features[build.deity]) : "";
+    case "align":
+      return alignAbbr(build.alignment);
+    case "mythic": {
+      const r = mythicRank(build);
+      const p = build.mythicPath ? db.mythic.paths[build.mythicPath] : null;
+      if (p) return `${p.name || p.nameEn} ${r}`;
+      return r ? `神话英雄 ${r}` : "";
+    }
+    default:
+      return "";
+  }
+}
+
+/** 这块牌匾算不算「已配置」（决定画 ＋ 还是画已选值） */
+export function stepFilled(db: Db, build: Build, d: Derived, id: string): boolean {
+  if (id === "attrs") return pointBuySpent(db, build) > 0;
+  if (id === "skills") return d.skillSpent > 0;
+  return stepValue(db, build, d, id) !== "";
+}
+
+/** 牌匾图标里那个字（没有内容图标时，游戏自己也用字母缩写当图标） */
+export function stepGlyph(id: string, name?: string): string {
+  if (id.startsWith(DYN_PREFIX)) return (name || "").trim().charAt(0) || "·";
+  const fixed: Record<string, string> = {
+    class: "职", race: "种", background: "景", attrs: "属", skills: "技", feats: "专",
+    spells: "法", deity: "信", align: "阵", mythic: "神", summary: "总",
+  };
+  return fixed[id] || "·";
 }
 
 /** 还有几项没选完（专长一步的进度） */

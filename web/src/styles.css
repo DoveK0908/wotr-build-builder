@@ -327,3 +327,266 @@ input.text:focus, textarea.text:focus, .cl-search:focus { border-color: var(--ac
   .steps { margin-left: 0; }
   .stephead { flex-direction: column; align-items: flex-start; }
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   书页外壳（顶部牌匾步骤条 + 书页 + 底部导航）
+   两套皮共用这套结构：
+     [data-skin="game"]  —— 用从本机游戏里提取的真实贴图
+     [data-skin="plain"] —— 沿用上面的暗色主题，不引用任何游戏素材
+   注意：游戏素材在 web/public/assets/ui/ 下，构建后位于站点根目录，
+   所以这里用绝对路径 /assets/ui/…（<img> 用 skin.ts 的相对路径）。
+   ══════════════════════════════════════════════════════════════════════ */
+.topstrip {
+  display: flex; align-items: center; gap: 10px;
+  padding: 6px 12px; background: var(--bg2); border-bottom: 1px solid var(--line);
+}
+.topstrip .strip-logo { color: var(--gold); font-size: 18px; }
+.topstrip .strip-title { font-weight: 600; color: var(--gold2); }
+.book-frame { flex: 1 1 auto; min-height: 0; display: flex; padding: 8px; }
+.book-page {
+  flex: 1 1 auto; min-height: 0; min-width: 0; display: flex; flex-direction: column;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
+}
+
+/* 顶部牌匾条 */
+.plaquebar {
+  display: flex; align-items: stretch; gap: 4px; padding: 6px 8px;
+  background: var(--panel2); border-bottom: 1px solid var(--line); flex: none;
+}
+.pq-nav {
+  flex: none; width: 22px; background: transparent; border: 0; color: var(--fg2);
+  cursor: pointer; font: inherit; font-size: 15px; line-height: 1;
+}
+.pq-nav:hover:not(:disabled) { color: var(--gold2); }
+.pq-nav:disabled { opacity: .35; cursor: not-allowed; }
+.pq-scroll { display: flex; align-items: flex-start; gap: 4px; overflow-x: auto; flex: 1 1 auto; padding: 1px 0 3px; }
+.pq-wrap { position: relative; flex: none; display: flex; flex-direction: column; gap: 2px; }
+.pq {
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  min-width: 78px; padding: 4px 9px; font: inherit; cursor: pointer;
+  background: #241c31; border: 1px solid var(--line); border-radius: 6px 6px 3px 3px;
+  color: var(--fg2);
+}
+.pq:hover { background: #2a2137; }
+.pq-wrap.on .pq { background: var(--gold); border-color: var(--gold2); color: #1a1422; font-weight: 600; }
+.pq-ico { font-style: normal; font-size: 14px; line-height: 1; color: var(--gold); }
+.pq-img { width: 18px; height: 18px; object-fit: contain; display: block; }
+/* 列表行 / 详情里的真实图标（来自游戏 blueprint.assets 的 64×64 贴图） */
+.row-ico {
+  width: 22px; height: 22px; flex: none; object-fit: contain;
+  border: 1px solid var(--line2); border-radius: 3px; background: #1c1626;
+}
+.row-ico.sm { width: 17px; height: 17px; }
+.detail-ico {
+  width: 46px; height: 46px; object-fit: contain; float: left; margin: 0 10px 4px 0;
+  border: 1px solid var(--line2); border-radius: 4px; background: #1c1626;
+}
+[data-skin="game"] .row-ico, [data-skin="game"] .detail-ico { background: #f8f2e0; border-color: #b09a6d; }
+.pq-wrap.on .pq-ico { color: #4a2f1c; }
+.pq-name { font-size: 12px; white-space: nowrap; }
+.pq-wrap.dyn .pq-name { color: var(--accent); }
+.pq-wrap.on.dyn .pq-name { color: #1a1422; }
+.pq-val {
+  font: inherit; font-size: 11px; padding: 1px 6px; cursor: pointer;
+  background: #332746; border: 1px solid var(--line2); border-radius: 3px; color: var(--gold2);
+  max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.pq-plus { text-align: center; font-size: 11px; color: var(--muted); line-height: 1.2; }
+.pq-plus.done { color: var(--ok); }
+.pq-wrap .dot {
+  position: absolute; top: 1px; right: 1px; width: 6px; height: 6px;
+  border-radius: 50%; background: var(--gold);
+}
+.pq-wrap .dot.warn { background: var(--no); }
+/* 牌匾条最前面的进度计数块 */
+.pq-counter {
+  flex: none; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-width: 58px; padding: 3px 8px; background: #241c31;
+  border: 1px solid var(--line); border-radius: 6px; color: var(--fg2);
+}
+.pq-counter b { font-size: 17px; line-height: 1.15; color: var(--gold2); }
+.pq-counter span { font-size: 10px; color: var(--muted); }
+.pq-stats {
+  flex: none; display: flex; align-items: center; gap: 8px;
+  margin-left: auto; padding-left: 10px; border-left: 1px solid var(--line);
+}
+.pq-attrs { display: grid; grid-auto-flow: column; grid-template-rows: repeat(3, auto); gap: 0 9px; font-size: 11px; }
+.pq-attr { display: flex; align-items: baseline; gap: 3px; }
+.pq-attr i { font-style: normal; color: var(--muted); }
+.pq-attr b { color: var(--fg); }
+.pq-attr em { font-style: normal; color: var(--gold2); }
+.pq-badge {
+  width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--line2);
+  display: grid; place-items: center; font-size: 12px; color: var(--gold2); background: #241c31;
+}
+
+/* 书页正文 */
+.book-body { flex: 1 1 auto; min-height: 0; overflow: auto; }
+.detail-pane { padding: 14px 18px 26px; max-width: 1560px; width: 100%; margin: 0 auto; }
+
+/* 底部导航（游戏：« ‹ 返回 下一项 › » + 右侧上下文按钮） */
+.book-foot {
+  flex: none; display: flex; align-items: center; gap: 8px;
+  padding: 6px 10px; background: var(--panel2); border-top: 1px solid var(--line);
+}
+.foot-nav { display: flex; align-items: center; gap: 6px; flex: 1 1 auto; min-width: 0; }
+.fbtn {
+  font: inherit; font-size: 13px; padding: 4px 11px; cursor: pointer;
+  background: #241c31; border: 1px solid var(--line); border-radius: 5px; color: var(--fg2);
+}
+.fbtn:hover:not(:disabled) { border-color: var(--gold); color: var(--gold2); }
+.fbtn:disabled { opacity: .4; cursor: not-allowed; }
+.fbtn.right { margin-left: auto; }
+.foot-note { margin-left: 10px; white-space: nowrap; }
+
+@media (max-width: 1100px) {
+  .pq-stats { display: none; }
+}
+@media (max-width: 900px) {
+  .topstrip { flex-wrap: wrap; }
+  .plaquebar { flex-wrap: wrap; }
+  .pq-scroll { order: 3; flex-basis: 100%; }
+}
+
+/* ── 游戏皮：真实贴图 ─────────────────────────────────────────────────── */
+[data-skin="game"] {
+  --bg: #17110c; --bg2: #1b1410;
+  --panel: #f7f1de; --panel2: #ece1c6;
+  --line: #cbb994; --line2: #b09a6d;
+  --fg: #241c14; --fg2: #40352a; --muted: #736653;
+  --gold: #8b6a2f; --gold2: #7a2f2b; --accent: #7a3d8f;
+  --ok: #3f7a4a; --no: #a33327; --unk: #9a6a1e;
+  font-family: "Noto Serif SC", "Source Han Serif SC", "Songti SC", SimSun, "宋体", serif;
+}
+[data-skin="game"] body {
+  background: #100c08 url("/assets/ui/UI_BackgroundTable_Console_3860_2184.png") center / cover no-repeat fixed;
+  color: var(--fg);
+}
+[data-skin="game"] .topstrip {
+  background: linear-gradient(#2b2016, #15100b); border-bottom: 1px solid #8b6a2f; color: #e8dcc0;
+}
+[data-skin="game"] .topstrip .strip-title { color: #e3c37a; letter-spacing: .5px; }
+[data-skin="game"] .topstrip .small, [data-skin="game"] .topstrip .muted { color: #b6a382; }
+[data-skin="game"] .book-frame { padding: 6px; }
+[data-skin="game"] .book-page {
+  background: #f6f0dd url("/assets/ui/UI_BackgroundPaper_Console_3756_2000.png") center / 100% 100% no-repeat;
+  border: 0; border-radius: 4px;
+  box-shadow: 0 0 0 5px #2a2018, 0 0 0 7px #8b6a2f, 0 16px 44px rgba(0, 0, 0, .55);
+}
+
+/* 牌匾步骤条 */
+[data-skin="game"] .plaquebar {
+  background: linear-gradient(#241a12, #100c08); border-bottom: 2px solid #8b6a2f;
+  gap: 2px; padding: 5px 6px 2px;
+}
+[data-skin="game"] .pq {
+  background: url("/assets/ui/UI_CharGen_TopMenuDefault.png") center / 100% 100% no-repeat;
+  border: 0; color: #d9c9a3; min-width: 84px; padding: 6px 10px;
+}
+[data-skin="game"] .pq:hover { background-image: url("/assets/ui/UI_CharGen_TopMenuHover.png"); color: #f2e5c0; }
+[data-skin="game"] .pq-wrap.on .pq {
+  background-image: url("/assets/ui/UI_CharGen_TopMenuActive.png"); color: #f8ecc9; font-weight: 600;
+}
+[data-skin="game"] .pq-wrap.on::after {
+  content: ""; position: absolute; left: 50%; bottom: -6px; width: 20px; height: 10px;
+  transform: translateX(-50%);
+  background: url("/assets/ui/UI_CharGen_TopMenuActiveArrow.png") center / contain no-repeat;
+}
+[data-skin="game"] .pq-wrap.dyn .pq-name, [data-skin="game"] .pq-wrap.on.dyn .pq-name { color: inherit; }
+[data-skin="game"] .pq-ico, [data-skin="game"] .pq-wrap.on .pq-ico { color: #e3c37a; }
+[data-skin="game"] .pq-val {
+  background: url("/assets/ui/UI_CharGen_TopMenuSub.png") center / 100% 100% no-repeat;
+  border: 0; color: #f5e9c6;
+}
+[data-skin="game"] .pq-plus {
+  width: 15px; height: 15px; margin: 0 auto 1px; font-size: 0; color: transparent;
+  background: url("/assets/ui/UI_CharGen_AddIcon_Default.png") center / contain no-repeat;
+}
+[data-skin="game"] .pq-plus.done { background-image: url("/assets/ui/UICheckMark.png"); }
+[data-skin="game"] .pq-nav {
+  background: url("/assets/ui/UI_CharGen_TopMenuNext_Default.png") center / contain no-repeat;
+  width: 26px; height: 26px; font-size: 0; color: transparent; align-self: center;
+}
+[data-skin="game"] .pq-nav:hover:not(:disabled) { background-image: url("/assets/ui/UI_CharGen_TopMenuNext_Hover.png"); }
+[data-skin="game"] .pq-stats { border-left-color: #5a4527; color: #e8dcc0; }
+[data-skin="game"] .pq-counter {
+  background: url("/assets/ui/UI_CharGen_TopMenuCaption.png") center / 100% 100% no-repeat;
+  border: 0; min-width: 62px;
+}
+[data-skin="game"] .pq-counter b { color: #f7edd0; }
+[data-skin="game"] .pq-counter span { color: #cbb894; }
+[data-skin="game"] .pq-attr i { color: #b8a684; }
+[data-skin="game"] .pq-attr b { color: #f7edd0; }
+[data-skin="game"] .pq-attr em { color: #e3c37a; }
+[data-skin="game"] .pq-badge {
+  background: url("/assets/ui/UI_CharGen_TopMenuCircle.png") center / contain no-repeat;
+  border: 0; color: #f7edd0; width: 30px; height: 30px;
+}
+
+/* 书页里的内容：把暗色块换成羊皮纸 */
+[data-skin="game"] .stephead h2 { color: #7a2f2b; font-size: 23px; letter-spacing: 1px; }
+[data-skin="game"] .stephead .muted { color: #736653; }
+[data-skin="game"] .panel, [data-skin="game"] .lvcard, [data-skin="game"] .slot,
+[data-skin="game"] .spellbox, [data-skin="game"] .collapse {
+  background: rgba(255, 253, 245, .5); border-color: #cbb994;
+}
+[data-skin="game"] .lvcard { border-left: 3px solid #8b6a2f; }
+[data-skin="game"] .panel-head, [data-skin="game"] .collapse-head { background: rgba(214, 200, 168, .45); border-color: #cbb994; }
+[data-skin="game"] .cl-bar, [data-skin="game"] .cl-list, [data-skin="game"] .cl-row,
+[data-skin="game"] .ss-foot, [data-skin="game"] .modal-head, [data-skin="game"] .tag-all {
+  background: rgba(226, 214, 186, .6); border-color: #cbb994;
+}
+[data-skin="game"] .ss-pop, [data-skin="game"] .modal, [data-skin="game"] .pick-right,
+[data-skin="game"] .stats > div, [data-skin="game"] .tag-any { background: #f8f2e0; border-color: #cbb994; }
+[data-skin="game"] .tag-any { color: #7a2f2b; }
+[data-skin="game"] .pick-list, [data-skin="game"] .choicelist { border-color: #cbb994; }
+[data-skin="game"] .cl-row { border-bottom-color: #ddcfab; }
+[data-skin="game"] .cl-row:hover, [data-skin="game"] .pick-row:hover, [data-skin="game"] .tbl tr:hover td,
+[data-skin="game"] .ss-row.hi { background: #efe4c8; }
+[data-skin="game"] .cl-row.sel, [data-skin="game"] .pick-row.sel, [data-skin="game"] .ss-row.sel,
+[data-skin="game"] .pick-row.focus { background: #e6d9ef; }
+[data-skin="game"] .pick-row, [data-skin="game"] .ss-row { border-bottom-color: #e2d7bd; }
+[data-skin="game"] .pick-row.focus { color: #5b2a52; }
+[data-skin="game"] .ss-input, [data-skin="game"] .cl-search, [data-skin="game"] input,
+[data-skin="game"] .numbox input {
+  background: #fdfaf0; color: #241c14; border-color: #cbb994;
+}
+[data-skin="game"] .numbox button { background: #e4d8ba; color: #40352a; }
+[data-skin="game"] .numbox button:hover { background: #d7c8a4; color: #7a2f2b; }
+[data-skin="game"] .btn, [data-skin="game"] .ss-btn {
+  background: #f1e7cd; border-color: #b09a6d; color: #40352a;
+}
+[data-skin="game"] .btn:hover, [data-skin="game"] .ss-btn:hover { border-color: #8b6a2f; color: #7a2f2b; }
+[data-skin="game"] .btn.ghost { background: transparent; }
+[data-skin="game"] .tbl th, [data-skin="game"] .tbl td { border-bottom-color: #ddcfab; }
+[data-skin="game"] .tbl th { color: #736653; }
+[data-skin="game"] .sheet-row { border-bottom-color: #ddcfab; }
+[data-skin="game"] .auto-row { border-bottom-color: #e2d7bd; }
+[data-skin="game"] .chip { background: #f4ecd6; border-color: #cbb994; color: #4a3f2f; }
+[data-skin="game"] .chip-ok { border-color: #4f7a55; color: #2f5c37; background: #eaf3e7; }
+[data-skin="game"] .chip-no { border-color: #a33327; color: #8d2a20; background: #f7e6e2; }
+[data-skin="game"] .chip-unk, [data-skin="game"] .chip-warn { border-color: #9a6a1e; color: #7d5514; background: #f7eed8; }
+[data-skin="game"] .bgtree-tag { background: #f1e7cd; }
+[data-skin="game"] .meter-bar { background: #e4d8ba; }
+[data-skin="game"] .slot-name, [data-skin="game"] .trait-name, [data-skin="game"] .kv b { color: #7a2f2b; }
+[data-skin="game"] .stats b { color: #7a2f2b; }
+[data-skin="game"] .modal-mask { background: rgba(12, 8, 5, .62); }
+
+/* 底部导航 */
+[data-skin="game"] .book-foot {
+  background: linear-gradient(#f3ead2, #e4d8b8); border-top: 1px solid #b09a6d;
+}
+[data-skin="game"] .fbtn {
+  background: url("/assets/ui/UI_Button_Default.png") center / 100% 100% no-repeat;
+  border: 0; color: #40352a; padding: 6px 18px; min-width: 52px;
+}
+[data-skin="game"] .fbtn:hover:not(:disabled) {
+  background-image: url("/assets/ui/UI_Button_Hover.png"); color: #7a2f2b;
+}
+[data-skin="game"] .fbtn:disabled { background-image: url("/assets/ui/UI_Button_Disable.png"); opacity: .55; }
+[data-skin="game"] .fbtn.wide { min-width: 94px; }
+[data-skin="game"] .fbtn.right {
+  background-image: url("/assets/ui/UI_BoxButton_Default.png"); color: #f5e9c6;
+}
+[data-skin="game"] .fbtn.right:hover { background-image: url("/assets/ui/UI_BoxButton_Hover.png"); color: #fff6dd; }
+[data-skin="game"] .foot-note { color: #736653; }

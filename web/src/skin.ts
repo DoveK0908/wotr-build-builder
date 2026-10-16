@@ -1,0 +1,84 @@
+/**
+ * 两套皮（用户选的是「两套皮，可切换」）：
+ *   game  —— 用从本机游戏里提取的真实贴图（羊皮纸、牌匾条、按钮、图标框…）
+ *   plain —— 纯 CSS，不引用任何游戏素材（便于将来发布）
+ *
+ * 皮肤只影响外观，不改结构：所有布局类名两套皮共用，皮肤只换配色/底图/字体。
+ * 也支持用 URL hash 指定（`#skin=plain`），方便无头渲染检查两种皮都跑一遍。
+ */
+import { useSyncExternalStore } from "react";
+
+export type Skin = "game" | "plain";
+
+const KEY = "wotr-skin-v1";
+
+function initial(): Skin {
+  try {
+    const m = /[#&]skin=([a-z]+)/.exec(location.hash);
+    if (m && (m[1] === "game" || m[1] === "plain")) return m[1];
+  } catch {
+    /* 无头环境没有 location */
+  }
+  try {
+    const v = localStorage.getItem(KEY);
+    if (v === "game" || v === "plain") return v;
+  } catch {
+    /* ignore */
+  }
+  return "game";
+}
+
+let skin: Skin = initial();
+const listeners = new Set<() => void>();
+
+export function getSkin(): Skin {
+  return skin;
+}
+
+export function setSkin(s: Skin): void {
+  skin = s;
+  try {
+    localStorage.setItem(KEY, s);
+  } catch {
+    /* ignore */
+  }
+  listeners.forEach((l) => l());
+}
+
+export function toggleSkin(): void {
+  setSkin(skin === "game" ? "plain" : "game");
+}
+
+function subscribe(cb: () => void): () => void {
+  listeners.add(cb);
+  return () => {
+    listeners.delete(cb);
+  };
+}
+
+export function useSkin(): Skin {
+  return useSyncExternalStore(subscribe, getSkin, getSkin);
+}
+
+/** 素材地址：`web/public/assets/ui/…` → `/assets/ui/…`（构建后同样可用） */
+export const ui = (name: string): string => `./assets/ui/${name}.png`;
+/** 内容图标（专长/法术的 64×64 图标，`web/public/assets/icons/…`） */
+export const icon = (name: string): string => `./assets/icons/${name}.png`;
+
+/** 蓝图内容的真实图标（64×64）；这个蓝图没有导出图标就返回 null */
+export function featureIcon(db: { icons?: { byId?: Record<string, string> } } | null | undefined, id?: string | null): string | null {
+  if (!db || !id) return null;
+  const n = db.icons?.byId?.[id];
+  return n ? icon(n) : null;
+}
+
+/** 固定步骤用游戏自带的界面小图标（只有职业/阵营有对应的那张） */
+const STEP_UI_ICON: Record<string, string> = {
+  class: "UI_CharGen_ClassIcon_Default",
+  align: "UI_CharGen_AlignmentIcon_Default",
+};
+
+export function stepUiIcon(stepId: string): string | null {
+  const n = STEP_UI_ICON[stepId];
+  return n ? ui(n) : null;
+}

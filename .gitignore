@@ -17,6 +17,13 @@ dist/
 /data/_raw/
 /cache/
 
+# ── 从本机游戏提取的素材（约 50 MB 二进制；用 pipeline/extract_ui.py 重建）──
+#     不纳入仓库：体积大，且游戏界面贴图与图标是 Owlcat 的版权素材，只在本地使用。
+/web/public/assets/
+
+# ── 用户提供的游戏参考截图（约 90 MB，仅本地比对用）──
+/example pictures/
+
 # ── 杂项 ──
 *.log
 *.tmp
