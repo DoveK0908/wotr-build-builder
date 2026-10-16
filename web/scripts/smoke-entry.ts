@@ -6,7 +6,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { Db, FeatureEntry, MythicPathEntry, Preset, Prereq } from "../src/types";
-import { emptyBuild, serialize, deserialize } from "../src/store";
+import { act, buildStore, emptyBuild, serialize, deserialize } from "../src/store";
 import { applyPreset } from "../src/presets";
 import type { Build } from "../src/store";
 import { STEP_IDS, normalizeStep, stepNote } from "../src/steps";
@@ -609,6 +609,25 @@ export function run(dir: string): void {
     "空构筑下第二步提示还没选种族");
   eq(stepNote(db, stepsBuild, derive(db, stepsBuild), "deity"), "没有信仰也可以（除牧师类）",
     "没有信仰不算错误");
+
+  // ── 等级下标一致性（regression：视图曾把 1 基的等级号当 0 基下标传给 store，
+  //    结果在第 1 级选的职业落到了第 2 级）────────────────────────────────
+  {
+    const fighter = Object.values(db.classes).find((c) => c.key === "FighterClass");
+    const slot = levelRootSlots(db, emptyBuild(), 1)[0];
+    act.reset();
+    if (fighter) act.setClass(0, fighter.id);
+    eq(buildStore.get().levels[0].classId, fighter ? fighter.id : null, "setClass(0) 落在第 1 级");
+    eq(buildStore.get().levels[1].classId, null, "setClass(0) 不碰第 2 级");
+    if (slot) act.setPick(0, slot.id, slot.choices[0]);
+    if (slot) eq(buildStore.get().levels[0].picks[slot.id], slot.choices[0], "setPick(0) 落在第 1 级");
+    act.setAbility(3, "Strength");
+    eq(buildStore.get().levels[3].ability, "Strength", "setAbility(3) 落在第 4 级");
+    eq(buildStore.get().levels[4].ability, null, "setAbility(3) 不碰第 5 级");
+    act.setClass(20, fighter ? fighter.id : null);
+    eq(buildStore.get().levels.length, 20, "越界的 setClass(20) 被忽略");
+    act.reset();
+  }
 
   const total = pass + fails.length;
   if (fails.length === 0) {

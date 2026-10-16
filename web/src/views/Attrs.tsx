@@ -88,7 +88,7 @@ export function Attrs(props: { db: Db }) {
             <SearchSelect
               value={build.levels[lv - 1]?.ability || null}
               options={rules.attributes.map((a) => ({ id: a.id, label: a.name }))}
-              onChange={(v) => act.setAbility(lv, v as AttrId | null)}
+              onChange={(v) => act.setAbility(lv - 1, v as AttrId | null)}
               placeholder="未选"
               width={110}
             />

@@ -88,7 +88,7 @@ export function ClassPlan(props: { db: Db }) {
                 <SearchSelect
                   value={lv.classId}
                   options={classOpts}
-                  onChange={(v) => act.setClass(level, v)}
+                  onChange={(v) => act.setClass(idx, v)}
                   placeholder="选择职业"
                   width={260}
                 />

@@ -70,7 +70,7 @@ export function Feats(props: { db: Db }) {
                     <SearchSelect
                       value={lv.ability || null}
                       options={db.rules.attributes.map((a) => ({ id: a.id, label: a.name }))}
-                      onChange={(v) => act.setAbility(level, v as AttrId | null)}
+                      onChange={(v) => act.setAbility(idx, v as AttrId | null)}
                       placeholder="未选"
                       width={120}
                     />
@@ -89,7 +89,7 @@ export function Feats(props: { db: Db }) {
                       root={s}
                       picks={lv.picks}
                       verdict={(fid) => choiceVerdict(db, ctx, fid)}
-                      onChange={(slotId, v) => act.setPick(level, slotId, v)}
+                      onChange={(slotId, v) => act.setPick(idx, slotId, v)}
                     />
                   ))}
                 </div>
@@ -107,7 +107,7 @@ export function Feats(props: { db: Db }) {
                     <SearchSelect
                       value={lv.params[f.id] || null}
                       options={mergeParamOptions(variants)}
-                      onChange={(v) => act.setParam(level, f.id, v)}
+                      onChange={(v) => act.setParam(idx, f.id, v)}
                       placeholder="选择参数"
                       width={220}
                     />

@@ -241,16 +241,22 @@ export const act = {
   setAttrManual: (a: string, v: number) => buildStore.patch((b) => {
     if (v) b.attrManual[a] = v; else delete b.attrManual[a];
   }),
+  // ⚠ 这些 setter 收的是 levels/ranks 数组下标（0 = 第 1 级）。视图里务必传 idx（`lv - 1`），
+  // 不要传 1 级的等级号 —— 传错就会整体串一级。
   setLevelClass: (i: number, id: string | null) => buildStore.patch((b) => {
+    if (!b.levels[i]) return;
     b.levels[i] = { classId: id, picks: {}, params: {}, ability: b.levels[i].ability };
   }),
   setLevelPick: (i: number, sel: string, choice: string | null) => buildStore.patch((b) => {
+    if (!b.levels[i]) return;
     if (choice) b.levels[i].picks[sel] = choice; else delete b.levels[i].picks[sel];
   }),
   setLevelParam: (i: number, feat: string, p: string | null) => buildStore.patch((b) => {
+    if (!b.levels[i]) return;
     if (p) b.levels[i].params[feat] = p; else delete b.levels[i].params[feat];
   }),
   setLevelAbility: (i: number, a: AttrId | null) => buildStore.patch((b) => {
+    if (!b.levels[i]) return;
     b.levels[i].ability = a;
   }),
   toggleArchetype: (classId: string, archId: string) => buildStore.patch((b) => {
@@ -264,12 +270,15 @@ export const act = {
     b.mythicPath = id; b.ranks = Array.from({ length: MAX_RANK }, emptyRank);
   }),
   setRankPick: (i: number, sel: string, choice: string | null) => buildStore.patch((b) => {
+    if (!b.ranks[i]) return;
     if (choice) b.ranks[i].picks[sel] = choice; else delete b.ranks[i].picks[sel];
   }),
   setRankParam: (i: number, feat: string, p: string | null) => buildStore.patch((b) => {
+    if (!b.ranks[i]) return;
     if (p) b.ranks[i].params[feat] = p; else delete b.ranks[i].params[feat];
   }),
   setRankAbility: (i: number, a: AttrId | null) => buildStore.patch((b) => {
+    if (!b.ranks[i]) return;
     b.ranks[i].ability = a;
   }),
   setSkill: (id: string, v: number) => buildStore.patch((b) => {
