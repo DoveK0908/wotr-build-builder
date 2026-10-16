@@ -934,9 +934,18 @@ export function alignAllows(alignment: string | null | undefined, tokens: string
   return false;
 }
 
+/** 轴 token 的中文说法（阵营本身用 db 里的名字） */
+const ALIGN_AXIS_CN: Record<string, string> = {
+  Lawful: "任意守序",
+  Chaotic: "任意混乱",
+  Good: "任意善良",
+  Evil: "任意邪恶",
+  Neutral: "绝对中立",
+};
+
 export function alignNeedText(db: Db, tokens: string[]): string {
   const known = new Map(db.rules.alignments.map((a) => [a.id, a.name]));
-  return tokens.map((t) => known.get(t) || t).join(" / ");
+  return tokens.map((t) => known.get(t) || ALIGN_AXIS_CN[t] || t).join(" / ");
 }
 
 /**
@@ -1213,11 +1222,17 @@ export function prereqText(db: Db, p: Prereq): string {
     case "clvl": return `${db.classes[String(p.class)] ? label(db.classes[String(p.class)]) : "内部职业"} 职业等级 ≥ ${p.v}`;
     case "nocl": return `非 ${db.classes[String(p.class)] ? label(db.classes[String(p.class)]) : "内部职业"}`;
     case "chlvl": return `角色等级 ≥ ${p.v}`;
-    case "align": return `阵营：${((p.v as string[]) || []).join(" / ")}`;
+    case "align":
+      return `阵营：${alignNeedText(db, (p.v as string[]) || [])}`;
     case "prof": return `擅长：${[...((p.armor as string[]) || []), ...((p.weapon as string[]) || [])].join(" / ")}`;
     case "notprof": return `不擅长：${[...((p.armor as string[]) || []), ...((p.weapon as string[]) || [])].join(" / ")}`;
     case "alvl": return `需要 ${label(db.classes[String(p.class)])} 的变体等级 ≥ ${p.v}`;
-    case "noarch": return `不能是该职业的变体`;
+    case "noarch": {
+      const a = db.archetypes[String(p.arch)];
+      const c = db.classes[String(p.class)];
+      if (a) return `无变体：${label(a)}${c ? `（${label(c)}）` : ""}`;
+      return c ? `不能是「${label(c)}」的变体` : "不能是任意变体";
+    }
     case "classspell": return `${label(db.classes[String(p.class)])} 能施放 ${p.v} 环法术`;
     case "classlevels": return `${label(db.classes[String(p.class)])} 等级按 ${label(db.classes[String(p.fake)])} 计算`;
     case "ispet":

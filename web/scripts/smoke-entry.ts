@@ -40,6 +40,7 @@ import {
   ownedFeatures,
   pathStartRank,
   pointBuySpent,
+  prereqText,
   raceRootSlots,
   rankRootSlots,
   traitList,
@@ -582,6 +583,22 @@ export function run(dir: string): void {
   const heroMain = (pathByKey("MythicStartingClass")?.prereq || []).find((p) => p.k === "mainchar");
   ok(!!heroMain, "神话英雄带「仅主角」条件");
   eq(evalPrereq(db, mkCtx(7) as never, heroMain as Prereq), "unknown", "「仅主角」不拦人（unknown）");
+
+  // ── 神祇页的「先决条件」清单：逐条判定 + 「无变体：X」要写出名字 ──────────
+  const kalis = (db.features[db.rules.deitySelection as string]?.choices || [])
+    .find((id) => db.features[id]?.name === "卡丽斯翠");
+  const kEntry = db.features[kalis || ""];
+  const dres = evalPrereqs(db, mkCtx(0) as never, kEntry?.prereq);
+  ok(dres.details.length > 0, "神祇的先决条件能逐条算出来",
+    `${kEntry?.name || "?"}：${dres.details.length} 条 / 总判定 ${dres.verdict}`);
+  ok(dres.details.every((d) => ["ok", "no", "unknown"].includes(d.v as string)),
+    "逐条判定只有 ok / no / unknown 三种");
+  const noarchP = (kEntry?.prereq || []).find((p) => p.k === "noarch");
+  ok(!!noarchP, "神祇带「无变体」类前置",
+    `${(kEntry?.prereq || []).filter((p) => p.k === "noarch").length} 条`);
+  const noarchTxt = noarchP ? prereqText(db, noarchP) : "";
+  ok(noarchTxt.startsWith("无变体：") && !noarchTxt.includes("（未命名）"),
+    "「无变体」前置会写出变体名（对齐游戏里的「无变体: 野性神卫」）", noarchTxt);
 
   const oneofFeat = Object.values(db.features)
     .find((f) => (f.prereq || []).some((p) => p.k === "oneof" && Number(p.amount) >= 2));

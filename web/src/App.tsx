@@ -135,9 +135,10 @@ export function App() {
               ‹
             </button>
             <div className="pq-scroll">
-              {/* 游戏里牌匾条最前面那块是进度计数（升级时是「N 等级」，神话时是「神话 等级 N」） */}
+              {/* 游戏里牌匾条最前面那块是进度计数（升级时是「N 等级」，神话时是「神话 等级 N」）；
+                  游戏在创建角色时总是从第 1 级开始，所以没排职业时也显示 1，而不是 0。 */}
               <div className="pq-counter" title={`角色等级 ${derived.level} / ${db.rules.levelRange?.[1] || 20}`}>
-                <b>{derived.level}</b>
+                <b>{Math.max(1, derived.level)}</b>
                 <span>等级</span>
               </div>
               {steps.map((s) => {

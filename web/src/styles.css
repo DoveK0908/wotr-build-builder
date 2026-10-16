@@ -823,3 +823,21 @@ input.text:focus, textarea.text:focus, .cl-search:focus { border-color: var(--ac
 [data-skin="game"] .auto-row { border-bottom-color: #d9cba6; }
 [data-skin="game"] .desc-body { color: #2f2418; }
 
+
+/* ── 神祇/前置条件清单：每条要求前面一个对勾或灰圈（对齐游戏里那张先决条件表） ── */
+.reqlist { display: flex; flex-direction: column; gap: 3px; padding: 2px 0 4px; }
+.reqrow { display: flex; align-items: baseline; gap: 7px; font-size: 13px; }
+.reqtext { flex: 1 1 auto; min-width: 0; }
+.pcheck {
+  flex: 0 0 auto; width: 15px; height: 15px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 11px; line-height: 1; transform: translateY(2px);
+  border: 1px solid currentColor;
+}
+.pcheck[data-v="ok"] { color: #1f7a5c; background: rgba(31, 122, 92, .14); }
+.pcheck[data-v="unknown"] { color: #8a8a8a; background: rgba(140, 140, 140, .12); }
+.pcheck[data-v="no"] { color: #b0342b; background: rgba(176, 52, 43, .13); }
+[data-skin="game"] .pcheck { border-color: #b9a577; font-family: var(--serif); }
+[data-skin="game"] .pcheck[data-v="ok"] { color: #ffffff; background: #2e8b73; border-color: #1f6b57; }
+[data-skin="game"] .pcheck[data-v="unknown"] { color: #7d6a48; background: rgba(185, 165, 119, .25); }
+[data-skin="game"] .pcheck[data-v="no"] { color: #ffffff; background: #a2453a; border-color: #82402f; }

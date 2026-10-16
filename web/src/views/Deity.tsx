@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import type { Db } from "../types";
 import { act, useBuild } from "../store";
-import { alignAllows, alignConflicts, alignNeedText, alignTokensOf, childFeatures, label } from "../rules";
+import { alignAllows, alignConflicts, alignNeedText, alignTokensOf, childFeatures, derive, evalPrereqs, label, ownedFeatures, prereqText } from "../rules";
 import { Chip, Desc } from "../ui";
 import { DetailHead, IconGrid, ListPane, ListRow, Sect, StatRows, ThreePane } from "../pane";
 import { featureIcon } from "../skin";
@@ -33,6 +33,35 @@ export function Deity(props: { db: Db }) {
   const focus = focusId ? db.features[focusId] : null;
   const focusChildren = focus ? childFeatures(db, focus) : [];
   const focusToks = focus ? alignTokensOf(focus.prereq) : [];
+
+  const derived = useMemo(() => derive(db, build), [db, build]);
+  const ctx = useMemo(() => {
+    const o = ownedFeatures(db, build);
+    return {
+      atLevel: 20,
+      classLevels: derived.classLevels,
+      attrs: derived.attrs,
+      idSet: o.ids,
+      alignment: build.alignment,
+      race: build.race,
+      background: build.background,
+      mythicPath: build.mythicPath,
+      archLevels: derived.archLevels,
+      currentArchetypes: Object.values(derived.archSel).flat(),
+      maxSpellLevel: derived.maxSpellLevel,
+      rank: derived.rank,
+    };
+  }, [db, build, derived]);
+
+  /** 游戏的神祇页中间是一张「先决条件」清单，每条前面一个对勾/灰圈。 */
+  const reqs = useMemo(() => {
+    if (!focus) return [];
+    const res = evalPrereqs(db, ctx, focus.prereq);
+    return res.details
+      .filter((d) => !d.p.hide)
+      .map((d) => ({ v: d.v as string, text: prereqText(db, d.p), k: d.p.k }));
+  }, [db, ctx, focus]);
+  const curAlign = rules.alignments.find((a) => a.id === build.alignment)?.name || "—";
 
   return (
     <ThreePane
@@ -81,6 +110,24 @@ export function Deity(props: { db: Db }) {
               )}
               {build.deity === focus.id && <Chip tone="ok">当前信仰</Chip>}
             </div>
+            <Sect title={`先决条件（${reqs.filter((r) => r.v === "ok").length}/${reqs.length}）`}>
+              {reqs.length === 0 ? (
+                <div className="muted small">没有额外限制。</div>
+              ) : (
+                <div className="reqlist">
+                  {reqs.map((r, i) => (
+                    <div className="reqrow" key={i}>
+                      <span className="pcheck" data-v={r.v} title={r.v === "ok" ? "满足" : r.v === "unknown" ? "游戏内判定" : "不满足"}>
+                        {r.v === "ok" ? "✓" : r.v === "unknown" ? "?" : "✗"}
+                      </span>
+                      <span className="reqtext">{r.text}</span>
+                      {r.k === "align" && <span className="muted small">当前阵营：{curAlign}</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Sect>
+
             <Desc text={focus.desc} limit={900} />
 
             {focusChildren.length > 0 && (
