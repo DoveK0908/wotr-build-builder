@@ -1,12 +1,14 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import type { Db } from "../types";
 import { act, useBuild } from "../store";
 import {
   choiceVerdict, derive, evalPrereqs, label, mythicHeroPath, mythicSource, ownedFeatures, pathStartRank,
   prereqText, rankRootSlots,
 } from "../rules";
-import { Chip, Collapse, Desc, Panel, SearchSelect } from "../ui";
+import { Chip, Collapse } from "../ui";
 import { SlotChain } from "../pick";
+import { DetailHead, ListPane, ListRow, MythicGrowth, Sect, StatBox, StatRows, ThreePane } from "../pane";
+import { featureIcon } from "../skin";
 
 export function Mythic(props: { db: Db }) {
   const { db } = props;
@@ -14,9 +16,8 @@ export function Mythic(props: { db: Db }) {
   const derived = useMemo(() => derive(db, build), [db, build]);
   const path = build.mythicPath ? db.mythic.paths[build.mythicPath] : null;
   const hero = mythicHeroPath(db);
-  const start = pathStartRank(db, path);
+  const [sel, setSel] = useState<number | null>(null);
 
-  // 判定上下文（含神话阶层）：用于道途门槛（例如金龙/魔鬼/虫群行者要神话阶层 ≥ 7）
   const ctxBase = useMemo(() => {
     const o = ownedFeatures(db, build);
     return {
@@ -35,7 +36,6 @@ export function Mythic(props: { db: Db }) {
     };
   }, [db, build, derived]);
 
-  // 道途自己的门槛：神话阶层（可判定）＋主角身份 / 剧情 etude（不可判定，不拦人）
   const pathReqs = useMemo(() => {
     const out: Record<string, { verdict: string; fail: string[]; text: string }> = {};
     for (const p of Object.values(db.mythic.paths)) {
@@ -43,7 +43,6 @@ export function Mythic(props: { db: Db }) {
       const res = evalPrereqs(db, ctxBase, list);
       out[p.id] = {
         verdict: res.verdict,
-        // 只列真正不满足的那几条（剧情/身份类是 unknown，不算不满足）
         fail: res.details.filter((d) => d.v === "no").map((d) => prereqText(db, d.p)),
         text: list.filter((x) => !x.hide).map((x) => prereqText(db, x)).join("、"),
       };
@@ -51,131 +50,189 @@ export function Mythic(props: { db: Db }) {
     return out;
   }, [db, ctxBase]);
 
-  const pathOpts = useMemo(
-    () => Object.values(db.mythic.paths)
-      .filter((p) => p.selectable !== false)
-      .map((p) => {
-        const r = pathReqs[p.id];
-        const short = r?.verdict === "no";
-        return {
-          id: p.id,
-          label: p.name,
-          hint: `${p.nameEn || ""} · 第 ${pathStartRank(db, p)} 阶起${short && r.fail.length ? " · 需要 " + r.fail.join("、") : ""}`,
-          badge: p.higher ? "高阶" : short ? "门槛未达" : undefined,
-        };
-      }),
-    [db, pathReqs],
+  const paths = useMemo(
+    () =>
+      Object.values(db.mythic.paths)
+        .filter((p) => p.selectable !== false)
+        .sort((a, b) => pathStartRank(db, a) - pathStartRank(db, b) || a.name.localeCompare(b.name, "zh")),
+    [db],
   );
 
-  // 每个神话等级的来源与槽位：1–2 阶（晚期道途 1–7 阶）都是「神话英雄」
   const rankInfo = useMemo(
-    () => Array.from({ length: 10 }, (_, i) => {
-      const r = i + 1;
-      const src = mythicSource(db, build, r);
-      return {
-        rank: r,
-        isHero: src.owner === hero || !src.owner,
-        ownerName: src.owner ? label(src.owner) : "—",
-        level: src.level,
-        features: src.features,
-        slots: rankRootSlots(db, build, r),
-      };
-    }),
+    () =>
+      Array.from({ length: 10 }, (_, i) => {
+        const r = i + 1;
+        const src = mythicSource(db, build, r);
+        return {
+          rank: r,
+          isHero: src.owner === hero || !src.owner,
+          ownerName: src.owner ? label(src.owner) : "—",
+          level: src.level,
+          features: src.features,
+          slots: rankRootSlots(db, build, r),
+        };
+      }),
     [db, build, hero],
   );
 
+  const missingOf = (r: number) => build.ranks[r - 1].picks;
+  const fallbackRank = rankInfo.find((ri) => ri.slots.some((s) => !missingOf(ri.rank)[s.id]))?.rank || derived.rank || 1;
+  const cur = rankInfo[(sel ?? fallbackRank) - 1] || rankInfo[0];
+  const curLv = build.ranks[cur.rank - 1];
+  const curMissing = cur.slots.filter((s) => !curLv.picks[s.id]).length;
+  const beforePath = !!path && cur.rank < pathStartRank(db, path);
+
   return (
-    <div>
-      <Panel
-        title="神话道途"
-        sub={path ? `${path.name}${path.nameEn ? " · " + path.nameEn : ""} · 第 ${start} 阶起` : "还没选道途（前两阶是通用「神话英雄」）"}
-      >
-        <SearchSelect
-          value={build.mythicPath}
-          options={pathOpts}
-          onChange={(v) => act.setMythicPath(v)}
-          placeholder="选择神话道途（第 3 阶才生效）"
-          width={260}
-        />
-        {path?.desc && <div className="mt8"><Desc text={path.desc} /></div>}
-        <div className="muted small mt8">
-          <b>前两阶没有道途。</b>第 1 阶你成为「神话英雄」：选一项<b>超凡飞升</b>能力 + 一项神话能力；
-          第 2 阶一项神话专长。道途要到<b>第 3 阶</b>（第 2 章结尾）才生效 —— 金龙 / 虫群行者 / 魔鬼 / 传奇
-          这几条晚期道途更是第 8 阶才换。所以本页 1–2 阶的槽位永远来自「神话英雄」，
-          跟上面选不选道途无关。
-        </div>
-        <div className="muted small mt8">
-          神话阶层本身不提升属性值（每阶给的是「奇数阶神话能力 / 偶数阶神话专长」）。
-          加属性的是道途自己的特性，例如传奇的全属性 +4、恶魔的高等恶魔之相（数值 = 阶层的一半 + 1）、
-          碎片之力的「诅咒之力」全属性 +4 —— 这些都已自动算进「角色 / 汇总」页的属性面板。
-        </div>
-        <div className="row wrap mt8">
-          <span className="kv">神话等级 <b>{derived.rank}</b></span>
-          {path && pathReqs[path.id]?.verdict === "no" && (
-            <Chip tone="no">门槛未达：{pathReqs[path.id].fail.join("、") || "神话阶层不足"}</Chip>
+    <ThreePane
+      left={
+        <ListPane
+          title="选择神话道途"
+          foot={<span>共 {paths.length} 条可选道途　·　前两阶都是「神话英雄」</span>}
+        >
+          <ListRow
+            glyph="英"
+            name="神话英雄（通用）"
+            sub="第 1–2 阶 · 神话能力 / 神话专长"
+            sel={!build.mythicPath}
+            onClick={() => act.setMythicPath(null)}
+          />
+          {paths.map((p) => {
+            const r = pathReqs[p.id];
+            const bad = r?.verdict === "no";
+            const start = pathStartRank(db, p);
+            return (
+              <ListRow
+                key={p.id}
+                ico={featureIcon(db, p.id)}
+                glyph={p.name.slice(0, 1)}
+                name={p.name}
+                sub={`第 ${start} 阶起${bad && r.fail.length ? " · 需要 " + r.fail.join("、") : p.nameEn ? " · " + p.nameEn : ""}`}
+                badge={
+                  bad ? (
+                    <span className="badge no">门槛未达</span>
+                  ) : p.higher ? (
+                    <span className="badge">高阶</span>
+                  ) : undefined
+                }
+                sel={build.mythicPath === p.id}
+                title={r?.text || p.nameEn}
+                onClick={() => act.setMythicPath(p.id)}
+              />
+            );
+          })}
+        </ListPane>
+      }
+      center={
+        <>
+          <MythicGrowth db={db} build={build} sel={cur.rank} onSel={(r) => setSel(r)} />
+
+          <DetailHead
+            ico={cur.isHero ? null : path ? featureIcon(db, path.id) : null}
+            glyph={cur.isHero ? "英" : path ? path.name.slice(0, 1) : "?"}
+            title={`神话等级 ${cur.rank}`}
+            en={cur.isHero ? "神话英雄" : `${cur.ownerName} · 第 ${cur.level} 级`}
+            big
+          />
+
+          {beforePath && (
+            <div className="muted small">
+              这一阶还是「神话英雄」，{cur.ownerName} 要到第 {pathStartRank(db, path!)} 阶才开始。
+            </div>
           )}
-          {path?.spellbookId && <Chip>有神话法术书</Chip>}
-          {rankInfo.some((ri) => ri.slots.some((s) => !build.ranks[ri.rank - 1].picks[s.id])) && (
-            <Chip tone="no">有神话槽位没选完</Chip>
+
+          {cur.slots.length > 0 ? (
+            <Sect title={`第 ${cur.rank} 阶要选（${cur.slots.length}）`}>
+              <div className="slots">
+                {cur.slots.map((s) => (
+                  <SlotChain
+                    key={s.id}
+                    db={db}
+                    root={s}
+                    picks={curLv.picks}
+                    verdict={(fid) => choiceVerdict(db, ctxBase, fid)}
+                    onChange={(slotId, v) => act.setRankPick(cur.rank - 1, slotId, v)}
+                  />
+                ))}
+              </div>
+            </Sect>
+          ) : (
+            <div className="muted small mt8">这一阶没有要选的东西。</div>
           )}
-        </div>
-      </Panel>
 
-      <div className="ranks">
-        {rankInfo.map((ri) => {
-          const lv = build.ranks[ri.rank - 1];
-          const missing = ri.slots.filter((s) => !lv.picks[s.id]).length;
-          const beforePath = !!path && ri.rank < start;
-          return (
-            <section className="lvcard" key={ri.rank}>
-              <header className="lvhead">
-                <span className="lvnum mythic">{ri.rank}</span>
-                <span className="lvname">神话等级 {ri.rank}</span>
-                <Chip tone={ri.isHero ? "info" : "ok"}>
-                  {ri.isHero ? "神话英雄" : `${ri.ownerName} · 第 ${ri.level} 级`}
-                </Chip>
-                <span className="spacer" />
-                {missing > 0 && <Chip tone="no">{missing} 项未选</Chip>}
-              </header>
-
-              {beforePath && (
-                <div className="muted small">
-                  这一阶还是「神话英雄」，{ri.ownerName} 要到第 {start} 阶才开始。
-                </div>
-              )}
-
-              {ri.slots.length > 0 ? (
-                <div className="slots">
-                  {ri.slots.map((s) => (
-                    <SlotChain
-                      key={s.id}
-                      db={db}
-                      root={s}
-                      picks={lv.picks}
-                      verdict={(fid) => choiceVerdict(db, ctxBase, fid)}
-                      onChange={(slotId, v) => act.setRankPick(ri.rank - 1, slotId, v)}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div className="muted small">这一阶没有要选的东西。</div>
-              )}
-
-              {ri.features.length > 0 && (
-                <Collapse title={`${ri.isHero ? "神话英雄" : "道途"}特性（${ri.features.length}）`}>
-                  <div className="autolist">
-                    {ri.features.map((id) => (
-                      <div className="auto-row" key={id} title={db.features[id]?.desc || ""}>
-                        <span className="auto-name">{label(db.features[id])}</span>
-                      </div>
-                    ))}
+          {cur.features.length > 0 && (
+            <Collapse title={`${cur.isHero ? "神话英雄" : "道途"}特性（${cur.features.length}）`}>
+              <div className="autolist">
+                {cur.features.map((id) => (
+                  <div className="auto-row" key={id} title={db.features[id]?.desc || ""}>
+                    <span className="auto-name">{label(db.features[id])}</span>
                   </div>
-                </Collapse>
-              )}
-            </section>
-          );
-        })}
-      </div>
-    </div>
+                ))}
+              </div>
+            </Collapse>
+          )}
+
+          {path?.desc && (
+            <Sect title={`${path.name} 说明`}>
+              <div className="desc-body">{path.desc}</div>
+            </Sect>
+          )}
+
+          <div className="muted small mt8">
+            <b>前两阶没有道途。</b>第 1 阶你成为「神话英雄」：选一项<b>超凡飞升</b>能力 + 一项神话能力；
+            第 2 阶一项神话专长。道途要到<b>第 3 阶</b>（第 2 章结尾）才生效 —— 金龙 / 虫群行者 / 魔鬼 / 传奇
+            这几条晚期道途更是第 8 阶才换。
+          </div>
+        </>
+      }
+      right={
+        <>
+          <Sect title="神话">
+            <StatBox
+              cols={2}
+              items={[
+                { k: "神话等级", v: derived.rank },
+                { k: "道途", v: path ? path.name : "—（通用神话英雄）" },
+                { k: "道途起始", v: path ? `第 ${pathStartRank(db, path)} 阶` : "—" },
+                {
+                  k: "门槛",
+                  v: path ? (pathReqs[path.id]?.verdict === "no" ? "未达" : "已满足") : "—",
+                },
+              ]}
+            />
+            {path && pathReqs[path.id]?.verdict === "no" && (
+              <div className="row wrap" style={{ marginTop: 6 }}>
+                <Chip tone="no">门槛未达：{pathReqs[path.id].fail.join("、") || "神话阶层不足"}</Chip>
+              </div>
+            )}
+            {path?.spellbookId && <Chip>有神话法术书</Chip>}
+          </Sect>
+
+          <Sect title="各阶填写情况">
+            <StatRows
+              items={rankInfo.map((ri) => {
+                const lv = build.ranks[ri.rank - 1];
+                const miss = ri.slots.filter((s) => !lv.picks[s.id]).length;
+                return [
+                  `${ri.rank} 阶`,
+                  <span key="v">
+                    {ri.slots.length === 0 ? "—" : miss === 0 ? "已填" : `${miss} 项未选`}
+                    <span className="muted small">　{ri.isHero ? "英雄" : ri.ownerName}</span>
+                  </span>,
+                ];
+              })}
+              dense
+            />
+          </Sect>
+
+          <Sect title="说明">
+            <div className="muted small">
+              神话阶层本身不提升属性值（每阶给的是「奇数阶神话能力 / 偶数阶神话专长」）。
+              加属性的是道途自己的特性，例如传奇的全属性 +4、恶魔的高等恶魔之相（数值 = 阶层的一半 + 1）、
+              碎片之力的「诅咒之力」全属性 +4 —— 这些都已自动算进「属性」与「汇总」页。
+            </div>
+          </Sect>
+        </>
+      }
+    />
   );
 }

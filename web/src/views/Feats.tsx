@@ -4,8 +4,11 @@ import { act, useBuild } from "../store";
 import {
   choiceVerdict, derive, featuresAtClassLevel, label, levelCtxList, levelRootSlots,
 } from "../rules";
-import { Chip, Collapse, Panel, SearchSelect } from "../ui";
+import { Chip, Collapse, SearchSelect } from "../ui";
 import { SlotChain } from "../pick";
+import { DetailHead, ListPane, ListRow, Sect, StatBox, StatRows, ThreePane } from "../pane";
+import { featureIcon } from "../skin";
+import { stepGlyph } from "../steps";
 
 const ATTR_LEVELS = [4, 8, 12, 16, 20];
 
@@ -16,127 +19,190 @@ export function Feats(props: { db: Db }) {
   const derived = useMemo(() => derive(db, build), [db, build]);
   const ctxs = useMemo(() => levelCtxList(db, build, derived), [db, build, derived]);
   const [onlyUnfinished, setOnlyUnfinished] = useState(false);
+  const firstEmpty = build.levels.findIndex((l) => !l.classId);
+  const [sel, setSel] = useState<number | null>(null);
 
   const running: Record<string, number> = {};
-  let totalMissing = 0;
+  const info = build.levels.map((lv, idx) => {
+    const level = idx + 1;
+    if (lv.classId) running[lv.classId] = (running[lv.classId] || 0) + 1;
+    const classLvl = lv.classId ? running[lv.classId] : 0;
+    const uniqSlots = levelRootSlots(db, build, level);
+    const missing = uniqSlots.filter((s) => !lv.picks[s.id]).length;
+    return { idx, level, lv, classLvl, uniqSlots, missing };
+  });
+
+  const totalMissing = info.reduce((a, i) => a + i.missing, 0);
+  const fallback = info.find((i) => i.missing > 0)?.level || (firstEmpty < 0 ? 20 : firstEmpty + 1);
+  const cur = info[(sel ?? fallback) - 1] || info[info.length - 1];
+  const ctx = ctxs[cur.idx];
+  const archList = (cur.lv.classId && build.classArchetypes[cur.lv.classId]) || [];
+  const autoIds = cur.lv.classId ? featuresAtClassLevel(db, cur.lv.classId, cur.classLvl, archList) : [];
+  const cls = cur.lv.classId ? db.classes[cur.lv.classId] : null;
+
+  const rows = onlyUnfinished ? info.filter((i) => i.missing > 0) : info;
 
   return (
-    <div>
-      <Panel
-        title="⑥ 专长与逐级选择"
-        sub="每一级要选的东西都在这里：职业给的专长/能力、奇数级的通用专长，还有选择项本身又是选择表的（会继续往下展开）"
-        right={
-          <label className="cl-only">
-            <input type="checkbox" checked={onlyUnfinished} onChange={(e) => setOnlyUnfinished(e.target.checked)} />
-            只看没选完的
-          </label>
-        }
-      >
-        <div className="row wrap">
-          {Object.entries(derived.classLevels).map(([cid, n]) => (
-            <Chip key={cid}>{label(db.classes[cid])} {n} 级</Chip>
+    <ThreePane
+      left={
+        <ListPane
+          title={
+            <span className="row" style={{ gap: 8 }}>
+              逐级选择
+              <label className="cl-only small" style={{ fontSize: 12 }}>
+                <input
+                  type="checkbox"
+                  checked={onlyUnfinished}
+                  onChange={(e) => setOnlyUnfinished(e.target.checked)}
+                />
+                只看没选完的
+              </label>
+            </span>
+          }
+          foot={
+            <span>
+              未选 {totalMissing} 项　·　{Object.entries(derived.classLevels).length} 个职业
+            </span>
+          }
+        >
+          {rows.map((i) => (
+            <ListRow
+              key={i.level}
+              ico={i.lv.classId ? featureIcon(db, i.lv.classId) : null}
+              glyph={stepGlyph("class")}
+              name={`第 ${i.level} 级`}
+              sub={
+                i.lv.classId
+                  ? `${label(db.classes[i.lv.classId])}${i.classLvl > 1 ? ` 第 ${i.classLvl} 级` : ""}`
+                  : "未选职业"
+              }
+              num={i.uniqSlots.length > 0 ? `${i.uniqSlots.length - i.missing}/${i.uniqSlots.length}` : undefined}
+              badge={i.missing > 0 ? <span className="badge no">{i.missing} 项未选</span> : undefined}
+              sel={cur.level === i.level}
+              onClick={() => setSel(i.level)}
+            />
           ))}
-        </div>
-        <div className="muted small mt8">
-          没选完的槽位会标红；改掉上层选择后，下层已经不可达的旧选择会自动丢掉（不会偷偷留着生效）。
-        </div>
-      </Panel>
+        </ListPane>
+      }
+      center={
+        <>
+          <DetailHead
+            ico={cur.lv.classId ? featureIcon(db, cur.lv.classId) : null}
+            glyph={stepGlyph("class")}
+            title={`第 ${cur.level} 级${cls ? `　${label(cls)}` : ""}`}
+            en={cls ? `${cls.nameEn}${cur.classLvl > 1 ? `　第 ${cur.classLvl} 级` : ""}` : "还没选职业"}
+            big
+          />
 
-      <div className="lvlist">
-        {build.levels.map((lv, idx) => {
-          const level = idx + 1;
-          const ctx = ctxs[idx];
-          if (lv.classId) running[lv.classId] = (running[lv.classId] || 0) + 1;
-          const classLvl = lv.classId ? running[lv.classId] : 0;
-          const archList = build.classArchetypes[lv.classId || ""] || [];
-          const autoIds = lv.classId ? featuresAtClassLevel(db, lv.classId, classLvl, archList) : [];
-          const uniqSlots = levelRootSlots(db, build, level);
-          const missing = uniqSlots.filter((s) => !lv.picks[s.id]).length;
-          totalMissing += missing;
+          {ATTR_LEVELS.includes(cur.level) && (
+            <Sect title="属性提升 +1（4 / 8 / 12 / 16 / 20 级）">
+              <div className="row">
+                <SearchSelect
+                  value={cur.lv.ability || null}
+                  options={db.rules.attributes.map((a) => ({ id: a.id, label: a.name }))}
+                  onChange={(v) => act.setAbility(cur.idx, v as AttrId | null)}
+                  placeholder="未选"
+                  width={160}
+                />
+                {!cur.lv.ability && <Chip tone="no">这一级还没选要提升哪项属性</Chip>}
+              </div>
+            </Sect>
+          )}
 
-          if (onlyUnfinished && missing === 0) return null;
+          {cur.uniqSlots.length > 0 && (
+            <Sect title={`这一级要选（${cur.uniqSlots.length}）`}>
+              <div className="slots">
+                {cur.uniqSlots.map((s) => (
+                  <SlotChain
+                    key={s.id}
+                    db={db}
+                    root={s}
+                    picks={cur.lv.picks}
+                    verdict={(fid) => choiceVerdict(db, ctx, fid)}
+                    onChange={(slotId, v) => act.setPick(cur.idx, slotId, v)}
+                  />
+                ))}
+              </div>
+            </Sect>
+          )}
 
-          return (
-            <section className={"lvcard" + (lv.classId ? "" : " empty")} key={idx}>
-              <header className="lvhead">
-                <span className="lvnum">{level}</span>
-                <span className="lvcls">
-                  {lv.classId ? label(db.classes[lv.classId]) : "未选职业"}
-                  {lv.classId && classLvl > 0 ? ` 第 ${classLvl} 级` : ""}
-                </span>
-                {ATTR_LEVELS.includes(level) && (
-                  <span className="lvattr">
-                    属性 +1：
-                    <SearchSelect
-                      value={lv.ability || null}
-                      options={db.rules.attributes.map((a) => ({ id: a.id, label: a.name }))}
-                      onChange={(v) => act.setAbility(idx, v as AttrId | null)}
-                      placeholder="未选"
-                      width={120}
-                    />
-                  </span>
-                )}
-                <span className="spacer" />
-                {missing > 0 && <Chip tone="no">{missing} 项未选</Chip>}
-              </header>
+          {cur.uniqSlots.length === 0 && (
+            <div className="muted" style={{ marginTop: 8 }}>
+              这一级没有要做的选择{cls ? "" : "（先在「职业」步骤排这一级的职业）"}。
+            </div>
+          )}
 
-              {uniqSlots.length > 0 && (
-                <div className="slots">
-                  {uniqSlots.map((s) => (
-                    <SlotChain
-                      key={s.id}
-                      db={db}
-                      root={s}
-                      picks={lv.picks}
-                      verdict={(fid) => choiceVerdict(db, ctx, fid)}
-                      onChange={(slotId, v) => act.setPick(idx, slotId, v)}
-                    />
-                  ))}
-                </div>
-              )}
+          {Object.entries(cur.lv.picks).map(([sid, cid]) => {
+            const f = db.features[cid];
+            if (!f?.param) return null;
+            const variants = f.paramVariants || [];
+            if (!variants.length) return null;
+            return (
+              <Sect key={sid} title={`${label(f)} 的参数（${f.param}）`}>
+                <SearchSelect
+                  value={cur.lv.params[f.id] || null}
+                  options={mergeParamOptions(variants)}
+                  onChange={(v) => act.setParam(cur.idx, f.id, v)}
+                  placeholder="选择参数"
+                  width={260}
+                />
+              </Sect>
+            );
+          })}
 
-              {/* 参数化专长的参数（武器、法术学派、法术专攻…） */}
-              {Object.entries(lv.picks).map(([sid, cid]) => {
-                const f = db.features[cid];
-                if (!f?.param) return null;
-                const variants = f.paramVariants || [];
-                if (!variants.length) return null;
-                return (
-                  <div className="param" key={sid}>
-                    <span className="muted small">{label(f)} 的参数（{f.param}）：</span>
-                    <SearchSelect
-                      value={lv.params[f.id] || null}
-                      options={mergeParamOptions(variants)}
-                      onChange={(v) => act.setParam(idx, f.id, v)}
-                      placeholder="选择参数"
-                      width={220}
-                    />
-                  </div>
-                );
-              })}
+          {autoIds.length > 0 && (
+            <Collapse title={`本级自动获得（${autoIds.length}）`}>
+              <div className="autolist">
+                {autoIds.map((id) => {
+                  const f = db.features[id];
+                  return (
+                    <div className="auto-row" key={id} title={f?.desc || ""}>
+                      <span className="auto-name">{label(f)}</span>
+                      {f?.nameEn && <span className="pick-en">{f.nameEn}</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            </Collapse>
+          )}
 
-              {autoIds.length > 0 && (
-                <Collapse title={`本级自动获得（${autoIds.length}）`}>
-                  <div className="autolist">
-                    {autoIds.map((id) => {
-                      const f = db.features[id];
-                      return (
-                        <div className="auto-row" key={id} title={f?.desc || ""}>
-                          <span className="auto-name">{label(f)}</span>
-                          {f?.nameEn && <span className="pick-en">{f.nameEn}</span>}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </Collapse>
-              )}
-            </section>
-          );
-        })}
-      </div>
+          <div className="muted small mt8">
+            没选完的槽位会标红；改掉上层选择后，下层已经不可达的旧选择会自动丢掉（不会偷偷留着生效）。
+            职业给的专长/能力、奇数级的通用专长都在这里。
+          </div>
+        </>
+      }
+      right={
+        <>
+          <Sect title="进度">
+            <StatBox
+              cols={2}
+              items={[
+                { k: "已排等级", v: `${derived.level} / 20` },
+                { k: "未选项", v: totalMissing },
+                { k: "本级要选", v: cur.uniqSlots.length },
+                { k: "本级未选", v: cur.missing },
+              ]}
+            />
+          </Sect>
 
-      {totalMissing === 0 && <div className="muted small">全部槽位都填好了。</div>}
-    </div>
+          <Sect title="这一级的职业特性">
+            {autoIds.length === 0 ? (
+              <div className="muted small">—</div>
+            ) : (
+              <StatRows items={autoIds.map((id) => [label(db.features[id]), ""])} dense />
+            )}
+          </Sect>
+
+          <Sect title="已排职业">
+            <StatRows
+              items={Object.entries(derived.classLevels).map(([cid, n]) => [label(db.classes[cid]), `${n} 级`])}
+              dense
+            />
+          </Sect>
+        </>
+      }
+    />
   );
 }
 

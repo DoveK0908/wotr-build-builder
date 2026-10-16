@@ -1,114 +1,300 @@
 import React, { useMemo, useState } from "react";
-import type { Db } from "../types";
+import type { Db, SpellEntry } from "../types";
 import { act, useBuild } from "../store";
 import { derive, label } from "../rules";
-import { Chip, Meter, Panel } from "../ui";
-import { PickModal } from "../pick";
+import { Chip, Meter } from "../ui";
+import { DetailHead, ListPane, ListRow, Sect, StatBox, StatRows, ThreePane } from "../pane";
+import { featureIcon } from "../skin";
+
+const RANGE_CN: Record<string, string> = {
+  Personal: "自身",
+  Touch: "接触",
+  Close: "近距",
+  Medium: "中距",
+  Long: "远距",
+  Unlimited: "无限",
+  None: "—",
+};
+
+const ACTION_CN: Record<string, string> = {
+  Standard: "标准动作",
+  FullRound: "整轮动作",
+  Move: "移动动作",
+  Swift: "迅捷动作",
+  Immediate: "直觉动作",
+  Free: "自由动作",
+  FreeStep: "五尺快步",
+};
+
+const SAVE_CN: Record<string, string> = {
+  Fortitude: "强韧",
+  Reflex: "反射",
+  Will: "意志",
+  Unknown: "无",
+};
+
+const TYPE_CN: Record<string, string> = {
+  Spell: "法术",
+  Supernatural: "超自然能力",
+  Extraordinary: "特异能力",
+};
+
+const SCHOOL_CN: Record<string, string> = {
+  Abjuration: "防护",
+  Conjuration: "咒法",
+  Divination: "预言",
+  Enchantment: "附魔",
+  Evocation: "塑能",
+  Illusion: "幻术",
+  Necromancy: "死灵",
+  Transmutation: "变化",
+  Universal: "通用",
+};
+
+/** 游戏里那一行「1个敌方生物 近距」 */
+function targetText(sp?: SpellEntry | null): string {
+  if (!sp) return "—";
+  const t = sp.targets || {};
+  let what = "一个点";
+  if (t.self && !t.enemies && !t.friends && !t.point) what = "自身";
+  else if (t.self && t.point) what = "自身或一个点";
+  else if (t.enemies && !t.friends) what = "1个敌方生物";
+  else if (t.friends && !t.enemies) what = "1个友方生物";
+  else if (t.enemies && t.friends) what = "1个生物";
+  else if (t.point) what = "一个点";
+  if (sp.radius) {
+    const area = sp.areaTarget === "Ally" ? "盟友" : sp.areaTarget === "Enemy" ? "敌人" : "生物";
+    what = `半径 ${sp.radius} 英尺内的所有${area}`;
+  }
+  const rng = RANGE_CN[sp.range || ""] || sp.range || "";
+  return rng ? `${what}　${rng}` : what;
+}
 
 export function Spells(props: { db: Db }) {
   const { db } = props;
   const build = useBuild();
   const derived = useMemo(() => derive(db, build), [db, build]);
-  const [open, setOpen] = useState<{ classId: string; level: number } | null>(null);
+  const [clsIdx, setClsIdx] = useState(0);
+  const [lvl, setLvl] = useState(1);
+  const [hover, setHover] = useState<string | null>(null);
+  const [q, setQ] = useState("");
+  const [showAll, setShowAll] = useState(true);
 
   if (!derived.spells.length) {
     return (
-      <Panel title="法术">
-        <div className="muted">
-          当前构筑里还没有会施法的职业。先在「升级」里给某个等级选上法师/牧师之类的施法职业。
-        </div>
-      </Panel>
+      <ThreePane
+        left={<ListPane title="法术书"><div className="muted small" style={{ padding: 10 }}>没有施法职业</div></ListPane>}
+        center={
+          <div className="muted">
+            当前构筑里还没有会施法的职业。先在「职业」步骤给某个等级选上法师/牧师/先知之类的施法职业。
+          </div>
+        }
+        right={null}
+      />
     );
   }
 
+  const sp = derived.spells[Math.min(clsIdx, derived.spells.length - 1)];
+  const chosen = new Set(sp.chosen);
+  const maxLevel = sp.maxSpellLevel;
+  const activeLevel = Math.min(lvl, maxLevel);
+  const pool = sp.byLevel[activeLevel] || [];
   const bonus = bonusSpells(db, derived);
 
+  const list = useMemo(() => {
+    const kw = q.trim().toLowerCase();
+    const base = showAll ? pool : pool;
+    return kw ? base.filter((s) => (s.name + " " + (s.nameEn || "")).toLowerCase().includes(kw)) : base;
+  }, [pool, q, showAll]);
+
+  const focusId = hover && pool.some((s) => s.id === hover) ? hover : list[0]?.id || null;
+  const focus = focusId ? db.spells[focusId] : null;
+  const isChosen = !!focus && chosen.has(focus.id);
+
   return (
-    <div>
-      {derived.spells.map((sp) => {
-        const chosen = sp.chosen;
-        return (
-          <Panel
-            key={sp.classId}
-            title={`${sp.className} 的法术`}
-            sub={[
-              sp.castingAttr ? `施法属性 ${label(db.rules.attributes.find((a) => a.id === sp.castingAttr))}` : null,
-              sp.spontaneous ? "自发施法（有已知法术上限）" : "准备施法",
-              sp.allSpellsKnown ? "已知全部法术" : null,
-              `最高 ${sp.maxSpellLevel} 环`,
-            ].filter(Boolean).join(" · ")}
-            right={
-              chosen.length > 0
-                ? <button type="button" className="btn sm ghost" onClick={() => act.clearSpells(sp.classId)}>清空已选</button>
-                : null
-            }
-          >
-            <div className="spellgrid">
-              {Array.from({ length: sp.maxSpellLevel + 1 }, (_, l) => l).map((l) => {
-                const pool = sp.byLevel[l] || [];
-                const got = chosen.filter((id) => (db.spells[id]?.levels?.[sp.classId] ?? -1) === l);
-                const cap = sp.knownCount != null ? sp.knownCount : null;
-                const perDay = sp.spellsPerDay[l];
+    <ThreePane
+      left={
+        <ListPane
+          title={
+            <span>
+              {sp.className}　
+              <span className="muted small">{activeLevel === 0 ? "戏法" : `${activeLevel} 环`}</span>
+            </span>
+          }
+          search={q}
+          onSearch={setQ}
+          foot={
+            <span>
+              已选 {chosen.size} 个
+              {sp.knownCount != null ? ` / 上限 ${sp.knownCount}` : ""}
+            </span>
+          }
+        >
+          {list.map((s) => (
+            <ListRow
+              key={s.id}
+              ico={featureIcon(db, s.id)}
+              glyph={s.name.slice(0, 1)}
+              name={s.name}
+              sub={SCHOOL_CN[s.school || ""] || s.school || s.nameEn}
+              num={chosen.has(s.id) ? "●" : undefined}
+              sel={focusId === s.id}
+              onHover={() => setHover(s.id)}
+              onClick={() => setHover(s.id)}
+            />
+          ))}
+          {list.length === 0 && <div className="muted small" style={{ padding: 10 }}>这一环没有可选法术</div>}
+        </ListPane>
+      }
+      center={
+        !focus ? (
+          <div className="muted">左边选一个法术看法术详情。</div>
+        ) : (
+          <>
+            <DetailHead
+              ico={featureIcon(db, focus.id)}
+              glyph={focus.name.slice(0, 1)}
+              title={focus.name}
+              en={`${SCHOOL_CN[focus.school || ""] || focus.school || ""}　·　${
+                TYPE_CN[focus.type || ""] || focus.type || "法术"
+              }`}
+              big
+            />
+
+            <Sect title="法术详情">
+              <StatRows
+                items={[
+                  ["目标", targetText(focus)],
+                  ["施法时间", ACTION_CN[focus.action || ""] || focus.action || "—"],
+                  ["持续时间", focus.duration || "立即"],
+                  ["法术抗力", focus.sr ? "受法术抗力影响" : "不受法术抗力影响"],
+                  ["豁免检定", focus.saveText || (focus.save && focus.save !== "Unknown" ? `${SAVE_CN[focus.save] || focus.save}，免除效果` : "无")],
+                  ["组件", `${focus.material ? "言语、姿势、材料" : "言语、姿势"}`],
+                ]}
+              />
+            </Sect>
+
+            {focus.desc && (
+              <Sect title="说明">
+                <div className="desc-body">{focus.desc}</div>
+              </Sect>
+            )}
+
+            <div className="row" style={{ marginTop: 8 }}>
+              <button
+                type="button"
+                className={isChosen ? "btn sm ghost" : "btn sm"}
+                onClick={() => act.toggleSpell(sp.classId, focus.id)}
+              >
+                {isChosen ? "移出法术书" : "加入法术书"}
+              </button>
+              {isChosen && <Chip tone="ok">已在法术书里</Chip>}
+              {sp.knownCount != null && chosen.size >= sp.knownCount && !isChosen && (
+                <Chip tone="no">已达已知上限 {sp.knownCount}</Chip>
+              )}
+            </div>
+          </>
+        )
+      }
+      right={
+        <>
+          <Sect title={sp.className}>
+            <StatBox
+              cols={2}
+              items={[
+                {
+                  k: "施法属性",
+                  v: sp.castingAttr ? label(db.rules.attributes.find((a) => a.id === sp.castingAttr)) : "—",
+                },
+                { k: "施法类型", v: sp.spontaneous ? "自发施法" : "准备施法" },
+                { k: "最高环位", v: maxLevel },
+                { k: "已知", v: sp.allSpellsKnown ? "全部" : String(sp.knownCount ?? "—") },
+              ]}
+            />
+          </Sect>
+
+          <Sect title="各环已选">
+            <div className="row wrap">
+              {Array.from({ length: maxLevel + 1 }, (_, l) => l).map((l) => {
+                const got = sp.chosen.filter((id) => (db.spells[id]?.levels?.[sp.classId] ?? -1) === l);
+                const per = sp.spellsPerDay[l];
                 return (
-                  <div className="spellbox" key={l}>
-                    <div className="spellbox-head">
-                      <b>{l === 0 ? "戏法" : `${l} 环`}</b>
-                      <span className="muted small">
-                        {perDay != null ? `每日 ${perDay}` : ""}
-                        {cap != null && perDay != null ? " · " : ""}
-                        {cap != null ? `已知上限 ${cap}` : ""}
-                      </span>
-                    </div>
-                    <div className="spellbox-body">
-                      {got.length === 0 && <span className="muted small">（未选）</span>}
-                      {got.map((id) => (
-                        <span className="spell-chip" key={id} title={db.spells[id]?.desc || ""}>
-                          {label(db.spells[id])}
-                          <i className="x" onClick={() => act.toggleSpell(sp.classId, id)}>×</i>
-                        </span>
-                      ))}
-                    </div>
-                    {cap != null && <Meter used={got.length} total={cap} />}
-                    <button
-                      type="button"
-                      className="btn sm"
-                      disabled={pool.length === 0}
-                      onClick={() => setOpen({ classId: sp.classId, level: l })}
-                    >
-                      {pool.length === 0 ? "该环没有法术" : `挑法术（${pool.length}）`}
-                    </button>
-                  </div>
+                  <button
+                    key={l}
+                    type="button"
+                    className={"btn sm" + (l === activeLevel ? "" : " ghost")}
+                    title={per != null ? `每日 ${per} 个` : undefined}
+                    onClick={() => setLvl(l)}
+                  >
+                    {l === 0 ? "戏法" : `${l}环`} {got.length}
+                    {sp.knownCount != null ? `/${sp.knownCount}` : ""}
+                  </button>
                 );
               })}
             </div>
+            <div className="muted small" style={{ marginTop: 6 }}>
+              点环位切换左栏的法术列表；数字是「已选 / 上限」。
+            </div>
+          </Sect>
 
-            {bonus.length > 0 && (
-              <div className="mt8">
-                <div className="muted small">领域/血统/庇护主额外送的法术：</div>
-                <div className="row wrap">
-                  {bonus.map((b, i) => <Chip key={i} tone="ok">{b}</Chip>)}
-                </div>
-              </div>
+          <Sect title="已选法术">
+            {chosen.size === 0 ? (
+              <div className="muted small">还没选法术。</div>
+            ) : (
+              <StatRows
+                items={sp.chosen.map((id) => [
+                  db.spells[id]?.name || id,
+                  `${db.spells[id]?.levels?.[sp.classId] === 0 ? "戏法" : `${db.spells[id]?.levels?.[sp.classId]}环`}`,
+                ])}
+                dense
+              />
             )}
-          </Panel>
-        );
-      })}
+            {chosen.size > 0 && (
+              <button
+                type="button"
+                className="btn sm ghost"
+                style={{ marginTop: 6 }}
+                onClick={() => act.clearSpells(sp.classId)}
+              >
+                清空已选
+              </button>
+            )}
+          </Sect>
 
-      {open && (
-        <PickModal
-          db={db}
-          title={`${derived.spells.find((s) => s.classId === open.classId)?.className} ${open.level} 环`}
-          ids={(derived.spells.find((s) => s.classId === open.classId)?.byLevel[open.level] || []).map((s) => s.id)}
-          value={null}
-          verdict={() => "ok"}
-          multi
-          selected={new Set(build.spells[open.classId] || [])}
-          onToggle={(id) => act.toggleSpell(open!.classId, id)}
-          onPick={() => undefined}
-          onClose={() => setOpen(null)}
-        />
-      )}
-    </div>
+          {bonus.length > 0 && (
+            <Sect title="领域/血统额外赠送">
+              <div className="row wrap">
+                {bonus.map((b, i) => (
+                  <Chip key={i} tone="ok">
+                    {b}
+                  </Chip>
+                ))}
+              </div>
+            </Sect>
+          )}
+
+          {derived.spells.length > 1 && (
+            <Sect title="施法职业">
+              <div className="row wrap">
+                {derived.spells.map((s, i) => (
+                  <button
+                    key={s.classId}
+                    type="button"
+                    className={"btn sm" + (i === clsIdx ? "" : " ghost")}
+                    onClick={() => {
+                      setClsIdx(i);
+                      setLvl(1);
+                    }}
+                  >
+                    {s.className}
+                  </button>
+                ))}
+              </div>
+            </Sect>
+          )}
+        </>
+      }
+    />
   );
 }
 

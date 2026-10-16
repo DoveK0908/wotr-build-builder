@@ -1,19 +1,32 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import type { Db } from "../types";
 import { act, useBuild } from "../store";
 import {
-  alignAllows, alignNeedText, alignOverrideOf, alignTokensOf, classLevels, classSelectableAt, derive, label,
+  alignAllows, alignNeedText, alignOverrideOf, alignTokensOf, classLevels, classSelectableAt, derive,
+  featuresAtClassLevel, label,
 } from "../rules";
-import { Chip, Panel, SearchSelect } from "../ui";
+import { Chip } from "../ui";
+import { DetailHead, GrowthTable, IconGrid, ListPane, ListRow, Sect, StatBox, StatRows, ThreePane } from "../pane";
+import { featureIcon } from "../skin";
+
+function grade(v: number, hi: number, mid: number) {
+  return v >= hi ? "高" : v >= mid ? "中" : "低";
+}
 
 /** 第 ① 步：排 20 级要练哪些职业、要不要变体 */
 export function ClassPlan(props: { db: Db }) {
   const { db } = props;
   const build = useBuild();
   const derived = useMemo(() => derive(db, build), [db, build]);
+  const [q, setQ] = useState("");
+  const [levelState, setLevel] = useState<number | null>(null);
+
+  const firstEmpty = build.levels.findIndex((l) => !l.classId);
+  const level = levelState ?? (firstEmpty < 0 ? 20 : firstEmpty + 1); // 1 基
+  const lv = build.levels[level - 1];
 
   const classOpts = useMemo(() => {
-    return Object.values(db.classes)
+    const all = Object.values(db.classes)
       .filter((c) => !c.mythic)
       .sort((a, b) => (a.prestige === b.prestige ? a.name.localeCompare(b.name, "zh") : a.prestige ? 1 : -1))
       .map((c) => {
@@ -21,87 +34,137 @@ export function ClassPlan(props: { db: Db }) {
         const bad = !sel.ok;
         return {
           id: c.id,
-          label: c.name,
+          c,
+          bad,
           badge: (c.prestige ? "进阶" : "基础") + (bad ? " · 阵营不符" : ""),
           hint: bad
             ? `需要 ${sel.reason}`
             : sel.viaArchetype
               ? `需要 ${alignNeedText(db, alignTokensOf(c.prereq))}，或选「${sel.viaArchetype}」则改为它的阵营要求`
               : `HD ${c.hitDie} · 技能点 ${c.skillPoints}${c.spellbookId ? " · 施法" : ""}`,
-          disabled: bad,
         };
       });
-  }, [db, build.alignment]);
+    const kw = q.trim().toLowerCase();
+    return kw ? all.filter((o) => (o.c.name + " " + (o.c.nameEn || "")).toLowerCase().includes(kw)) : all;
+  }, [db, build.alignment, q]);
 
   const used = classLevels(build);
   const running: Record<string, number> = {};
+  for (let i = 0; i < level - 1; i += 1) {
+    const cid = build.levels[i].classId;
+    if (cid) running[cid] = (running[cid] || 0) + 1;
+  }
+
+  const cls = lv?.classId ? db.classes[lv.classId] : null;
+  const archList = (lv?.classId && build.classArchetypes[lv.classId]) || [];
+  const classLvl = lv?.classId ? (running[lv.classId] || 0) + 1 : 0;
+  const archChoices = (cls?.archetypes || []).map((id) => db.archetypes[id]).filter(Boolean);
+  const override = lv?.classId ? alignOverrideOf(db, lv.classId, archList) : null;
+  const got = cls && lv?.classId ? featuresAtClassLevel(db, lv.classId, classLvl, archList) : [];
+
+  const pickClass = (cid: string) => {
+    act.setClass(level - 1, cid);
+    if (level < 20) setLevel(level + 1);
+  };
+
+  const saveGrade = (arr?: number[]) => (arr && arr.length > 19 ? (arr[19] >= 12 ? "高" : "低") : "—");
+  const skillNames = (ids?: string[]) =>
+    (ids || []).map((k) => db.rules.skills.find((s) => s.id === k)?.name || k);
 
   return (
-    <div>
-      <Panel
-        title="① 职业与变体"
-        sub={`先排 20 级要练哪些职业；变体在某个职业的第一级上选，会替换该职业的部分特性。已排 ${derived.level} / 20 级`}
-      >
-        <div className="row wrap">
-          <label className="cl-only">
-            构筑名
-            <input
-              className="text"
-              value={build.name}
-              placeholder="例如：主坦席拉"
-              onChange={(e) => act.setName(e.target.value)}
+    <ThreePane
+      left={
+        <ListPane
+          title={`第 ${level} 级选择职业`}
+          search={q}
+          onSearch={setQ}
+          foot={<span>已排 {derived.level} / 20 级　·　点职业会排到第 {level} 级并自动跳下一级</span>}
+        >
+          {classOpts.map((o) => (
+            <ListRow
+              key={o.id}
+              ico={featureIcon(db, o.id)}
+              glyph={o.c.name.slice(0, 1)}
+              name={o.c.name}
+              sub={o.bad ? o.hint : `${o.c.prestige ? "进阶" : "基础"} · HD ${o.c.hitDie}`}
+              badge={o.bad ? <span className="badge no">阵营不符</span> : undefined}
+              dis={o.bad}
+              sel={lv?.classId === o.id}
+              title={o.hint}
+              onClick={() => !o.bad && pickClass(o.id)}
             />
-          </label>
-        </div>
-        <div className="row wrap mt8">
-          {Object.entries(used).map(([cid, n]) => (
-            <Chip key={cid}>{label(db.classes[cid])} {n} 级</Chip>
           ))}
-          {derived.level === 0 && <span className="muted small">还没排职业</span>}
-        </div>
-        <div className="row wrap mt8">
-          <span className="kv">BAB <b>{derived.bab}</b></span>
-          <span className="kv">强韧 <b>{derived.fort}</b></span>
-          <span className="kv">反射 <b>{derived.ref}</b></span>
-          <span className="kv">意志 <b>{derived.will}</b></span>
-          <span className="kv">生命 <b>{derived.hp}</b></span>
-          <span className="kv">技能点 <b>{derived.skillPointsTotal}</b></span>
-        </div>
-      </Panel>
+        </ListPane>
+      }
+      center={
+        <>
+          <div className="row wrap">
+            <label className="cl-only">
+              构筑名
+              <input
+                className="text"
+                value={build.name}
+                placeholder="例如：主坦席拉"
+                onChange={(e) => act.setName(e.target.value)}
+              />
+            </label>
+            {lv?.classId && (
+              <button
+                type="button"
+                className="btn sm ghost"
+                onClick={() => {
+                  act.setClass(level - 1, null);
+                  setLevel(level);
+                }}
+              >
+                清空第 {level} 级
+              </button>
+            )}
+          </div>
 
-      <div className="lvlist">
-        {build.levels.map((lv, idx) => {
-          const level = idx + 1;
-          if (lv.classId) running[lv.classId] = (running[lv.classId] || 0) + 1;
-          const classLvl = lv.classId ? running[lv.classId] : 0;
-          const cls = lv.classId ? db.classes[lv.classId] : null;
-          const overMax = !!cls && classLvl > cls.maxLevel;
-          const archList = build.classArchetypes[lv.classId || ""] || [];
-          const firstOfClass = classLvl === 1 && lv.classId;
-          const archChoices = (cls?.archetypes || []).map((id) => db.archetypes[id]).filter(Boolean);
-          const archOverride = lv.classId ? alignOverrideOf(db, lv.classId, archList) : null;
+          <GrowthTable db={db} build={build} sel={level} onSel={(l) => setLevel(l)} />
 
-          return (
-            <section className={"lvcard" + (lv.classId ? "" : " empty")} key={idx}>
-              <header className="lvhead">
-                <span className="lvnum">{level}</span>
-                <SearchSelect
-                  value={lv.classId}
-                  options={classOpts}
-                  onChange={(v) => act.setClass(idx, v)}
-                  placeholder="选择职业"
-                  width={260}
-                />
-                {lv.classId && (
-                  <span className="muted small">该职业第 {classLvl} 级{cls ? ` · ${cls.hitDie}` : ""}</span>
+          {!cls ? (
+            <div className="muted" style={{ marginTop: 10 }}>
+              第 {level} 级还没排职业 —— 在左边点一个职业即可（点成长表上的等级号可以跳到那一级）。
+            </div>
+          ) : (
+            <>
+              <DetailHead
+                ico={featureIcon(db, lv!.classId!)}
+                glyph={cls.name.slice(0, 1)}
+                title={`${cls.name}　第 ${classLvl} 级`}
+                en={cls.nameEn}
+                big
+              />
+              {archList.length > 0 && (
+                <div className="row wrap">
+                  {archList.map((a) => (
+                    <Chip key={a} tone="ok">
+                      {db.archetypes[a]?.name || a}
+                    </Chip>
+                  ))}
+                </div>
+              )}
+
+              <Sect title={`第 ${classLvl} 级获得（${got.length}）`}>
+                {got.length === 0 ? (
+                  <div className="muted small">这一级没有新特性（法术/专长在其它步骤里选）。</div>
+                ) : (
+                  <IconGrid
+                    cols={3}
+                    items={got.map((id) => ({
+                      id,
+                      name: label(db.features[id]),
+                      ico: featureIcon(db, id),
+                      title: db.features[id]?.desc,
+                    }))}
+                  />
                 )}
-                {overMax && <Chip tone="no">超过该职业最高等级 {cls?.maxLevel}</Chip>}
-                <span className="spacer" />
-              </header>
+              </Sect>
 
-              {firstOfClass && archChoices.length > 0 && (
-                <div className="arch">
-                  <span className="muted small">变体（一个职业只能选一个，会替换职业特性）：</span>
+              {classLvl === 1 && archChoices.length > 0 && (
+                <Sect title="变体（一个职业只能选一个，会替换职业特性）">
                   <div className="row wrap">
                     {archChoices.map((a) => {
                       const on = archList.includes(a.id);
@@ -111,20 +174,26 @@ export function ClassPlan(props: { db: Db }) {
                         <Chip
                           key={a.id}
                           tone={on ? "ok" : bad ? "no" : undefined}
-                          title={bad
-                            ? `需要 ${alignNeedText(db, toks)}`
-                            : a.desc ? a.desc.slice(0, 200) : a.nameEn}
+                          title={
+                            bad
+                              ? `需要 ${alignNeedText(db, toks)}`
+                              : a.desc
+                                ? a.desc.slice(0, 200)
+                                : a.nameEn
+                          }
                           onClick={() => {
                             if (bad && !on) return;
-                            act.toggleArchetype(lv.classId as string, a.id);
+                            act.toggleArchetype(lv!.classId as string, a.id);
                           }}
                         >
-                          {on ? "● " : ""}{a.name}{bad ? "（阵营不符）" : ""}
+                          {on ? "● " : ""}
+                          {a.name}
+                          {bad ? "（阵营不符）" : ""}
                         </Chip>
                       );
                     })}
                     {archList.length > 0 && (
-                      <Chip tone="any" onClick={() => act.clearArchetype(lv.classId as string)}>
+                      <Chip tone="any" onClick={() => act.clearArchetype(lv!.classId as string)}>
                         不用变体
                       </Chip>
                     )}
@@ -132,18 +201,76 @@ export function ClassPlan(props: { db: Db }) {
                   <div className="muted small" style={{ marginTop: 4 }}>
                     原作里一个职业同时只能有一个变体（游戏本体如此，同时叠两个要靠 MOD）。
                   </div>
-                  {archOverride && (
+                  {override && (
                     <div className="muted small" style={{ marginTop: 4 }}>
-                      「{archOverride.archName}」自带阵营要求（{alignNeedText(db, archOverride.tokens)}），
-                      选中后取代本职业的「{alignNeedText(db, archOverride.classTokens)}」——两条互斥，游戏里也只取变体那条。
+                      「{override.archName}」自带阵营要求（{alignNeedText(db, override.tokens)}），选中后取代本职业的「
+                      {alignNeedText(db, override.classTokens)}」——两条互斥，游戏里也只取变体那条。
                     </div>
                   )}
+                </Sect>
+              )}
+
+              <Sect title="职业说明">
+                <div className="desc-body">{cls.short || cls.desc}</div>
+              </Sect>
+            </>
+          )}
+        </>
+      }
+      right={
+        <>
+          {cls && (
+            <Sect title={`${cls.name} 数值`}>
+              <StatBox
+                cols={3}
+                items={[
+                  { k: "强韧", v: saveGrade(cls.fort) },
+                  { k: "反射", v: saveGrade(cls.ref) },
+                  { k: "意志", v: saveGrade(cls.will) },
+                  { k: "基础攻击加值", v: grade(cls.bab?.[19] ?? 0, 20, 15) },
+                  { k: "每级生命值", v: cls.hitDie },
+                  { k: "技能点", v: cls.skillPoints },
+                  { k: "起始金币", v: cls.startingGold },
+                  { k: "类型", v: cls.prestige ? "进阶" : "基础" },
+                  { k: "施法", v: cls.spellbookId ? db.spellbooks[cls.spellbookId]?.name || "有" : "—" },
+                ]}
+              />
+              {cls.classSkills && cls.classSkills.length > 0 && (
+                <div className="kskills">
+                  {skillNames(cls.classSkills).map((n) => (
+                    <span key={n} className="kskill">
+                      {n}
+                    </span>
+                  ))}
                 </div>
               )}
-            </section>
-          );
-        })}
-      </div>
-    </div>
+            </Sect>
+          )}
+
+          <Sect title="累计">
+            <StatRows
+              items={[
+                ["等级", `${derived.level} / 20`],
+                ["BAB", derived.bab],
+                ["强韧 / 反射 / 意志", `${derived.fort} / ${derived.ref} / ${derived.will}`],
+                ["生命值", derived.hp],
+                ["技能点", derived.skillPointsTotal],
+              ]}
+              dense
+            />
+          </Sect>
+
+          <Sect title="已排职业">
+            <StatRows
+              items={Object.entries(used).map(([cid, n]) => [
+                label(db.classes[cid]),
+                `${n} 级`,
+              ])}
+              dense
+            />
+          </Sect>
+        </>
+      }
+    />
   );
 }

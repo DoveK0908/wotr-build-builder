@@ -134,11 +134,35 @@ export interface SpellEntry {
   nameEn: string;
   path?: string;
   desc?: string;
+  short?: string;
   range?: string;
+  /** Spell / Supernatural / Extraordinary */
+  type?: string;
+  /** Abjuration / Evocation / …（SpellComponent.School） */
+  school?: string;
+  /** Standard / FullRound / Swift … */
+  action?: string;
+  /** 已本地化的持续时间（LocalizedDuration） */
+  duration?: string;
+  /** 已本地化的豁免检定文本（LocalizedSavingThrow） */
+  saveText?: string;
+  /** Fortitude / Reflex / Will / Unknown */
+  save?: string;
+  /** 受法术抗力影响 */
+  sr?: boolean;
+  fullRound?: boolean;
+  material?: boolean;
+  /** 能打谁 */
+  targets?: { enemies?: boolean; friends?: boolean; self?: boolean; point?: boolean };
+  /** 范围半径（英尺） */
+  radius?: number;
+  areaTarget?: string;
+  descriptor?: number;
   components?: number;
   levels?: Record<string, number>;
   mythicLevels?: Record<string, number>;
   listLevel?: number;
+  icon?: string;
 }
 
 export interface SpellListEntry {

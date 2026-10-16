@@ -1,9 +1,11 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import type { Db } from "../types";
 import { act, useBuild } from "../store";
 import { choiceVerdict, derive, expandFeature, featuresAtClassLevel, label, levelCtxList } from "../rules";
-import { Chip, Panel } from "../ui";
+import { Chip } from "../ui";
 import { SlotChain } from "../pick";
+import { DetailHead, ListPane, ListRow, Sect, StatBox, StatRows, ThreePane } from "../pane";
+import { featureIcon } from "../skin";
 
 /**
  * 动态子步骤（游戏里选定职业后顶部多出来的那些牌匾）：
@@ -17,6 +19,7 @@ export function ClassFeature(props: { db: Db; slotId: string; classId: string })
   const ctxs = useMemo(() => levelCtxList(db, build, derived), [db, build, derived]);
   const slot = db.features[slotId];
   const cls = db.classes[classId];
+  const [sel, setSel] = useState<number | null>(null);
 
   // 这个职业在哪些等级会发放这个槽位
   const rows = useMemo(() => {
@@ -36,51 +39,110 @@ export function ClassFeature(props: { db: Db; slotId: string; classId: string })
 
   if (!slot || !cls) return <div className="muted">找不到这个槽位。</div>;
 
-  const chosen = rows.map((r) => build.levels[r.idx].picks[slotId]).filter(Boolean);
+  const chosenOf = (idx: number) => build.levels[idx].picks[slotId];
+  const chosen = rows.map((r) => chosenOf(r.idx)).filter(Boolean);
+  const firstEmpty = rows.find((r) => !chosenOf(r.idx));
+  const cur = rows.find((r) => r.level === (sel ?? firstEmpty?.level)) || rows[0];
+  const options = slot.choices || [];
 
   return (
-    <div>
-      <Panel
-        title={label(slot)}
-        sub={slot.desc || `${label(cls)} 的职业选择`}
-        right={<Chip tone={chosen.length === rows.length && rows.length ? "ok" : undefined}>
-          {chosen.length} / {rows.length}
-        </Chip>}
-      >
-        <div className="muted small">
-          属于「{label(cls)}」· 可选 {slot.choices?.length || 0} 项
-          {slot.ignorePrereq ? " · 这个槽位游戏里不检查前置条件" : ""}
-        </div>
-      </Panel>
-
-      <div className="lvlist">
-        {rows.map((r) => (
-          <section className="lvcard" key={r.idx}>
-            <header className="lvhead">
-              <span className="lvnum">{r.level}</span>
-              <span className="lvcls">
-                {label(cls)} 第 {r.classLevel} 级
-              </span>
-              <span className="spacer" />
-              {!build.levels[r.idx].picks[slotId] && <Chip tone="no">未选</Chip>}
-            </header>
-            <div className="slots">
-              <SlotChain
-                db={db}
-                root={slot}
-                picks={build.levels[r.idx].picks}
-                verdict={(fid) => choiceVerdict(db, ctxs[r.idx], fid)}
-                onChange={(sid, v) => act.setPick(r.idx, sid, v)}
+    <ThreePane
+      left={
+        <ListPane
+          title={label(slot)}
+          foot={<span>「{label(cls)}」· 共 {rows.length} 次选择</span>}
+        >
+          {rows.map((r) => {
+            const v = chosenOf(r.idx);
+            return (
+              <ListRow
+                key={r.idx}
+                ico={v ? featureIcon(db, v) : null}
+                glyph={label(slot).slice(0, 1)}
+                name={`第 ${r.level} 级`}
+                sub={v ? label(db.features[v]) : `${label(cls)} 第 ${r.classLevel} 级`}
+                badge={!v ? <span className="badge no">未选</span> : undefined}
+                mark={!!v}
+                sel={cur && cur.idx === r.idx}
+                onClick={() => setSel(r.level)}
               />
+            );
+          })}
+          {!rows.length && <div className="muted small" style={{ padding: 10 }}>还没排到发放这个选择的等级。</div>}
+        </ListPane>
+      }
+      center={
+        <>
+          <DetailHead
+            ico={cur && chosenOf(cur.idx) ? featureIcon(db, chosenOf(cur.idx)!) : null}
+            glyph={label(slot).slice(0, 1)}
+            title={label(slot)}
+            en={slot.nameEn}
+            sub={cur ? `${label(cls)} 第 ${cur.classLevel} 级 · 总第 ${cur.level} 级` : undefined}
+            big
+          />
+
+          {slot.desc && <div className="desc-body">{slot.desc}</div>}
+
+          {cur ? (
+            <Sect title={`第 ${cur.level} 级要选（${options.length} 选 1${slot.ignorePrereq ? "，不检查前置" : ""}）`}>
+              <div className="slots">
+                <SlotChain
+                  db={db}
+                  root={slot}
+                  picks={build.levels[cur.idx].picks}
+                  verdict={(fid) => choiceVerdict(db, ctxs[cur.idx], fid)}
+                  onChange={(sid, v) => act.setPick(cur.idx, sid, v)}
+                />
+              </div>
+            </Sect>
+          ) : (
+            <div className="muted small mt8">
+              这个职业还没排到发放「{label(slot)}」的等级 —— 先在「职业」步骤里给这个职业多排几级。
             </div>
-          </section>
-        ))}
-        {!rows.length && (
-          <div className="muted small">
-            这个职业还没排到发放「{label(slot)}」的等级。
+          )}
+
+          <div className="muted small mt8">
+            这类选择是<b>职业自己的选择线</b>（游戏里选完职业后顶部会多出对应的牌匾）。选择里面还可以再套选择，
+            点开槽位就能一层层选下去。
           </div>
-        )}
-      </div>
-    </div>
+        </>
+      }
+      right={
+        <>
+          <Sect title="这个选择">
+            <StatBox
+              cols={2}
+              items={[
+                { k: "属于职业", v: label(cls) },
+                { k: "可选", v: `${options.length} 项` },
+                { k: "要选次数", v: rows.length },
+                { k: "已选", v: chosen.length },
+              ]}
+            />
+            {slot.ignorePrereq && <div style={{ marginTop: 6 }}><Chip>游戏里不检查前置条件</Chip></div>}
+          </Sect>
+
+          <Sect title="逐次填写情况">
+            <StatRows
+              dense
+              items={rows.map((r) => {
+                const v = chosenOf(r.idx);
+                return [
+                  `${label(cls)} ${r.classLevel} 级（总 ${r.level}）`,
+                  v ? label(db.features[v]) : <span key="v" className="muted">未选</span>,
+                ];
+              })}
+            />
+          </Sect>
+
+          {slot.groups?.length ? (
+            <Sect title="分组">
+              <div className="muted small">{slot.groups.join("、")}</div>
+            </Sect>
+          ) : null}
+        </>
+      }
+    />
   );
 }

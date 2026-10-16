@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import type { Db } from "./types";
 import { loadDb } from "./load";
-import { act, deserialize, useBuild } from "./store";
+import { act, deserialize, shareUrl, useBuild } from "./store";
 import { attrMod, derive } from "./rules";
 import {
   STEPS, allSteps, normalizeStep, stepFilled, stepGlyph, stepNote, stepValue, stepWarn,
@@ -27,6 +27,7 @@ export function App() {
   const [err, setErr] = useState("");
   const [pct, setPct] = useState(0);
   const [presetsOpen, setPresetsOpen] = useState(() => /[#&]presets=1/.test(location.hash));
+  const [doneMsg, setDoneMsg] = useState("");
   const [step, setStep] = useState(() => {
     const m = /[#&]tab=([A-Za-z0-9:_-]+)/.exec(location.hash);
     return normalizeStep(m ? m[1] : null);
@@ -86,6 +87,15 @@ export function App() {
   const notes = steps.map((s) => ({ id: s.id, note: stepNote(db, build, derived, s.id) }));
   const curNote = notes[idx]?.note || "";
   const go = (i: number) => setStep(steps[Math.min(steps.length - 1, Math.max(0, i))].id);
+  /** 最后一步的「完成」：把分享链接放进剪贴板（游戏里这一步是收尾页） */
+  const last = idx >= steps.length - 1;
+  const finish = () => {
+    const url = shareUrl(build);
+    navigator.clipboard?.writeText(url).then(
+      () => setDoneMsg("构筑完成：分享链接已复制到剪贴板"),
+      () => setDoneMsg("构筑完成（分享链接：" + url + "）"),
+    );
+  };
   const attr = db.rules.attributes;
   /** 牌匾上的小图标：动态步骤用该槽位自己的内容图标，固定步骤用游戏自带的界面图标 */
   const pngOf = (s: Step): string | null =>
@@ -213,7 +223,7 @@ export function App() {
                   {step === "deity" && <Deity db={db} />}
                   {step === "align" && <Align db={db} />}
                   {step === "mythic" && <Mythic db={db} />}
-                  {step === "summary" && <Summary db={db} build={build} derived={derived} />}
+                  {step === "summary" && <Summary db={db} />}
                 </>
               )}
             </main>
@@ -234,10 +244,10 @@ export function App() {
               <button
                 className="fbtn wide"
                 type="button"
-                disabled={idx >= steps.length - 1}
-                onClick={() => go(idx + 1)}
+                disabled={!last && idx >= steps.length - 1}
+                onClick={last ? finish : () => go(idx + 1)}
               >
-                下一项
+                {last ? "完成" : "下一项"}
               </button>
               <button className="fbtn" type="button" disabled={idx >= steps.length - 1} onClick={() => go(idx + 1)}>
                 ›
@@ -246,16 +256,22 @@ export function App() {
                 »
               </button>
               <span className="foot-note muted small">
-                {derived.unfinished.length > 0 ? `还有 ${derived.unfinished.length} 项待处理` : "没有待处理项"}
+                {doneMsg
+                  ? doneMsg
+                  : derived.unfinished.length > 0
+                    ? `还有 ${derived.unfinished.length} 项待处理`
+                    : "没有待处理项"}
               </span>
             </div>
-            <button
-              className="fbtn right"
-              type="button"
-              onClick={() => setStep(cur.id === "class" ? "summary" : cur.id === "spells" ? "spells" : "class")}
-            >
-              {cur.id === "class" ? "总结" : cur.id === "spells" ? "法术书" : "职业成长"}
-            </button>
+            {!last && (
+              <button
+                className="fbtn right"
+                type="button"
+                onClick={() => setStep(cur.id === "class" ? "summary" : cur.id === "spells" ? "spells" : "class")}
+              >
+                {cur.id === "class" ? "总结" : cur.id === "spells" ? "法术书" : "职业成长"}
+              </button>
+            )}
           </div>
         </div>
       </div>

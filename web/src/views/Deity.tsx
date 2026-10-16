@@ -1,74 +1,135 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import type { Db } from "../types";
 import { act, useBuild } from "../store";
-import { alignAllows, alignConflicts, alignNeedText, alignTokensOf, label } from "../rules";
-import { Chip, Desc, Field, Panel, SearchSelect } from "../ui";
+import { alignAllows, alignConflicts, alignNeedText, alignTokensOf, childFeatures, label } from "../rules";
+import { Chip, Desc } from "../ui";
+import { DetailHead, IconGrid, ListPane, ListRow, Sect, StatRows, ThreePane } from "../pane";
+import { featureIcon } from "../skin";
 
 /** 第 ⑧ 步：神祇（会限制阵营，牧师/战斗祭司等还需要它才能开领域） */
 export function Deity(props: { db: Db }) {
   const { db } = props;
   const build = useBuild();
+  const [q, setQ] = useState("");
+  const [hover, setHover] = useState<string | null>(null);
   const rules = db.rules;
 
   const deitySlot = rules.deitySelection ? db.features[rules.deitySelection] : null;
 
-  const deityOpts = useMemo(() => {
-    return (deitySlot?.choices || []).map((id) => {
+  const opts = useMemo(() => {
+    const all = (deitySlot?.choices || []).map((id) => {
       const f = db.features[id];
       const toks = alignTokensOf(f?.prereq);
-      const bad = !alignAllows(build.alignment, toks);
-      return {
-        id,
-        label: label(f),
-        hint: bad ? `需要 ${alignNeedText(db, toks)}` : f?.nameEn,
-        disabled: bad,
-        badge: bad ? "阵营不符" : undefined,
-      };
+      const need = toks.length > 0 ? alignNeedText(db, toks) : null;
+      const bad = toks.length > 0 && !alignAllows(build.alignment, toks);
+      return { id, f, need, bad };
     });
-  }, [db, deitySlot, build.alignment]);
+    const kw = q.trim().toLowerCase();
+    return kw ? all.filter((o) => (label(o.f) + " " + (o.f?.nameEn || "")).toLowerCase().includes(kw)) : all;
+  }, [db, deitySlot, build.alignment, q]);
 
-  const chosen = build.deity ? db.features[build.deity] : null;
   const conflicts = useMemo(() => alignConflicts(db, build), [db, build]);
+  const focusId = hover || build.deity || opts[0]?.id || null;
+  const focus = focusId ? db.features[focusId] : null;
+  const focusChildren = focus ? childFeatures(db, focus) : [];
+  const focusToks = focus ? alignTokensOf(focus.prereq) : [];
 
   return (
-    <Panel
-      title="⑧ 神祇"
-      sub={`共 ${(deitySlot?.choices || []).length} 个可选信仰；每个神祇都限定阵营，神祇还会决定你开得出哪些领域`}
-    >
-      <Field label="信仰">
-        <SearchSelect
-          value={build.deity}
-          options={deityOpts}
-          onChange={(v) => act.setDeity(v)}
-          placeholder="选择信仰"
-          width={260}
-        />
-      </Field>
-
-      {chosen && (
-        <div className="mt8">
-          <div className="row wrap">
-            <Chip>{label(chosen)}</Chip>
-            {alignTokensOf(chosen.prereq).length > 0 && (
-              <Chip>只接受 {alignNeedText(db, alignTokensOf(chosen.prereq))}</Chip>
-            )}
-          </div>
-          <Desc text={chosen.desc} limit={700} />
-        </div>
-      )}
-
-      {build.deity && conflicts.some((c) => c.includes("神祇")) && (
-        <div className="row wrap mt8">
-          {conflicts.filter((c) => c.includes("神祇")).map((c) => (
-            <Chip key={c} tone="no">{c}</Chip>
+    <ThreePane
+      left={
+        <ListPane
+          title={`选择信仰（${(deitySlot?.choices || []).length}）`}
+          search={q}
+          onSearch={setQ}
+          foot={<span>共 {(deitySlot?.choices || []).length} 个可选信仰</span>}
+        >
+          {opts.map((o) => (
+            <ListRow
+              key={o.id}
+              ico={featureIcon(db, o.id)}
+              glyph={label(o.f).slice(0, 1)}
+              name={label(o.f)}
+              sub={o.need ? `需要 ${o.need}` : o.f?.nameEn}
+              badge={o.bad ? <span className="badge no">阵营不符</span> : undefined}
+              dis={o.bad}
+              sel={build.deity === o.id}
+              title={o.bad ? `需要 ${o.need}` : o.f?.nameEn}
+              onHover={() => setHover(o.id)}
+              onClick={() => !o.bad && act.setDeity(build.deity === o.id ? null : o.id)}
+            />
           ))}
-        </div>
-      )}
+          {opts.length === 0 && <div className="muted small" style={{ padding: "8px 10px" }}>没有匹配项</div>}
+        </ListPane>
+      }
+      center={
+        !focus ? (
+          <div className="muted">在左边选一个信仰。</div>
+        ) : (
+          <>
+            <DetailHead
+              ico={featureIcon(db, focus.id)}
+              glyph={label(focus).slice(0, 1)}
+              title={label(focus)}
+              en={focus.nameEn}
+              big
+            />
+            <div className="row wrap">
+              {focusToks.length > 0 ? (
+                <Chip tone="no">只接受 {alignNeedText(db, focusToks)}</Chip>
+              ) : (
+                <Chip tone="ok">不限阵营</Chip>
+              )}
+              {build.deity === focus.id && <Chip tone="ok">当前信仰</Chip>}
+            </div>
+            <Desc text={focus.desc} limit={900} />
 
-      <div className="muted small mt8">
-        游戏里神祇选定后不能更改，这里刻意允许随时改，方便对比不同信仰的构筑；
-        改动后职业、变体、阵营与领域的限制会立刻按新信仰重判。
-      </div>
-    </Panel>
+            {focusChildren.length > 0 && (
+              <Sect title={`相关（${focusChildren.length}）`}>
+                <IconGrid
+                  cols={2}
+                  items={focusChildren.map((c) => ({
+                    id: c.id,
+                    name: label(c),
+                    ico: featureIcon(db, c.id),
+                    title: c.desc,
+                  }))}
+                />
+              </Sect>
+            )}
+
+            <div className="muted small mt8">
+              游戏里神祇选定后不能更改，这里刻意允许随时改，方便对比不同信仰的构筑；
+              改动后职业、变体、阵营与领域的限制会立刻按新信仰重判。
+            </div>
+          </>
+        )
+      }
+      right={
+        <>
+          <Sect title="当前信仰">
+            <StatRows
+              items={[
+                ["神祇", build.deity ? label(db.features[build.deity]) : "—（无信仰）"],
+                ["阵营要求", focus && focusToks.length > 0 ? alignNeedText(db, focusToks) : "不限"],
+                ["当前阵营", rules.alignments.find((a) => a.id === build.alignment)?.name || "—"],
+              ]}
+              dense
+            />
+          </Sect>
+
+          {conflicts.length > 0 && (
+            <Sect title="冲突">
+              <div className="row wrap">
+                {conflicts.map((c) => (
+                  <Chip key={c} tone="no">
+                    {c}
+                  </Chip>
+                ))}
+              </div>
+            </Sect>
+          )}
+        </>
+      }
+    />
   );
 }

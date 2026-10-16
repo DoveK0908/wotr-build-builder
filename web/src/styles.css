@@ -590,3 +590,230 @@ input.text:focus, textarea.text:focus, .cl-search:focus { border-color: var(--ac
 }
 [data-skin="game"] .fbtn.right:hover { background-image: url("/assets/ui/UI_BoxButton_Hover.png"); color: #fff6dd; }
 [data-skin="game"] .foot-note { color: #736653; }
+
+/* ────────────────────────────────────────────────────────────────────────────
+   三栏骨架（照游戏：左列表 / 中详情 / 右预览）—— 见 docs/game-ui-spec.md
+   ──────────────────────────────────────────────────────────────────────────── */
+.tp {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr) 280px;
+  gap: 14px;
+  align-items: start;
+}
+.tp.noright { grid-template-columns: 300px minmax(0, 1fr); }
+.tp.noleft { grid-template-columns: minmax(0, 1fr) 280px; }
+.tp.noleft.noright { grid-template-columns: minmax(0, 1fr); }
+@media (max-width: 1250px) {
+  .tp, .tp.noright, .tp.noleft { grid-template-columns: 260px minmax(0, 1fr); }
+  .tp-right { grid-column: 1 / -1; }
+}
+@media (max-width: 880px) {
+  .tp, .tp.noright, .tp.noleft, .tp.noleft.noright { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* 左列表栏 */
+.lp { border: 1px solid var(--line); border-radius: 10px; background: var(--panel); overflow: hidden; }
+.lp-title { padding: 8px 10px; font-weight: 600; color: var(--gold2); border-bottom: 1px solid var(--line); }
+.lp-search { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+.lp-input { flex: 1 1 auto; min-width: 0; background: var(--bg2); color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font: inherit; }
+.lp-lens { width: 16px; height: 16px; opacity: .75; }
+.lp-list { max-height: 64vh; overflow: auto; padding: 3px 0; }
+.lp-foot { padding: 6px 10px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+
+/* 列表行 */
+.lrow { display: flex; align-items: center; gap: 8px; padding: 4px 8px; cursor: pointer; border-left: 3px solid transparent; }
+.lrow:hover { background: #2a2137; }
+.lrow.static { cursor: default; }
+.lrow.static:hover { background: transparent; }
+.lrow.sel { background: linear-gradient(90deg, #4a2a48, #33202f); border-left-color: var(--gold); }
+.lrow.dis { opacity: .45; }
+.lrow-ico { width: 34px; height: 34px; flex: 0 0 34px; display: flex; align-items: center; justify-content: center; }
+.row-glyph { width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--line2); border-radius: 6px; font-size: 14px; color: var(--gold2); background: #241c2f; flex: 0 0 auto; }
+.lrow-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+.lrow-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lrow-sub { font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lrow-badge { font-size: 11px; color: var(--unk); border: 1px solid var(--line2); border-radius: 4px; padding: 0 4px; white-space: nowrap; }
+.lrow-num { font-size: 12px; color: var(--gold2); min-width: 16px; text-align: right; }
+.lrow-mark { color: var(--ok); font-size: 12px; }
+.lrow-arrow { color: var(--muted); }
+
+/* 中间详情 */
+.dhead { display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--line); padding-bottom: 8px; margin-bottom: 10px; }
+.dhead-ico { width: 46px; height: 46px; flex: 0 0 46px; }
+.dhead-glyph { width: 46px; height: 46px; flex: 0 0 46px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--line2); border-radius: 8px; background: #241c2f; color: var(--gold2); font-size: 20px; }
+.dhead-txt { flex: 1 1 auto; min-width: 0; }
+.dhead-title { font-size: 19px; color: var(--gold2); margin: 0; }
+.dhead-en { font-size: 12px; color: var(--muted); }
+.dhead-sub { font-size: 12px; color: var(--fg2); text-align: right; }
+.dhead.big { justify-content: center; text-align: center; }
+.dhead.big .dhead-title { font-size: 24px; }
+
+/* 图标网格（游戏里的「可选项」） */
+.igrid { display: grid; gap: 6px; }
+.ig { display: flex; align-items: center; gap: 8px; padding: 4px 6px; border: 1px solid transparent; border-radius: 8px; cursor: pointer; min-width: 0; }
+.ig:hover { background: #2a2137; border-color: var(--line); }
+.ig.static { cursor: default; }
+.ig.static:hover { background: transparent; border-color: transparent; }
+.ig.sel { background: #3a2a44; border-color: var(--gold); }
+.ig-name { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 右栏盒子 */
+.sbox { display: grid; gap: 6px; }
+.sb { border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; background: var(--panel2); text-align: center; }
+.sb-k { font-size: 11px; color: var(--muted); }
+.sb-v { font-weight: 600; color: var(--gold2); }
+.srows { display: flex; flex-direction: column; }
+.srow { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; border-bottom: 1px dashed var(--line); }
+.srow:last-child { border-bottom: 0; }
+.srow-k { color: var(--fg2); font-size: 12px; }
+.srow-v { font-weight: 600; }
+
+/* 紫色 V 小节 */
+.sect { margin-bottom: 12px; }
+.sect-head { display: flex; align-items: center; gap: 7px; }
+.sect-v { width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 7px solid var(--accent); display: inline-block; flex: 0 0 auto; }
+.sect-title { font-weight: 600; color: var(--gold2); }
+.sect-right { margin-left: auto; font-size: 12px; color: var(--muted); }
+.sect-rule { border-bottom: 1px solid var(--line); margin: 4px 0 8px; }
+
+/* 阵营九宫轮盘 */
+.wheel { display: flex; flex-direction: column; gap: 8px; align-items: center; padding: 10px 0; }
+.wheel-row { display: flex; gap: 8px; align-items: center; }
+.wnode { position: relative; width: 62px; height: 62px; border-radius: 50%; border: 2px solid var(--line2); display: flex; align-items: center; justify-content: center; cursor: pointer; background: var(--panel2); }
+.wnode.center { width: 76px; height: 76px; border-width: 3px; }
+.wnode:hover { border-color: var(--gold); }
+.wnode.sel { background: #6b3a5e; border-color: var(--gold2); color: #fff; box-shadow: 0 0 0 3px rgba(217, 184, 114, .25); }
+.wnode.lock { opacity: .3; cursor: not-allowed; }
+.wnode-abbr { font-weight: 700; letter-spacing: .5px; }
+.wnode-dot { position: absolute; bottom: -7px; width: 11px; height: 11px; border-radius: 50%; background: #6aa8ff; border: 1px solid #fff; }
+
+/* 成长表（1..N 等级轴） */
+.growth { font-size: 12px; overflow-x: auto; }
+.grow-head, .grow-row { display: grid; grid-template-columns: 132px repeat(20, minmax(24px, 1fr)); align-items: center; gap: 1px; }
+.grow-row.name { display: flex; justify-content: space-between; align-items: center; }
+.grow-label { color: var(--fg2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.grow-num { text-align: center; color: var(--muted); }
+.grow-num.on { color: var(--gold2); border: 1px solid var(--gold); border-radius: 4px; }
+.grow-cell { display: flex; align-items: center; justify-content: center; gap: 2px; min-height: 26px; }
+.grow-ico { width: 22px; height: 22px; }
+.grow-glyph { width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--line2); border-radius: 4px; font-size: 11px; }
+.grow-dot { color: var(--gold); }
+.grow-dot.on { color: var(--ok); }
+.grow-off { color: var(--line); }
+.grow-hearts { color: var(--no); font-size: 12px; }
+.grow-more { font-size: 10px; color: var(--muted); }
+.grow-block { border-top: 1px dashed var(--line); margin-top: 5px; padding-top: 5px; }
+
+/* ── 游戏皮（羊皮纸）下的三栏 ─────────────────────────────────────────────── */
+[data-skin="game"] .lp { background: rgba(255, 252, 242, .55); border-color: #b9a577; }
+[data-skin="game"] .lp-title { color: #7b3a3a; border-bottom-color: #c9b98d; }
+[data-skin="game"] .lp-search { border-bottom-color: #c9b98d; }
+[data-skin="game"] .lp-input { background: #fdf8ea; color: #3a2c1c; border-color: #c9b98d; }
+[data-skin="game"] .lp-input::placeholder { color: #a4916b; }
+[data-skin="game"] .lp-foot { border-top-color: #c9b98d; color: #7d6a48; }
+[data-skin="game"] .lrow:hover { background: rgba(122, 61, 143, .12); }
+[data-skin="game"] .lrow.sel { background: linear-gradient(90deg, rgba(91, 42, 82, .92) 0%, rgba(123, 58, 110, .7) 72%, rgba(123, 58, 110, 0) 100%); border-left-color: transparent; }
+[data-skin="game"] .lrow-name { color: #3a2c1c; }
+[data-skin="game"] .lrow.sel .lrow-name { color: #fff; }
+[data-skin="game"] .lrow-sub { color: #8a7654; }
+[data-skin="game"] .lrow.sel .lrow-sub { color: #e3d5f0; }
+[data-skin="game"] .lrow-num { color: #6b4a1e; }
+[data-skin="game"] .lrow.sel .lrow-num { color: #f0dfa8; }
+[data-skin="game"] .row-glyph { background: #f2e9d2; border-color: #b9a577; color: #6b4a1e; }
+[data-skin="game"] .dhead { border-bottom-color: #c9b98d; }
+[data-skin="game"] .dhead-title { color: #7b2f2f; }
+[data-skin="game"] .dhead-en { color: #8a7654; }
+[data-skin="game"] .dhead-sub { color: #6b5a3c; }
+[data-skin="game"] .dhead-glyph { background: #f2e9d2; border-color: #b9a577; color: #6b4a1e; }
+[data-skin="game"] .sect-title { color: #7b2f2f; }
+[data-skin="game"] .sect-v { border-top-color: #7a3d8f; }
+[data-skin="game"] .sect-rule { border-bottom-color: #c9b98d; }
+[data-skin="game"] .sect-right { color: #8a7654; }
+[data-skin="game"] .sb { background: rgba(255, 252, 242, .6); border-color: #c9b98d; }
+[data-skin="game"] .sb-k { color: #7d6a48; }
+[data-skin="game"] .sb-v { color: #4a3313; }
+[data-skin="game"] .srow { border-bottom-color: #d9cba6; }
+[data-skin="game"] .srow-k { color: #6b5a3c; }
+[data-skin="game"] .srow-v { color: #3a2c1c; }
+[data-skin="game"] .ig:hover { background: rgba(122, 61, 143, .12); border-color: #c9b98d; }
+[data-skin="game"] .ig.sel { background: rgba(91, 42, 82, .18); border-color: #b8944a; }
+[data-skin="game"] .ig-name { color: #3a2c1c; }
+[data-skin="game"] .wnode { background: rgba(255, 252, 242, .5); border-color: #b9a577; }
+[data-skin="game"] .wnode:hover { border-color: #7a3d8f; }
+[data-skin="game"] .wnode.sel { background: rgba(91, 42, 82, .78); border-color: #b8944a; }
+[data-skin="game"] .wnode-abbr { color: #3a2c1c; }
+[data-skin="game"] .wnode.sel .wnode-abbr { color: #fff; }
+[data-skin="game"] .grow-label { color: #5b4a2e; }
+[data-skin="game"] .grow-num.on { color: #5b2a52; border-color: #7a3d8f; }
+[data-skin="game"] .grow-glyph { background: #f2e9d2; border-color: #b9a577; color: #6b4a1e; }
+[data-skin="game"] .grow-block { border-top-color: #d9cba6; }
+[data-skin="game"] .grow-off { color: #cfc0a0; }
+[data-skin="game"] .muted { color: #8a7654; }
+
+/* ── 角色卡 / 属性大数 / 法术环位（三栏改版新增的件） ─────────────────── */
+.sheet-plate {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, .03);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.sp-name { font-size: 20px; font-weight: 700; line-height: 1.3; }
+.sp-line { font-size: 13px; color: var(--muted); }
+.sp-badge { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+.rings { display: flex; gap: 4px; flex-wrap: wrap; }
+.ring {
+  position: relative;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  opacity: .45;
+}
+.ring.on { opacity: 1; border-color: var(--accent); }
+.ring i { font-style: normal; font-size: 9px; color: var(--muted); }
+.ring b { font-size: 12px; }
+
+.attrs-row { gap: 14px; align-items: center; }
+.attr-big { font-size: 30px; font-weight: 700; min-width: 58px; text-align: center; }
+.btn.round {
+  border-radius: 50%;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.row.center { align-items: center; }
+.slots { display: flex; flex-direction: column; gap: 8px; }
+.autolist { display: flex; flex-direction: column; gap: 2px; }
+.auto-row { display: flex; gap: 8px; align-items: baseline; padding: 3px 4px; border-bottom: 1px dashed var(--line); }
+.auto-name { font-size: 13px; }
+.pick-en { font-size: 11px; color: var(--muted); }
+.desc-body { white-space: pre-wrap; font-size: 13px; line-height: 1.6; }
+
+[data-skin="game"] .sheet-plate {
+  background: linear-gradient(180deg, rgba(255, 252, 242, .9), rgba(247, 240, 222, .72));
+  border: 1px solid #b8944a;
+  box-shadow: inset 0 0 0 1px rgba(184, 148, 74, .35), 0 1px 2px rgba(60, 40, 20, .18);
+}
+[data-skin="game"] .sp-name { color: #7b2f2f; font-family: var(--serif); }
+[data-skin="game"] .sp-line { color: #6b5a3c; }
+[data-skin="game"] .sp-badge { color: #7d6a48; }
+[data-skin="game"] .ring { border-color: #b9a577; background: rgba(255, 252, 242, .5); }
+[data-skin="game"] .ring.on { border-color: #7a3d8f; background: rgba(122, 61, 143, .16); }
+[data-skin="game"] .ring i { color: #8a7654; }
+[data-skin="game"] .ring b { color: #4a3313; }
+[data-skin="game"] .attr-big { color: #7b2f2f; font-family: var(--serif); }
+[data-skin="game"] .auto-row { border-bottom-color: #d9cba6; }
+[data-skin="game"] .desc-body { color: #2f2418; }
+
