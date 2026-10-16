@@ -299,3 +299,31 @@ input.text:focus, textarea.text:focus, .cl-search:focus { border-color: var(--ac
   .pick { grid-template-columns: 1fr; }
   .grid2 { grid-template-columns: 1fr; }
 }
+
+/* ── 建置步骤流（职业→种族→背景→购点→技能→专长→法术→神祇→阵营→神话→总结） ── */
+.steps { margin-left: auto; flex-wrap: wrap; }
+.steps .tab { display: inline-flex; align-items: center; gap: 5px; }
+.steps .tab .num { font-style: normal; color: var(--muted); font-size: 12px; }
+.steps .tab.on .num { color: #1a1422; }
+.tab .dot.warn { background: var(--no); }
+.stephead {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin: 0 0 10px; padding: 0 2px;
+}
+.stephead h2 { margin: 0; font-size: 17px; color: var(--gold2); }
+.steppers { gap: 8px; margin-top: 14px; }
+.chip-warn { border-color: #6b5a2a; color: #e8cf90; background: #2c2618; }
+.lvcls { color: var(--fg2); font-size: 13px; }
+
+/* 背景树：大类 → 具体背景 → 再选一项 */
+.bgtree { display: flex; flex-direction: column; gap: 7px; }
+.bgtree .row { gap: 10px; }
+.bgtree-tag {
+  min-width: 62px; text-align: right; padding: 1px 6px;
+  border: 1px solid var(--line); border-radius: 6px; background: #241c31;
+}
+
+@media (max-width: 900px) {
+  .steps { margin-left: 0; }
+  .stephead { flex-direction: column; align-items: flex-start; }
+}

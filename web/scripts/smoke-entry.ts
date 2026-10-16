@@ -9,6 +9,7 @@ import type { Db, FeatureEntry, MythicPathEntry, Preset, Prereq } from "../src/t
 import { emptyBuild, serialize, deserialize } from "../src/store";
 import { applyPreset } from "../src/presets";
 import type { Build } from "../src/store";
+import { STEP_IDS, normalizeStep, stepNote } from "../src/steps";
 import {
   alignAllows,
   alignConflicts,
@@ -591,6 +592,23 @@ export function run(dir: string): void {
   const paPower = findByName(db, "猛力攻击");
   const paStr = (paPower?.prereq || []).find((p) => p.k === "stat" && p.stat === "Strength");
   ok(!!paStr && Number(paStr.v) === 13, "猛力攻击仍是「力量 ≥ 13」", JSON.stringify(paPower?.prereq || []));
+
+  // ── 建置步骤流 ────────────────────────────────────────────────────────
+  eq(
+    STEP_IDS.join(">"),
+    "class>race>background>attrs>skills>feats>spells>deity>align>mythic>summary",
+    "建置步骤顺序：职业→种族→背景→购点→技能→专长→法术→神祇→阵营→神话→总结",
+  );
+  eq(normalizeStep("char"), "race", "老链接 #tab=char 映射到种族");
+  eq(normalizeStep("levels"), "class", "老链接 #tab=levels 映射到职业");
+  eq(normalizeStep("nonsense"), "class", "未知步骤回落到第一步");
+  const stepsBuild = emptyBuild();
+  ok(stepNote(db, stepsBuild, derive(db, stepsBuild), "class").includes("还没排"),
+    "空构筑下第一步提示还没排职业");
+  ok(stepNote(db, stepsBuild, derive(db, stepsBuild), "race").includes("还没选种族"),
+    "空构筑下第二步提示还没选种族");
+  eq(stepNote(db, stepsBuild, derive(db, stepsBuild), "deity"), "没有信仰也可以（除牧师类）",
+    "没有信仰不算错误");
 
   const total = pass + fails.length;
   if (fails.length === 0) {

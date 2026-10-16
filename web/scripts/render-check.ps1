@@ -13,7 +13,7 @@ if (-not (Test-Path $exe)) {
   $exe = "${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe"
 }
 $prof = Join-Path $env:TEMP "wotr-chrome-prof"
-$tabs = @("char", "levels", "mythic", "skills", "spells", "summary")
+$tabs = @("class", "race", "background", "attrs", "skills", "feats", "spells", "deity", "align", "mythic", "summary")
 $bad = 0
 
 # patterns (kept as escapes so this file stays pure ASCII)
@@ -72,4 +72,4 @@ foreach ($t in $tabs) {
   }
 }
 
-if ($bad -gt 0) { "### $bad tab(s) broken ###"; exit 1 } else { "### all six tabs rendered ###" }
+if ($bad -gt 0) { "### $bad tab(s) broken ###"; exit 1 } else { "### all $($tabs.Count) steps rendered ###" }

@@ -3,31 +3,28 @@ import type { Db } from "./types";
 import { loadDb } from "./load";
 import { act, deserialize, useBuild } from "./store";
 import { derive } from "./rules";
-import { Character } from "./views/Character";
-import { Levels } from "./views/Levels";
+import { STEPS, normalizeStep, stepNote, stepWarn } from "./steps";
+import { Align } from "./views/Align";
+import { Attrs } from "./views/Attrs";
+import { Background } from "./views/Background";
+import { ClassPlan } from "./views/ClassPlan";
+import { Deity } from "./views/Deity";
+import { Feats } from "./views/Feats";
 import { Mythic } from "./views/Mythic";
+import { Race } from "./views/Race";
 import { Skills } from "./views/Skills";
 import { Spells } from "./views/Spells";
 import { Summary } from "./views/Summary";
 import { PresetPicker } from "./views/Presets";
-
-const TABS: [string, string][] = [
-  ["char", "角色"],
-  ["levels", "升级"],
-  ["mythic", "神话"],
-  ["skills", "技能"],
-  ["spells", "法术"],
-  ["summary", "汇总"],
-];
 
 export function App() {
   const [db, setDb] = useState<Db | null>(null);
   const [err, setErr] = useState("");
   const [pct, setPct] = useState(0);
   const [presetsOpen, setPresetsOpen] = useState(() => /[#&]presets=1/.test(location.hash));
-  const [tab, setTab] = useState(() => {
+  const [step, setStep] = useState(() => {
     const m = /[#&]tab=([a-z]+)/.exec(location.hash);
-    return m ? m[1] : "char";
+    return normalizeStep(m ? m[1] : null);
   });
   const build = useBuild();
 
@@ -47,10 +44,10 @@ export function App() {
   useEffect(() => {
     const u = new URL(location.href);
     const h = u.hash.replace(/^#/, "").split("&").filter((x) => x && !x.startsWith("tab="));
-    h.unshift("tab=" + tab);
+    h.unshift("tab=" + step);
     u.hash = h.join("&");
     history.replaceState(null, "", u.toString());
-  }, [tab]);
+  }, [step]);
 
   const derived = useMemo(() => (db ? derive(db, build) : null), [db, build]);
 
@@ -77,6 +74,9 @@ export function App() {
   }
 
   const meta = db.meta;
+  const idx = STEPS.findIndex((s) => s.id === step);
+  const cur = STEPS[idx] || STEPS[0];
+  const notes = STEPS.map((s) => ({ id: s.id, note: stepNote(db, build, derived, s.id) }));
 
   return (
     <div className="app">
@@ -87,25 +87,10 @@ export function App() {
             <h1>《开拓者：正义之怒》构筑规划器</h1>
             <div className="muted small">
               数据来自本机游戏本体 · {meta.counts.classes} 职业 / {meta.counts.archetypes} 变体 /{" "}
-              {meta.counts.features} 特性 / {meta.counts.spells} 法术 · 生成于 {meta.generated?.slice(0, 16).replace("T", " ")}
+              {meta.counts.features} 特性 / {meta.counts.spells} 法术
             </div>
           </div>
         </div>
-        <nav className="tabs">
-          {TABS.map(([id, name]) => (
-            <button
-              key={id}
-              type="button"
-              className={"tab" + (tab === id ? " on" : "")}
-              onClick={() => setTab(id)}
-            >
-              {name}
-              {id === "summary" && derived.unfinished.length > 0 && (
-                <i className="dot" title={`还有 ${derived.unfinished.length} 项没选`} />
-              )}
-            </button>
-          ))}
-        </nav>
         <div className="top-right">
           <button className="btn sm" type="button" onClick={() => setPresetsOpen(true)}>
             预置构筑
@@ -116,15 +101,75 @@ export function App() {
         </div>
       </header>
 
+      <nav className="tabs steps">
+        {STEPS.map((s) => {
+          const n = notes.find((x) => x.id === s.id);
+          return (
+            <button
+              key={s.id}
+              type="button"
+              className={"tab" + (step === s.id ? " on" : "")}
+              onClick={() => setStep(s.id)}
+              title={s.hint}
+            >
+              <i className="num">{s.num}</i>
+              {s.name}
+              {n && n.note && <i className={"dot" + (stepWarn(s.id, n.note) ? " warn" : "")} title={n.note} />}
+            </button>
+          );
+        })}
+      </nav>
+
       {presetsOpen && <PresetPicker db={db} onClose={() => setPresetsOpen(false)} />}
 
       <main className="main">
-        {tab === "char" && <Character db={db} />}
-        {tab === "levels" && <Levels db={db} />}
-        {tab === "mythic" && <Mythic db={db} />}
-        {tab === "skills" && <Skills db={db} />}
-        {tab === "spells" && <Spells db={db} />}
-        {tab === "summary" && <Summary db={db} build={build} derived={derived} />}
+        <div className="stephead">
+          <div>
+            <h2>{cur.num} {cur.name}</h2>
+            <div className="muted small">{cur.hint}</div>
+          </div>
+          {(() => {
+            const n = notes[idx];
+            return n && n.note ? (
+              <span className={"chip " + (stepWarn(cur.id, n.note) ? "chip-no" : "chip-warn")}>{n.note}</span>
+            ) : null;
+          })()}
+        </div>
+
+        {step === "class" && <ClassPlan db={db} />}
+        {step === "race" && <Race db={db} />}
+        {step === "background" && <Background db={db} />}
+        {step === "attrs" && <Attrs db={db} />}
+        {step === "skills" && <Skills db={db} />}
+        {step === "feats" && <Feats db={db} />}
+        {step === "spells" && <Spells db={db} />}
+        {step === "deity" && <Deity db={db} />}
+        {step === "align" && <Align db={db} />}
+        {step === "mythic" && <Mythic db={db} />}
+        {step === "summary" && <Summary db={db} build={build} derived={derived} />}
+
+        <div className="row mt8 steppers">
+          <button
+            className="btn sm ghost"
+            type="button"
+            disabled={idx === 0}
+            onClick={() => setStep(STEPS[Math.max(0, idx - 1)].id)}
+          >
+            ← 上一步
+          </button>
+          <button
+            className="btn sm"
+            type="button"
+            disabled={idx === STEPS.length - 1}
+            onClick={() => setStep(STEPS[Math.min(STEPS.length - 1, idx + 1)].id)}
+          >
+            下一步 →
+          </button>
+          <span className="spacer" />
+          <span className="muted small">
+            {derived.unfinished.length > 0 ? `还有 ${derived.unfinished.length} 项待处理` : "没有待处理项"}
+          </span>
+        </div>
       </main>
 
       <footer className="foot">
