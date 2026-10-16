@@ -23,7 +23,7 @@ function babGrade(arr?: number[], maxLevel = 20) {
 }
 
 /** 第 ① 步：排 20 级要练哪些职业、要不要变体 */
-export function ClassPlan(props: { db: Db }) {
+export function ClassPlan(props: { db: Db; onPresets?: () => void }) {
   const { db } = props;
   const build = useBuild();
   const derived = useMemo(() => derive(db, build), [db, build]);
@@ -157,6 +157,14 @@ export function ClassPlan(props: { db: Db }) {
                   <Chip tone="any" title={classOpts.find((o) => o.id === shownId)?.hint}>
                     预览 —— 点左边这个职业就会排到第 {level} 级
                   </Chip>
+                </div>
+              )}
+              {props.onPresets && (
+                <div className="row">
+                  <button type="button" className="btn wide" onClick={props.onPresets}>
+                    使用推荐模板
+                  </button>
+                  <span className="muted small">从中文 BD 合集导入的 24 套现成构筑，选了会替换当前编排</span>
                 </div>
               )}
               {archList.length > 0 && (

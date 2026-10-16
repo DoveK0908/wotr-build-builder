@@ -800,6 +800,15 @@ input.text:focus, textarea.text:focus, .cl-search:focus { border-color: var(--ac
   justify-content: center;
 }
 .row.center { align-items: center; }
+/* 宽按钮：游戏职业页那枚「使用推荐模板」 */
+.btn.wide { width: 100%; max-width: 520px; justify-content: center; padding: 8px 14px; }
+[data-skin="game"] .btn.wide {
+  background: linear-gradient(180deg, #7b3a6e, #5b2a52);
+  border-color: #b8944a;
+  color: #fdf6e6;
+  font-family: var(--serif);
+  letter-spacing: 1px;
+}
 .slots { display: flex; flex-direction: column; gap: 8px; }
 .autolist { display: flex; flex-direction: column; gap: 2px; }
 .auto-row { display: flex; gap: 8px; align-items: baseline; padding: 3px 4px; border-bottom: 1px dashed var(--line); }

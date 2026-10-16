@@ -226,7 +226,7 @@ export function App() {
                 )
               ) : (
                 <>
-                  {step === "class" && <ClassPlan db={db} />}
+                  {step === "class" && <ClassPlan db={db} onPresets={() => setPresetsOpen(true)} />}
                   {step === "race" && <Race db={db} />}
                   {step === "background" && <Background db={db} />}
                   {step === "attrs" && <Attrs db={db} />}
