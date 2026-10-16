@@ -4,7 +4,8 @@
 # Usage: powershell -NoProfile -ExecutionPolicy Bypass -File web\scripts\render-check.ps1
 param(
   [string]$Base = "http://127.0.0.1:5199/",
-  [int]$Budget = 9000
+  [int]$Budget = 9000,
+  [string]$Extra = ""
 )
 
 $exe = "C:\Users\Dove\AppData\Local\Google\Chrome\Application\chrome.exe"
@@ -44,7 +45,7 @@ foreach ($t in $tabs) {
   $out = Join-Path $env:TEMP "wotr-dom-$t.txt"
   $err = Join-Path $env:TEMP "wotr-dom-$t.err.txt"
   Remove-Item $out, $err -ErrorAction SilentlyContinue
-  $url = "$Base#tab=$t"
+  $url = "$Base#tab=$t$Extra"
   Start-Process -FilePath $exe -NoNewWindow `
     -RedirectStandardOutput $out -RedirectStandardError $err -ArgumentList @(
       '--headless=new', '--disable-gpu', '--no-sandbox', '--no-first-run', '--disable-extensions',

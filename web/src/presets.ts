@@ -33,40 +33,65 @@ function slotIdsOf(db: Db, b: Build, i: number, classLevel: number): string[] {
   return out;
 }
 
-/** 把这一级的专长塞进能容纳它的槽位；返回落位个数 */
-function placeInto(db: Db, b: Build, i: number, want: string[], classLevel: number): number {
+/**
+ * 在某个槽位下面找一条能走到 `fid` 的路径（选择里还有选择）。
+ * 返回交替的「槽位 → 选项 → 槽位 → … → fid」序列；找不到返回 null。
+ */
+function findPath(db: Db, slotId: string, fid: string, depth = 0): string[] | null {
+  if (depth > 4) return null;
+  const f = db.features[slotId];
+  if (!f || !f.choices || !f.choices.length) return null;
+  if (f.choices.includes(fid)) return [slotId, fid];
+  for (const c of f.choices) {
+    const inner = db.features[c];
+    if (!inner || !inner.choices || !inner.choices.length) continue;
+    const sub = findPath(db, c, fid, depth + 1);
+    if (sub) return [slotId, c, ...sub.slice(1)];
+  }
+  return null;
+}
+
+/** 把这一级的专长塞进能容纳它的槽位（必要时连中间层一起选上） */
+function placeInto(
+  db: Db, b: Build, i: number, want: string[], classLevel: number,
+): { placed: number; unplaced: string[] } {
   const lv = b.levels[i];
   const slots = slotIdsOf(db, b, i, classLevel);
+  const unplaced: string[] = [];
   let n = 0;
   for (const fid of want) {
-    const chosen = Object.values(lv.picks);
-    if (chosen.includes(fid)) {
+    if (!fid) continue;
+    if (Object.values(lv.picks).includes(fid)) {
       n += 1;
       continue;
     }
-    // 1) 找个还没用的选择槽，其候选中包含这个专长
-    let hit = "";
+    // 1) 找一个槽位，顺着它的选择树能走到这个专长
+    let path: string[] | null = null;
     for (const sid of slots) {
-      if (lv.picks[sid]) continue;
-      const f = db.features[sid];
-      if (!f || !f.choices) continue;
-      const can = f.choices.some((c) => c === fid || expandFeature(db, c).includes(fid));
-      if (can) {
-        hit = sid;
-        break;
+      const p = findPath(db, sid, fid);
+      if (!p) continue;
+      // 路径上已经选了别的东西就换个根槽位，别覆盖玩家的选择
+      let clash = false;
+      for (let k = 0; k + 1 < p.length; k += 1) {
+        const cur = lv.picks[p[k]];
+        if (cur && cur !== p[k + 1]) { clash = true; break; }
       }
+      if (!clash) { path = p; break; }
     }
-    if (hit) {
-      lv.picks[hit] = fid;
+    if (path) {
+      // path 是「槽位 → 选项 → 槽位 → 选项」交替的，相邻两项就是一次落位
+      for (let k = 0; k + 1 < path.length; k += 1) lv.picks[path[k]] = path[k + 1];
       n += 1;
       continue;
     }
-    // 2) 这一级本来就给（升级表/通用表白给），不用选
+    // 2) 这一级本来就白给（升级表/通用表白给），不用选
     if (slots.some((sid) => sid === fid || expandFeature(db, sid).includes(fid))) {
       n += 1;
+      continue;
     }
+    unplaced.push(fid);
   }
-  return n;
+  return { placed: n, unplaced };
 }
 
 export function applyPreset(db: Db, p: Preset): ApplyResult {
@@ -105,15 +130,10 @@ export function applyPreset(db: Db, p: Preset): ApplyResult {
       cl = classCount[lv.classId];
     }
     const want = (pl.feats || []).map((f) => f.id);
-    placed += placeInto(db, b, i, want, cl);
-    // 放不进去的，按原文收着
-    for (const fid of want) {
-      const ok =
-        Object.values(lv.picks).includes(fid) ||
-        lv.params[fid] !== undefined ||
-        (fid && db.features[fid] && true);
-      if (!ok) leftover.push(`第 ${i + 1} 级：${db.features[fid]?.name || fid}`);
-    }
+    const res = placeInto(db, b, i, want, cl);
+    placed += res.placed;
+    // 放不进去的，按原文收着（界面上会列出来让你手选）
+    for (const fid of res.unplaced) leftover.push(`第 ${i + 1} 级：${db.features[fid]?.name || fid}`);
     for (const u of pl.unmatched || []) leftover.push(`第 ${i + 1} 级：${u}`);
   }
 

@@ -5,7 +5,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import type { Db, FeatureEntry, Prereq } from "../src/types";
+import type { Db, FeatureEntry, Preset, Prereq } from "../src/types";
 import { emptyBuild, serialize, deserialize } from "../src/store";
 import { applyPreset } from "../src/presets";
 import type { Build } from "../src/store";
@@ -295,8 +295,7 @@ export function run(dir: string): void {
   }
 
   // 神话：道途自家内容优先，9/10 级走通用神话能力/专长
-  const angel = Object.values(db.mythic.paths).find((p) => p.nameEn === "AngelMythicClass") ||
-    Object.values(db.mythic.paths).find((p) => p.name === "天使");
+  const angel = Object.values(db.mythic.paths).find((p) => p.name === "天使");
   if (angel) {
     const mb: Build = { ...emptyBuild(), mythicPath: angel.id };
     ok(rankRootSlots(db, mb, 1).length >= 1, "神话 1 级有道途自己的槽位",
@@ -310,7 +309,7 @@ export function run(dir: string): void {
     .find((f) => f && (f.choices || []).length > 0);
   ok(!!nestedAbility, "神话能力里有带子选择的能力（如巅峰元素）", nestedAbility?.name || "");
 
-  const fighterCls = Object.values(db.classes).find((c) => c.nameEn === "FighterClass");
+  const fighterCls = Object.values(db.classes).find((c) => c.key === "FighterClass");
   if (fighterCls) {
     const fighterBuild: Build = {
       ...emptyBuild(),
@@ -322,6 +321,28 @@ export function run(dir: string): void {
       String(levelRootSlots(db, fighterBuild, 3).length));
     ok(!levelRootSlots(db, fighterBuild, 1).some((f) => f.id === db.rules.deitySelection),
       "神祇选择不在升级页重复出现（角色页有专门控件）");
+  }
+
+  // 预置的嵌套落位：攻略只写了最终专长，中间那层要能自己选出来
+  const basicSel = db.rules.basicFeatSelection ? db.features[db.rules.basicFeatSelection] : undefined;
+  const nestedSlot = basicSel
+    ? (basicSel.choices || []).map((id) => db.features[id]).find((f) => f && (f.choices || []).length > 3)
+    : undefined;
+  if (basicSel && nestedSlot && fighterCls) {
+    const target = nestedSlot.choices?.[0] || "";
+    const fake: Preset = {
+      id: "smoke-nested", who: "冒烟", plan: "1战士",
+      archetypes: {}, attrs: [], mythic: [],
+      levels: [{
+        level: 1, classId: fighterCls.id, picks: {}, params: {},
+        feats: [{ id: target }], spells: {},
+      }],
+    };
+    const r = applyPreset(db, fake);
+    const picks = r.build.levels[0].picks;
+    ok(Object.values(picks).includes(nestedSlot.id), "预置自动选出了中间那层选择",
+      `${nestedSlot.name} <-? ${JSON.stringify(picks).slice(0, 90)}`);
+    eq(picks[nestedSlot.id] || "", target, "预置落到了嵌套的下一层");
   }
 
   const total = pass + fails.length;
