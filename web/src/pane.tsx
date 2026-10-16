@@ -85,10 +85,11 @@ export function ListPane(props: {
   );
 }
 
-/** 列表行：图标（或首字徽记）+ 名字 + 副标题 + 右侧数字 + `»` 下级 + 绿勾 */
+/** 列表行：图标（或首字徽记）+ 名字 + 副标题 + 右侧数字 + `»` 下级 + 绿勾；plain 时不要图标（游戏里职业行就没有图标） */
 export function ListRow(props: {
   ico?: string | null;
   glyph?: string;
+  plain?: boolean;
   name: React.ReactNode;
   sub?: React.ReactNode;
   num?: React.ReactNode;
@@ -109,7 +110,7 @@ export function ListRow(props: {
       onMouseEnter={props.onHover}
     >
       <span className="lrow-ico">
-        {props.ico ? (
+        {props.plain ? null : props.ico ? (
           <img className="row-ico" src={props.ico} alt="" />
         ) : (
           <span className="row-glyph">

@@ -112,13 +112,13 @@ export function ClassPlan(props: { db: Db; onPresets?: () => void }) {
           {classOpts.map((o) => (
             <ListRow
               key={o.id}
-              ico={featureIcon(db, o.id)}
-              glyph={o.c.name.slice(0, 1)}
+              plain
               name={o.c.name}
               sub={o.bad ? o.hint : `${o.c.prestige ? "进阶" : "基础"} · HD ${o.c.hitDie}`}
               badge={o.bad ? <span className="badge no">阵营不符</span> : undefined}
               dis={o.bad}
               sel={shownId === o.id}
+              arrow={shownId !== o.id}
               title={o.hint}
               onHover={() => setHover(o.id)}
               onClick={() => !o.bad && pickClass(o.id)}
