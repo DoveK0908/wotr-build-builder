@@ -87,3 +87,27 @@
 - 2 条非特性引用解析不到，直接原样展示：`02b4bdf2ef7b4296923219f361caec92`（不在库里）、`daca06a3f3355664bba1e87e67f3b5b3`（`Races/MongrelmanRace.jbp`，非玩家种族）
 - 少量非玩家蓝图的本地化会取错名（如 `MythicLichSkeletonFighterClass` 解成「动物」），玩家可选内容不受影响
 - 火球术等法术在 `Spells/CutsceneSpells/` 下有剧情副本没有环位，前端按路径去重，优先 `Spells/Level*`
+
+
+## 阵营限制（职业 / 变体 / 神祇 / 领域）
+
+`PrerequisiteAlignment` 的 `Alignment` 字段是 **token 列表**，token 既可能是具体阵营（`LawfulGood`、`TrueNeutral`），
+也可能是**轴**（`Lawful`、`Chaotic`、`Good`、`Evil`、`Neutral`）。前端 `alignAllows()` 先把轴展开成具体阵营再比对
+（`Lawful` → 守序善良 / 守序中立 / 守序邪恶），所以「守序」这种写法也能正确判定。
+
+限制分散在四个地方：
+
+| 位置 | 落在哪个导出文件 | 实测 |
+| --- | --- | --- |
+| 职业蓝图自身的 `Components` | `classes.json` 的 `prereq` | 40/40 个职业都带 `prereq`；圣武士 `LawfulGood`、武僧/地狱骑士/地狱骑士持节士 `Lawful`、德鲁伊与化形师 `NeutralGood, LawfulNeutral, TrueNeutral, ChaoticNeutral, NeutralEvil`、野蛮人 `NeutralGood, TrueNeutral, NeutralEvil, Chaotic`、刺客 `TrueNeutral, Evil`。同一字段还带别的门槛（地狱骑士要 BAB 5 + 沟通 5 + 知识：神秘 2 + 擅长重甲） |
+| 变体蓝图自身的 `Components` | `archetypes.json` 的 `prereq` | 8/203 个变体带阵营要求：觅血者/暗元素使 `Evil`、改革邪魔 `Good`、平衡之祭司 `LawfulNeutral, TrueNeutral, ChaoticNeutral`、醉拳僧与狂暴易形者 `NeutralGood, TrueNeutral, NeutralEvil, Chaotic`、瘟疫先知 `TrueNeutral, NeutralEvil, ChaoticEvil`、暗姐妹 `ChaoticNeutral, NeutralEvil, ChaoticEvil` |
+| 神祇特性 | `features.json` 里各神祇的 `prereq` | 33 个神祇里 31 个带 `align`（阿巴达 `TrueNeutral, Lawful`、艾奥梅黛 `LawfulGood, NeutralGood, LawfulNeutral`、诺格巴 `TrueNeutral, Evil`…），只有「无神论」没有限制。游戏自己的百科文本也写着「各神祇还会限制你对起始阵营和特定职业的选择」 |
+| 领域 / 忠诚类特性 | `features.json` 的 `prereq` | 善良领域 `Good`、守序领域 `Lawful`，并且用 `PrerequisiteFeature` 指向该神祇的特性 —— 所以**选错神祇连领域都开不出来** |
+
+⚠ 早期只有**特性**导出了 `prereq`，职业与变体蓝图的 `Components` 被丢掉了，于是「圣武士可以是混乱邪恶」这类漏洞在
+2026-10-16 的修复里才补上：`classes.json` / `archetypes.json` 现在也带 `prereq`（重新跑一次 `python pipeline\build_data.py`
+即可，`classes.json` 从 125 KB 涨到 137 KB）。
+
+前端行为：阵营下拉把与已选职业/变体/神祇冲突的阵营标灰并写出原因；神祇下拉把与当前阵营不符的信仰标灰
+（提示 `需要 守序 / 绝对中立`）；职业下拉标注「阵营不符」并禁用该选项；变体 chip 标红并拒绝点选。
+已经排好的构筑出现冲突时，`derive().unfinished` 会带上 `阵营不符：圣武士 需要 守序善良`，角色页与汇总页都会显示。

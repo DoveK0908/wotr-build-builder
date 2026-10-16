@@ -41,6 +41,7 @@ export interface ClassEntry {
   hitDie: string;
   skillPoints: number;
   classSkills: string[];
+  prereq?: Prereq[];
   startingGold?: number;
   desc?: string;
   short?: string;
@@ -63,6 +64,7 @@ export interface ArchetypeEntry {
   classes: string[];
   addFeatures: LevelEntry[];
   removeFeatures: LevelEntry[];
+  prereq?: Prereq[];
   buildChanging?: boolean;
   newSpellbook?: string;
   replace?: boolean;

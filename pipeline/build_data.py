@@ -673,6 +673,9 @@ def build(game_dir: str, out_dir: str) -> dict:
         e["skillPoints"] = d.get("SkillPoints")
         e["classSkills"] = skill_list(d)
         e["startingGold"] = d.get("StartingGold")
+        pr = ex.prereqs(d)
+        if pr:
+            e["prereq"] = pr
         if d.get("IsArcaneCaster"):
             e["caster"] = "arcane"
         elif d.get("IsDivineCaster"):
@@ -755,6 +758,9 @@ def build(game_dir: str, out_dir: str) -> dict:
         e["classes"] = arch_to_class.get(aid, [])
         e["addFeatures"] = level_entries(d.get("AddFeatures"))
         e["removeFeatures"] = level_entries(d.get("RemoveFeatures"))
+        pr = ex.prereqs(d)
+        if pr:
+            e["prereq"] = pr
         if d.get("BuildChanging"):
             e["buildChanging"] = True
         if d.get("ReplaceSpellbook"):

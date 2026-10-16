@@ -10,6 +10,12 @@ import { emptyBuild, serialize, deserialize } from "../src/store";
 import { applyPreset } from "../src/presets";
 import type { Build } from "../src/store";
 import {
+  alignAllows,
+  alignConflicts,
+  alignTokensOf,
+  alignmentLocks,
+  classAlignTokens,
+  deityAlignTokens,
   attrMod,
   attrsAtLevel,
   charLevel,
@@ -467,6 +473,57 @@ export function run(dir: string): void {
       `${nestedSlot.name} <-? ${JSON.stringify(picks).slice(0, 90)}`);
     eq(picks[nestedSlot.id] || "", target, "预置落到了嵌套的下一层");
   }
+
+  // ── 阵营限制：职业 / 变体 / 神祇 / 领域 ──────────────────────────────────
+  const paladin = Object.values(db.classes).find((c) => c.name === "圣武士");
+  const monk = Object.values(db.classes).find((c) => c.name === "武僧");
+  const wizard = Object.values(db.classes).find((c) => c.name === "法师");
+  ok(!!paladin?.prereq?.length, "职业蓝图的前置条件已经导出",
+    `${Object.values(db.classes).filter((c) => c.prereq).length}/${Object.keys(db.classes).length}`);
+  eq((alignTokensOf(paladin?.prereq) || []).join(","), "LawfulGood", "圣武士只接受守序善良");
+  ok(classAlignTokens(db, monk?.id || "").includes("Lawful"), "武僧要求守序（轴 token）");
+  eq(classAlignTokens(db, wizard?.id || "").length, 0, "法师没有阵营要求");
+  ok(alignAllows("LawfulNeutral", ["Lawful"]), "「守序」轴涵盖守序中立");
+  ok(!alignAllows("LawfulNeutral", ["TrueNeutral"]), "「绝对中立」不含守序中立");
+  ok(alignAllows("ChaoticEvil", ["TrueNeutral", "Evil"]), "「邪恶」轴涵盖混乱邪恶");
+
+  const allPally = (b: Build, align: string): Build => ({
+    ...b,
+    alignment: align,
+    levels: emptyBuild().levels.map((l) => ({ ...l, classId: paladin?.id || "" })),
+  });
+  const pconf = alignConflicts(db, allPally(emptyBuild(), "ChaoticEvil"));
+  ok(pconf.some((x) => x.includes("圣武士")), "圣武士 + 混乱邪恶 会被判阵营不符", pconf.join("；"));
+  const pgood = allPally(emptyBuild(), "LawfulGood");
+  eq(alignConflicts(db, pgood).length, 0, "守序善良的圣武士没有冲突");
+  const plocks = alignmentLocks(db, pgood);
+  ok(!plocks["LawfulGood"], "守序善良可选");
+  ok(["LawfulNeutral", "NeutralGood", "ChaoticEvil"].every((a) => !!plocks[a]),
+    "非守序善良的阵营都被锁（阵营下拉要禁用）", Object.keys(plocks).join(","));
+
+  const abadar = (db.features[db.rules.deitySelection]?.choices || [])
+    .find((id) => db.features[id]?.name === "阿巴达");
+  const abToks = deityAlignTokens(db, abadar);
+  ok(!!abadar && alignAllows("LawfulNeutral", abToks) && !alignAllows("ChaoticEvil", abToks),
+    "阿巴达接受守序/绝对中立、拒绝混乱邪恶", abToks.join(","));
+  const dbuild: Build = { ...emptyBuild(), alignment: "ChaoticEvil", deity: abadar || null };
+  ok(alignConflicts(db, dbuild).some((x) => x.includes("阿巴达")), "神祇与阵营冲突会被报出来");
+
+  const blood = Object.values(db.archetypes).find((a) => a.name === "觅血者");
+  ok(!!blood && alignTokensOf(blood.prereq).includes("Evil"), "变体自带阵营要求",
+    JSON.stringify(alignTokensOf(blood?.prereq)));
+  const aparent = blood?.classes?.[0] || "";
+  const abuild: Build = {
+    ...emptyBuild(),
+    alignment: "LawfulGood",
+    levels: emptyBuild().levels.map((l) => ({ ...l, classId: aparent })),
+    classArchetypes: { [aparent]: [blood?.id || ""] },
+  };
+  ok(alignConflicts(db, abuild).some((x) => x.includes("觅血者")), "变体阵营冲突会被报出来");
+
+  const goodDomain = Object.values(db.features)
+    .find((f) => f.path && f.path.includes("Domains/Good/") && alignTokensOf(f.prereq).length > 0);
+  ok(!!goodDomain, "善良领域带阵营前置（领域靠特性前置拦人）", goodDomain?.path || "");
 
   const total = pass + fails.length;
   if (fails.length === 0) {

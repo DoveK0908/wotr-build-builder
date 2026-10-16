@@ -763,6 +763,7 @@ export function derive(db: Db, build: Build): Derived {
   const remainingPointBuy = db.rules.pointBuyTotal - pointBuySpent(db, build);
   if (remainingPointBuy < 0) unfinished.push(`点买超支 ${-remainingPointBuy} 点`);
   if (skillSpent > total) unfinished.push(`技能点超支 ${skillSpent - total} 点`);
+  for (const w of alignConflicts(db, build)) unfinished.push(`阵营不符：${w}`);
   for (let i = 0; i < MAX_LEVEL; i += 1) {
     const lv = build.levels[i];
     if (!lv.classId) unfinished.push(`第 ${i + 1} 级未选职业`);
@@ -800,6 +801,102 @@ export interface LevelCtx {
   profWeapon?: string[];
   /** classId -> 能施放的最高法术环位 */
   maxSpellLevel?: Record<string, number>;
+}
+
+// ── 阵营限制 ────────────────────────────────────────────────────────────────
+// 蓝图里 PrerequisiteAlignment 的 Alignment 字段是「token 列表」，token 既可能是
+// 具体阵营（LawfulGood / TrueNeutral），也可能是轴（Lawful / Good / Evil / Chaotic）。
+const ALIGN_AXIS: Record<string, string[]> = {
+  Lawful: ["LawfulGood", "LawfulNeutral", "LawfulEvil"],
+  Chaotic: ["ChaoticGood", "ChaoticNeutral", "ChaoticEvil"],
+  Good: ["LawfulGood", "NeutralGood", "ChaoticGood"],
+  Evil: ["LawfulEvil", "NeutralEvil", "ChaoticEvil"],
+  Neutral: ["TrueNeutral"],
+  TrueNeutral: ["TrueNeutral"],
+};
+
+export function alignTokensOf(list: Prereq[] | undefined | null): string[] {
+  const out: string[] = [];
+  for (const p of list || []) {
+    if (p.k !== "align") continue;
+    for (const t of (p.v as string[]) || []) if (t && !out.includes(t)) out.push(t);
+  }
+  return out;
+}
+
+/** 空 token = 无限制；没选阵营时不拦人（按「未知」处理） */
+export function alignAllows(alignment: string | null | undefined, tokens: string[]): boolean {
+  if (!tokens.length || !alignment) return true;
+  for (const t of tokens) {
+    if (t === alignment) return true;
+    const axis = ALIGN_AXIS[t];
+    if (axis && axis.includes(alignment)) return true;
+  }
+  return false;
+}
+
+export function alignNeedText(db: Db, tokens: string[]): string {
+  const known = new Map(db.rules.alignments.map((a) => [a.id, a.name]));
+  return tokens.map((t) => known.get(t) || t).join(" / ");
+}
+
+/** 职业 + 已选变体合起来的阵营要求（变体继承母职业的限制由调用方传 classId） */
+export function classAlignTokens(db: Db, classId: string | null | undefined, archIds?: string[]): string[] {
+  const out: string[] = [];
+  const add = (l?: Prereq[]) => {
+    for (const t of alignTokensOf(l)) if (!out.includes(t)) out.push(t);
+  };
+  if (classId) add(db.classes[classId]?.prereq);
+  for (const a of archIds || []) add(db.archetypes[a]?.prereq);
+  return out;
+}
+
+export function deityAlignTokens(db: Db, deityId: string | null | undefined): string[] {
+  return deityId ? alignTokensOf(db.features[deityId]?.prereq) : [];
+}
+
+/** 某个阵营下，已选内容里所有「阵营不符」的原因 */
+function alignReasons(db: Db, build: Build, alignment: string): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const lv of build.levels) {
+    const cid = lv.classId;
+    if (!cid || seen.has(cid)) continue;
+    seen.add(cid);
+    const archIds = build.classArchetypes[cid] || [];
+    const tokens = classAlignTokens(db, cid, archIds);
+    const bare = alignTokensOf(db.classes[cid]?.prereq);
+    if (!alignAllows(alignment, bare)) {
+      out.push(`${label(db.classes[cid])} 需要 ${alignNeedText(db, bare)}`);
+    }
+    for (const aid of archIds) {
+      const at = alignTokensOf(db.archetypes[aid]?.prereq);
+      if (!alignAllows(alignment, at)) {
+        out.push(`${db.archetypes[aid]?.name || aid} 需要 ${alignNeedText(db, at)}`);
+      }
+    }
+  }
+  const dt = deityAlignTokens(db, build.deity);
+  if (build.deity && !alignAllows(alignment, dt)) {
+    out.push(`神祇 ${label(db.features[build.deity])} 只接受 ${alignNeedText(db, dt)}`);
+  }
+  return out;
+}
+
+/** 当前构筑在所选阵营下的冲突清单（给界面显示、也进 derive().unfinished） */
+export function alignConflicts(db: Db, build: Build): string[] {
+  if (!build.alignment) return [];
+  return alignReasons(db, build, build.alignment);
+}
+
+/** 9 个阵营各自「为什么不能用」（给阵营下拉做禁用与提示） */
+export function alignmentLocks(db: Db, build: Build): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  for (const a of db.rules.alignments) {
+    const r = alignReasons(db, build, a.id);
+    if (r.length) out[a.id] = r;
+  }
+  return out;
 }
 
 export function evalPrereq(db: Db, ctx: LevelCtx, p: Prereq): Verdict {

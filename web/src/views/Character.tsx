@@ -3,8 +3,9 @@ import type { Db, FeatureEntry } from "../types";
 import type { Build } from "../store";
 import { ATTRS, act, useBuild } from "../store";
 import {
-  attrMod, attrBreakdown, attrsAtLevel, backgroundRoot, classLevels, label, pointBuySpent, raceRootSlots,
-  traitList, universalFeatures,
+  alignAllows, alignConflicts, alignNeedText, alignmentLocks, alignTokensOf, attrMod, attrBreakdown,
+  attrsAtLevel, backgroundRoot, classLevels, label, pointBuySpent, raceRootSlots, traitList,
+  universalFeatures,
 } from "../rules";
 import { Chip, Collapse, Desc, Field, Meter, NumBox, Panel, SearchSelect } from "../ui";
 import { AutoList, SlotChain, reachable } from "../pick";
@@ -37,9 +38,20 @@ export function Character(props: { db: Db }) {
   const deityOpts = useMemo(() => {
     return (deitySlot?.choices || []).map((id) => {
       const f = db.features[id];
-      return { id, label: label(f), hint: f?.nameEn };
+      const toks = alignTokensOf(f?.prereq);
+      const bad = !alignAllows(build.alignment, toks);
+      return {
+        id,
+        label: label(f),
+        hint: bad ? `需要 ${alignNeedText(db, toks)}` : f?.nameEn,
+        disabled: bad,
+        badge: bad ? "阵营不符" : undefined,
+      };
     });
-  }, [db, deitySlot]);
+  }, [db, deitySlot, build.alignment]);
+
+  const alignLocks = useMemo(() => alignmentLocks(db, build), [db, build]);
+  const conflicts = useMemo(() => alignConflicts(db, build), [db, build]);
 
   // 种族传承槽位（传承本身还可能有下一层）
   const raceSlots = useMemo(() => raceRootSlots(db, build), [db, build]);
@@ -109,10 +121,26 @@ export function Character(props: { db: Db }) {
         <Field label="阵营">
           <SearchSelect
             value={build.alignment}
-            options={rules.alignments.map((a) => ({ id: a.id, label: a.name }))}
+            options={rules.alignments.map((a) => {
+              const lock = alignLocks[a.id];
+              return {
+                id: a.id,
+                label: a.name,
+                disabled: !!lock,
+                badge: lock ? "不符" : undefined,
+                hint: lock ? lock.join("；") : undefined,
+              };
+            })}
             onChange={(v) => act.patch((b) => { b.alignment = v; })}
             width={220}
           />
+          {conflicts.length > 0 && (
+            <div className="row wrap" style={{ marginTop: 6 }}>
+              {conflicts.map((c) => (
+                <Chip key={c} tone="no">{c}</Chip>
+              ))}
+            </div>
+          )}
         </Field>
         <Field
           label="神祇"

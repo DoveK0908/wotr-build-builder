@@ -3,8 +3,8 @@ import type { AttrId, Db, FeatureEntry, LevelEntry } from "../types";
 import type { Build } from "../store";
 import { act, useBuild } from "../store";
 import {
-  choiceVerdict, classLevels, derive, featuresAtClassLevel, label, levelCtxList,
-  levelRootSlots,
+  alignAllows, alignNeedText, alignTokensOf, choiceVerdict, classAlignTokens, classLevels, derive,
+  featuresAtClassLevel, label, levelCtxList, levelRootSlots,
 } from "../rules";
 import { Chip, Collapse, Panel, SearchSelect } from "../ui";
 import { SlotChain } from "../pick";
@@ -22,13 +22,20 @@ export function Levels(props: { db: Db }) {
     return Object.values(db.classes)
       .filter((c) => !c.mythic)
       .sort((a, b) => (a.prestige === b.prestige ? a.name.localeCompare(b.name, "zh") : a.prestige ? 1 : -1))
-      .map((c) => ({
-        id: c.id,
-        label: c.name,
-        badge: c.prestige ? "进阶" : "基础",
-        hint: `HD ${c.hitDie} · 技能点 ${c.skillPoints}${c.spellbookId ? " · 施法" : ""}`,
-      }));
-  }, [db]);
+      .map((c) => {
+        const toks = classAlignTokens(db, c.id);
+        const bad = !alignAllows(build.alignment, toks);
+        return {
+          id: c.id,
+          label: c.name,
+          badge: (c.prestige ? "进阶" : "基础") + (bad ? " · 阵营不符" : ""),
+          hint: bad
+            ? `需要 ${alignNeedText(db, toks)}`
+            : `HD ${c.hitDie} · 技能点 ${c.skillPoints}${c.spellbookId ? " · 施法" : ""}`,
+          disabled: bad,
+        };
+      });
+  }, [db, build.alignment]);
 
   const used = classLevels(build);
   const rest = 20 - derived.level;
@@ -124,14 +131,21 @@ export function Levels(props: { db: Db }) {
                 <div className="row wrap">
                   {archChoices.map((a) => {
                     const on = archList.includes(a.id);
+                    const toks = alignTokensOf(a.prereq);
+                    const bad = !alignAllows(build.alignment, toks);
                     return (
                       <Chip
                         key={a.id}
-                        tone={on ? "ok" : undefined}
-                        title={a.desc ? a.desc.slice(0, 200) : a.nameEn}
-                        onClick={() => act.toggleArchetype(lv.classId as string, a.id)}
+                        tone={on ? "ok" : bad ? "no" : undefined}
+                        title={bad
+                          ? `需要 ${alignNeedText(db, toks)}`
+                          : a.desc ? a.desc.slice(0, 200) : a.nameEn}
+                        onClick={() => {
+                          if (bad && !on) return;
+                          act.toggleArchetype(lv.classId as string, a.id);
+                        }}
                       >
-                        {on ? "✓ " : ""}{a.name}
+                        {on ? "✓ " : ""}{a.name}{bad ? "（阵营不符）" : ""}
                       </Chip>
                     );
                   })}
