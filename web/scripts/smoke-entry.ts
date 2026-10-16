@@ -15,6 +15,7 @@ import {
   alignTokensOf,
   alignmentLocks,
   classAlignTokens,
+  classSelectableAt,
   deityAlignTokens,
   attrMod,
   attrsAtLevel,
@@ -521,6 +522,29 @@ export function run(dir: string): void {
     classArchetypes: { [aparent]: [blood?.id || ""] },
   };
   ok(alignConflicts(db, abuild).some((x) => x.includes("觅血者")), "变体阵营冲突会被报出来");
+
+  // 变体取代母职业的阵营要求：武僧（守序）× 醉拳大师（任意非守序）——两个集合交集为空
+  const drunk = Object.values(db.archetypes).find((a) => a.name === "醉拳大师");
+  const dtoks = alignTokensOf(drunk?.prereq);
+  ok(!!drunk && dtoks.length > 0 && !dtoks.includes("Lawful"), "醉拳大师自带「任意非守序」的阵营要求",
+    dtoks.join(","));
+  const monkToks = classAlignTokens(db, monk?.id || "", [drunk?.id || ""]);
+  ok(!monkToks.includes("Lawful"), "选中醉拳大师后武僧的守序要求被取代（不是取并集）", monkToks.join(","));
+  const csel = classSelectableAt(db, monk?.id || "", "ChaoticEvil");
+  ok(csel.ok && csel.viaArchetype === "醉拳大师", "混乱邪恶也能选武僧，并指向要走醉拳大师",
+    csel.viaArchetype || "(无)");
+  ok(classSelectableAt(db, monk?.id || "", "LawfulGood").ok, "守序善良当然能选武僧");
+  const mk = (align: string, archs: string[]): Build => ({
+    ...emptyBuild(),
+    alignment: align,
+    levels: emptyBuild().levels.map((l) => ({ ...l, classId: monk?.id || "" })),
+    classArchetypes: { [monk?.id || ""]: archs },
+  });
+  ok(alignConflicts(db, mk("LawfulGood", [drunk?.id || ""])).some((x) => x.includes("醉拳大师")),
+    "守序善良 + 醉拳大师 会被判冲突（要求以变体为准）");
+  eq(alignConflicts(db, mk("ChaoticEvil", [drunk?.id || ""])).length, 0, "混乱邪恶 + 醉拳大师 没有冲突");
+  ok(alignConflicts(db, mk("ChaoticEvil", [])).some((x) => x.includes("武僧")),
+    "混乱邪恶 + 纯武僧 仍然报冲突");
 
   const goodDomain = Object.values(db.features)
     .find((f) => f.path && f.path.includes("Domains/Good/") && alignTokensOf(f.prereq).length > 0);

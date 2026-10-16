@@ -843,19 +843,66 @@ export function alignNeedText(db: Db, tokens: string[]): string {
   return tokens.map((t) => known.get(t) || t).join(" / ");
 }
 
-/** 职业 + 已选变体合起来的阵营要求（变体继承母职业的限制由调用方传 classId） */
+/**
+ * 职业 + 已选变体合起来的阵营要求。
+ *
+ * 规则：**变体自带的阵营要求会取代母职业的阵营要求**。全库 197 个变体 × 39 个职业里，
+ * 只有一处出现互斥：武僧（守序）× 醉拳大师（NeutralGood, TrueNeutral, NeutralEvil, Chaotic）——
+ * 两个集合交集为空，如果按「同时满足」判定，醉拳大师对任何角色都不可选，
+ * 而游戏自己给这个变体标的阵营就是「任意非守序」，所以取变体为准（详见 docs/data-format.md）。
+ */
 export function classAlignTokens(db: Db, classId: string | null | undefined, archIds?: string[]): string[] {
-  const out: string[] = [];
-  const add = (l?: Prereq[]) => {
-    for (const t of alignTokensOf(l)) if (!out.includes(t)) out.push(t);
+  const arch: string[] = [];
+  for (const a of archIds || []) {
+    for (const t of alignTokensOf(db.archetypes[a]?.prereq)) if (!arch.includes(t)) arch.push(t);
+  }
+  if (arch.length) return arch;
+  return classId ? alignTokensOf(db.classes[classId]?.prereq) : [];
+}
+
+/** 变体的阵营要求覆盖了母职业时返回详情（给界面写说明用），否则 null */
+export function alignOverrideOf(
+  db: Db,
+  classId: string | null | undefined,
+  archIds?: string[],
+): { archId: string; archName: string; tokens: string[]; classTokens: string[] } | null {
+  const hit = (archIds || []).find((a) => alignTokensOf(db.archetypes[a]?.prereq).length > 0);
+  if (!hit) return null;
+  const classTokens = classId ? alignTokensOf(db.classes[classId]?.prereq) : [];
+  if (!classTokens.length) return null;
+  return {
+    archId: hit,
+    archName: db.archetypes[hit]?.name || hit,
+    tokens: alignTokensOf(db.archetypes[hit]?.prereq),
+    classTokens,
   };
-  if (classId) add(db.classes[classId]?.prereq);
-  for (const a of archIds || []) add(db.archetypes[a]?.prereq);
-  return out;
 }
 
 export function deityAlignTokens(db: Db, deityId: string | null | undefined): string[] {
   return deityId ? alignTokensOf(db.features[deityId]?.prereq) : [];
+}
+
+/**
+ * 这个职业在当前阵营下能不能选。
+ *
+ * 母职业的阵营要求满足 → 可以；否则，如果它有一个自带阵营要求、且当前阵营满足那个要求的变体
+ * → 也可以（因为选了那个变体，要求就被取代了；游戏里也是这样，武僧 + 醉拳大师 = 任意非守序）。
+ * 调用方拿到 viaArchetype 时应当提示「需要 X，或选 Y 则任意非守序」。
+ */
+export function classSelectableAt(
+  db: Db,
+  classId: string,
+  alignment: string | null | undefined,
+): { ok: boolean; reason: string; viaArchetype?: string } {
+  const toks = alignTokensOf(db.classes[classId]?.prereq);
+  if (alignAllows(alignment, toks)) return { ok: true, reason: "" };
+  for (const aid of db.classes[classId]?.archetypes || []) {
+    const at = alignTokensOf(db.archetypes[aid]?.prereq);
+    if (at.length && alignAllows(alignment, at)) {
+      return { ok: true, reason: "", viaArchetype: db.archetypes[aid]?.name || aid };
+    }
+  }
+  return { ok: false, reason: alignNeedText(db, toks) };
 }
 
 /** 某个阵营下，已选内容里所有「阵营不符」的原因 */
@@ -867,12 +914,17 @@ function alignReasons(db: Db, build: Build, alignment: string): string[] {
     if (!cid || seen.has(cid)) continue;
     seen.add(cid);
     const archIds = build.classArchetypes[cid] || [];
-    const tokens = classAlignTokens(db, cid, archIds);
-    const bare = alignTokensOf(db.classes[cid]?.prereq);
+    const over = alignOverrideOf(db, cid, archIds);
+    const bare = over ? over.tokens : alignTokensOf(db.classes[cid]?.prereq);
     if (!alignAllows(alignment, bare)) {
-      out.push(`${label(db.classes[cid])} 需要 ${alignNeedText(db, bare)}`);
+      out.push(
+        over
+          ? `${label(db.classes[cid])} · ${over.archName} 需要 ${alignNeedText(db, bare)}`
+          : `${label(db.classes[cid])} 需要 ${alignNeedText(db, bare)}`,
+      );
     }
     for (const aid of archIds) {
+      if (over && aid === over.archId) continue; // 已被上面那条取代，别报两遍
       const at = alignTokensOf(db.archetypes[aid]?.prereq);
       if (!alignAllows(alignment, at)) {
         out.push(`${db.archetypes[aid]?.name || aid} 需要 ${alignNeedText(db, at)}`);

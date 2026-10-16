@@ -3,8 +3,8 @@ import type { AttrId, Db, FeatureEntry, LevelEntry } from "../types";
 import type { Build } from "../store";
 import { act, useBuild } from "../store";
 import {
-  alignAllows, alignNeedText, alignTokensOf, choiceVerdict, classAlignTokens, classLevels, derive,
-  featuresAtClassLevel, label, levelCtxList, levelRootSlots,
+  alignAllows, alignNeedText, alignOverrideOf, alignTokensOf, choiceVerdict, classLevels,
+  classSelectableAt, derive, featuresAtClassLevel, label, levelCtxList, levelRootSlots,
 } from "../rules";
 import { Chip, Collapse, Panel, SearchSelect } from "../ui";
 import { SlotChain } from "../pick";
@@ -23,15 +23,17 @@ export function Levels(props: { db: Db }) {
       .filter((c) => !c.mythic)
       .sort((a, b) => (a.prestige === b.prestige ? a.name.localeCompare(b.name, "zh") : a.prestige ? 1 : -1))
       .map((c) => {
-        const toks = classAlignTokens(db, c.id);
-        const bad = !alignAllows(build.alignment, toks);
+        const sel = classSelectableAt(db, c.id, build.alignment);
+        const bad = !sel.ok;
         return {
           id: c.id,
           label: c.name,
           badge: (c.prestige ? "进阶" : "基础") + (bad ? " · 阵营不符" : ""),
           hint: bad
-            ? `需要 ${alignNeedText(db, toks)}`
-            : `HD ${c.hitDie} · 技能点 ${c.skillPoints}${c.spellbookId ? " · 施法" : ""}`,
+            ? `需要 ${sel.reason}`
+            : sel.viaArchetype
+              ? `需要 ${alignNeedText(db, alignTokensOf(c.prereq))}，或选「${sel.viaArchetype}」则改为它的阵营要求`
+              : `HD ${c.hitDie} · 技能点 ${c.skillPoints}${c.spellbookId ? " · 施法" : ""}`,
           disabled: bad,
         };
       });
@@ -93,6 +95,8 @@ export function Levels(props: { db: Db }) {
 
         const firstOfClass = classLvl === 1 && lv.classId;
         const archChoices = (cls?.archetypes || []).map((id) => db.archetypes[id]).filter(Boolean);
+        // 变体自带阵营要求时会取代母职业的（游戏里唯一一例：武僧 × 醉拳大师）
+        const archOverride = lv.classId ? alignOverrideOf(db, lv.classId, archList) : null;
 
         return (
           <section className={"lvcard" + (lv.classId ? "" : " empty")} key={idx}>
@@ -150,6 +154,12 @@ export function Levels(props: { db: Db }) {
                     );
                   })}
                 </div>
+                {archOverride && (
+                  <div className="muted small" style={{ marginTop: 4 }}>
+                    「{archOverride.archName}」自带阵营要求（{alignNeedText(db, archOverride.tokens)}），
+                    选中后取代本职业的「{alignNeedText(db, archOverride.classTokens)}」——两条互斥，游戏里也只取变体那条。
+                  </div>
+                )}
               </div>
             )}
 

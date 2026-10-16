@@ -104,6 +104,23 @@
 | 神祇特性 | `features.json` 里各神祇的 `prereq` | 33 个神祇里 31 个带 `align`（阿巴达 `TrueNeutral, Lawful`、艾奥梅黛 `LawfulGood, NeutralGood, LawfulNeutral`、诺格巴 `TrueNeutral, Evil`…），只有「无神论」没有限制。游戏自己的百科文本也写着「各神祇还会限制你对起始阵营和特定职业的选择」 |
 | 领域 / 忠诚类特性 | `features.json` 的 `prereq` | 善良领域 `Good`、守序领域 `Lawful`，并且用 `PrerequisiteFeature` 指向该神祇的特性 —— 所以**选错神祇连领域都开不出来** |
 
+### 变体的阵营要求「取代」母职业的要求（不是取并集）
+
+全库 197 个变体 × 39 个职业里只有一处出现互斥：**武僧（`Lawful`）× 醉拳大师（`NeutralGood, TrueNeutral, NeutralEvil, Chaotic`）**
+——两个集合**交集为空**。按「同时满足」判定的话，醉拳大师对任何角色都不可选，显然不对；游戏自己给这个变体标的分类就是
+「**Alignment: Any non-lawful**」（Reddit / Steam 指南 / fextralife 三处一致）。数据层面也有旁证：全库 32 个带 `align`
+的组件里，只有醉拳大师这一条带 `IngorePrerequisiteCheck: True`（拼写就是如此），武僧本体的那条是 `False`。
+
+所以规则定为：**变体自带阵营要求时以变体为准**（`rules.ts` 的 `classAlignTokens()`、`alignOverrideOf()`）。
+连带放宽职业下拉：只要「母职业要求满足，或者该职业有一个自带阵营要求、且当前阵营满足它的变体」就允许选该项
+（`classSelectableAt()` 会一并返回 `viaArchetype`，界面提示「需要 守序，或选「醉拳大师」则改为它的阵营要求」）。
+反向也照实报：守序善良的武僧一旦勾上醉拳大师，`alignConflicts()` 会给出
+`武僧 · 醉拳大师 需要 任意非守序`。
+
+为确认「只有这一处」，做过两轮全库交叉核对（`arch1.mjs` 对全部「母职业 × 其名下变体」的阵营集合求交集；
+`arch5.py` 再对全部前置组件种类做矛盾检测）：交集为空且两边都非空的组合**只有 1 个**，就是武僧 × 醉拳大师，
+其余变体的阵营要求都是母职业要求的子集或同义写法，不需要特殊处理。
+
 ⚠ 早期只有**特性**导出了 `prereq`，职业与变体蓝图的 `Components` 被丢掉了，于是「圣武士可以是混乱邪恶」这类漏洞在
 2026-10-16 的修复里才补上：`classes.json` / `archetypes.json` 现在也带 `prereq`（重新跑一次 `python pipeline\build_data.py`
 即可，`classes.json` 从 125 KB 涨到 137 KB）。
