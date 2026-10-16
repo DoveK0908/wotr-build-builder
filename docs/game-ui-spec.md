@@ -131,7 +131,7 @@
 | 右栏：数值盒子 + 本职技能 | ✅ `StatBox` / `StatRows`（职业页九宫格照游戏排：强韧/反射/意志 高低、基础攻击加值档位、每级生命值、技能点、起始金币、类型、最高等级、**施法属性 / 施法类型（自发施法 / 准备施法·法术书 / 准备施法·全表，口径取自职业自己的法术书）**、本职技能） |
 | 职业进度表 1–20 图标行 | ✅ `GrowthTable`（职业页可点等级轴定位）；神话用 `MythicGrowth`（10 阶，标出前两阶是「神话英雄」、道途从第 N 阶起） |
 | 角色卡式总结页 | ✅ 三栏：左＝角色牌（名字/阵营/生命/职业徽章）+ 属性块 + 攻击框 + 防御与豁免框；中＝角色卡 + **成长表（1–20 级，每级给了什么特性 —— 对应截图 171818 职业页那条轴）** + 种族与背景特性 / 特殊能力 / 专长 图标网格 + 法术环位 + 升级记录 + 未选完清单；右＝技能两栏 + 武艺特性 + 分享与存档 |
-| 阵营九宫轮盘 | ✅ `AlignWheel`（3×3 节点 + 选中紫底；被职业/变体锁住的阵营标小圆点并在右栏给出原因） |
+| 阵营轮盘 | ✅ `AlignWheel` 按游戏做成**左栏的八瓣扇形 SVG 轮盘 + 正中「N」**（缩写圆牌贴在瓣上，选中瓣深紫填充、被职业/变体/神祇锁住的瓣变淡），轮盘上方写当前阵营名、下面写「共 N 个阵营」；中栏是名字 + 可以选/不可选 + 通用说明 + 冲突清单，右栏是九宫可用性表 |
 | 神祇页中间那张**先决条件**表（逐条打勾） | ✅ `web/src/views/Deity.tsx`：标题写成「先决条件（满足数/总数）」，逐条渲染 `evalPrereqs(...).details`（`hide` 的条目跳过），前面一个圆标 —— 绿勾＝`ok`、灰问号＝`unknown`（剧情进度等游戏内才判定得了的）、红叉＝`no`；阵营那一行后面追加「当前阵营：X」。`web/src/rules.ts` 的 `prereqText` 同步补全：`noarch` 会写成「无变体：野性神卫（战斗祭司）」，`align` 走 `alignNeedText` 出中文（`TrueNeutral`→绝对中立、轴 token `Lawful`→任意守序） |
 | 职业页那枚「**使用推荐模板**」宽按钮 | ✅ `web/src/views/ClassPlan.tsx` 接 `onPresets`，由 `web/src/App.tsx` 打开预置构筑面板（24 套从中文 BD 合集导入的整套构筑）；样式 `.btn.wide`（素材皮是游戏那种紫底金边宽条，`web/src/styles.css`） |
 | 属性页每项属性旁的绿拇指 / 红拇指 | ✅ `attrRecommend(db, build)`（`web/src/rules.ts`）取本职职业蓝图的 `RecommendedAttributes` / `NotRecommendedAttributes`（27 个职业带这份名单；变体带 `OverrideAttributeRecommendations` 时以变体为准，32 个变体命中），素材皮用游戏贴图 `UI_CharGen_IconLike.png` / `IconDislike.png`（实测 52×50），素色皮退化成文字 chip；`web/src/views/Attrs.tsx` 左列表行 + 中栏 chip 两处显示 |
@@ -200,3 +200,19 @@
 | 职业 / 种族 / 神话道途 / 法术书 | 0 | 它们的图标不在 `blueprint.assets` 里（界面里也主要在牌匾条与立绘卡上，本项目按用户要求不做立绘） |
 
 上限参考：`blueprint.assets` 共 2,519 个 sprite，其中还有物品图标与 DLC 奖励 buff；把我们导出的全部实体加起来只能按名对上 924 个。剩余一律回退「统一底纹 + 首字徽记」。
+
+## 8. 皮肤变量的作用域陷阱（2026-10-16 修，容易再犯）
+
+皮肤变量挂在 `.app[data-skin]` 上，而 `body { color: var(--fg) }` 是在 **body** 上解析的 —— 游戏皮下 body 算出来的前景色仍是暗色主题的浅色 `#e9e3f2`。于是任何**没写 `color`** 的元素（普通 `<div>`、段落、表格单元）在羊皮纸上会继承这个浅色，糊成一片几乎看不见的淡影：实测阵营页说明段落区只有 128 个暗像素、最暗才 `#8a7669`。
+
+修法（`web/src/styles.css`）：
+
+```css
+[data-skin="game"] .book-page { color: var(--fg); }
+[data-skin="game"] .book-page .muted, [data-skin="game"] .book-page .small { color: var(--muted); }
+```
+
+修后同一区域暗像素 5182 个、最暗 `#241c14`＝墨色（用 Pillow 取最暗像素即可判定，比肉眼看截图可靠）。
+
+**教训**：新增页面/段落如果没写 `color` 就看起来发虚，先怀疑这条作用域规则，而不是以为是背景图盖住了文字。
+
