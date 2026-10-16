@@ -213,13 +213,38 @@ export function StatRows(props: { items: [React.ReactNode, React.ReactNode][]; d
   );
 }
 
-/* ── 阵营九宫轮盘 ─────────────────────────────────────────────────────────── */
+/* ── 阵营轮盘（照游戏：八瓣扇形 + 正中绝对中立） ────────────────────────────── */
 
-const WHEEL: string[][] = [
-  ["LawfulGood", "NeutralGood", "ChaoticGood"],
-  ["LawfulNeutral", "TrueNeutral", "ChaoticNeutral"],
-  ["LawfulEvil", "NeutralEvil", "ChaoticEvil"],
+/** 八瓣的位置：角度 0 = 正右，逆时针为正（90 = 正上）。正中那格是绝对中立。 */
+const WHEEL_ORDER: Array<{ id: string; deg: number }> = [
+  { id: "NeutralGood", deg: 90 },
+  { id: "ChaoticGood", deg: 45 },
+  { id: "ChaoticNeutral", deg: 0 },
+  { id: "ChaoticEvil", deg: -45 },
+  { id: "NeutralEvil", deg: -90 },
+  { id: "LawfulEvil", deg: -135 },
+  { id: "LawfulNeutral", deg: 180 },
+  { id: "LawfulGood", deg: 135 },
 ];
+
+const W_R = 112; // 外半径
+const W_R0 = 46; // 内半径
+const W_LABEL = 79; // 缩写圆心的半径
+
+function wPolar(r: number, deg: number): [number, number] {
+  const a = (deg * Math.PI) / 180;
+  return [120 + r * Math.cos(a), 120 - r * Math.sin(a)];
+}
+
+function wWedge(deg: number): string {
+  const d0 = deg - 22.5;
+  const d1 = deg + 22.5;
+  const [x0, y0] = wPolar(W_R, d0);
+  const [x1, y1] = wPolar(W_R, d1);
+  const [x2, y2] = wPolar(W_R0, d1);
+  const [x3, y3] = wPolar(W_R0, d0);
+  return `M${x0.toFixed(1)},${y0.toFixed(1)} A${W_R},${W_R} 0 0 0 ${x1.toFixed(1)},${y1.toFixed(1)} L${x2.toFixed(1)},${y2.toFixed(1)} A${W_R0},${W_R0} 0 0 1 ${x3.toFixed(1)},${y3.toFixed(1)} Z`;
+}
 
 export function AlignWheel(props: {
   value: string | null;
@@ -227,30 +252,46 @@ export function AlignWheel(props: {
   locks?: Record<string, string[]>;
   labels?: Record<string, string>;
   onPick?: (id: string) => void;
+  onHover?: (id: string | null) => void;
 }) {
+  const centerId = "TrueNeutral";
+  const centerLock = props.locks?.[centerId];
   return (
-    <div className="wheel">
-      {WHEEL.map((row, ri) => (
-        <div className="wheel-row" key={ri}>
-          {row.map((id) => {
-            const lock = props.locks?.[id];
-            const sel = props.value === id;
-            const center = id === "TrueNeutral";
-            return (
-              <div
-                key={id}
-                className={"wnode" + (sel ? " sel" : "") + (lock ? " lock" : "") + (center ? " center" : "")}
-                title={(props.labels?.[id] || props.abbr(id)) + (lock ? `　不可选：${lock.join("；")}` : "")}
-                onClick={props.onPick && !lock ? () => props.onPick!(id) : undefined}
-              >
-                <span className="wnode-abbr">{props.abbr(id)}</span>
-                {sel && <span className="wnode-dot" />}
-              </div>
-            );
-          })}
-        </div>
-      ))}
-    </div>
+    <svg className="alwheel" viewBox="0 0 240 240" role="img" aria-label="阵营轮盘">
+      <circle className="aw-back" cx={120} cy={120} r={W_R + 5} />
+      {WHEEL_ORDER.map(({ id, deg }) => {
+        const lock = props.locks?.[id];
+        const sel = props.value === id;
+        const [lx, ly] = wPolar(W_LABEL, deg);
+        const name = props.labels?.[id] || props.abbr(id);
+        return (
+          <g
+            key={id}
+            className={"aw-w" + (sel ? " sel" : "") + (lock ? " lock" : "")}
+            onMouseEnter={props.onHover ? () => props.onHover!(id) : undefined}
+            onClick={props.onPick && !lock ? () => props.onPick!(id) : undefined}
+          >
+            <title>{name + (lock ? `　不可选：${lock.join("；")}` : "")}</title>
+            <path className="aw-fill" d={wWedge(deg)} />
+            <circle className="aw-chip" cx={lx} cy={ly} r={15} />
+            <text className="aw-abbr" x={lx} y={ly + 4.5}>
+              {props.abbr(id)}
+            </text>
+          </g>
+        );
+      })}
+      <g
+        className={"aw-c" + (props.value === centerId ? " sel" : "") + (centerLock ? " lock" : "")}
+        onMouseEnter={props.onHover ? () => props.onHover!(centerId) : undefined}
+        onClick={props.onPick && !centerLock ? () => props.onPick!(centerId) : undefined}
+      >
+        <title>{(props.labels?.[centerId] || props.abbr(centerId)) + (centerLock ? `　不可避免：${centerLock.join("；")}` : "")}</title>
+        <circle className="aw-cback" cx={120} cy={120} r={W_R0 - 4} />
+        <text className="aw-abbr center" x={120} y={125}>
+          {props.abbr(centerId)}
+        </text>
+      </g>
+    </svg>
   );
 }
 

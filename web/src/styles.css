@@ -477,7 +477,11 @@ input.text:focus, textarea.text:focus, .cl-search:focus { border-color: var(--ac
   background: #f6f0dd url("/assets/ui/UI_BackgroundPaper_Console_3756_2000.png") center / 100% 100% no-repeat;
   border: 0; border-radius: 4px;
   box-shadow: 0 0 0 5px #2a2018, 0 0 0 7px #8b6a2f, 0 16px 44px rgba(0, 0, 0, .55);
+  /* 皮肤变量挂在 .app 上，body 的前景色仍是暗色主题的浅色 —— 羊皮纸上必须显式改深，
+     否则没写 color 的普通 <div> 会继承浅色、在纸上糊成一片淡影。 */
+  color: var(--fg);
 }
+[data-skin="game"] .book-page .muted, [data-skin="game"] .book-page .small { color: var(--muted); }
 
 /* 牌匾步骤条 */
 [data-skin="game"] .plaquebar {
@@ -693,6 +697,28 @@ input.text:focus, textarea.text:focus, .cl-search:focus { border-color: var(--ac
 .wnode-abbr { font-weight: 700; letter-spacing: .5px; }
 .wnode-dot { position: absolute; bottom: -7px; width: 11px; height: 11px; border-radius: 50%; background: #6aa8ff; border: 1px solid #fff; }
 
+/* 游戏那种「八瓣扇形 + 正中」的阵营轮盘（SVG） */
+.alwheel-pane { gap: 6px; }
+.alwheel-box { display: flex; justify-content: center; padding: 4px 0 2px; }
+.alwheel { width: 100%; max-width: 236px; height: auto; }
+.alwheel .aw-back { fill: var(--panel2); stroke: var(--line2); stroke-width: 1; }
+.alwheel .aw-fill { fill: var(--panel2); stroke: var(--line2); stroke-width: 1; }
+.alwheel .aw-w:hover .aw-fill { fill: rgba(122, 61, 143, .18); }
+.alwheel .aw-w.sel .aw-fill { fill: #6b3a5e; }
+.alwheel .aw-w.lock { opacity: .35; }
+.alwheel .aw-w.lock .aw-fill { fill: rgba(0, 0, 0, .04); }
+.alwheel .aw-chip { fill: var(--panel); stroke: var(--line2); stroke-width: 1; }
+.alwheel .aw-cback { fill: var(--panel); stroke: var(--line2); stroke-width: 2; }
+.alwheel .aw-abbr { text-anchor: middle; font-size: 13px; font-weight: 700; fill: var(--text); pointer-events: none; }
+.alwheel .aw-abbr.center { font-size: 15px; }
+.alwheel .aw-w.sel .aw-abbr { fill: #fff; }
+.alwheel .aw-w.sel .aw-chip { fill: #6b3a5e; stroke: var(--gold2); }
+.alwheel .aw-c.sel .aw-cback { fill: #6b3a5e; stroke: var(--gold2); }
+.alwheel .aw-c.sel .aw-abbr { fill: #fff; }
+.alwheel .aw-w, .alwheel .aw-c { cursor: pointer; }
+.alwheel .aw-w.lock, .alwheel .aw-c.lock { cursor: not-allowed; }
+.alwheel-name { text-align: center; font-size: 17px; font-weight: 700; letter-spacing: 1px; }
+
 /* 成长表（1..N 等级轴） */
 .growth { font-size: 12px; overflow-x: auto; }
 .grow-head, .grow-row { display: grid; grid-template-columns: 132px repeat(20, minmax(24px, 1fr)); align-items: center; gap: 1px; }
@@ -749,6 +775,16 @@ input.text:focus, textarea.text:focus, .cl-search:focus { border-color: var(--ac
 [data-skin="game"] .wnode.sel { background: rgba(91, 42, 82, .78); border-color: #b8944a; }
 [data-skin="game"] .wnode-abbr { color: #3a2c1c; }
 [data-skin="game"] .wnode.sel .wnode-abbr { color: #fff; }
+[data-skin="game"] .alwheel .aw-back { fill: rgba(255, 252, 242, .55); stroke: #b9a577; }
+[data-skin="game"] .alwheel .aw-fill { fill: rgba(255, 252, 242, .55); stroke: #c3b189; }
+[data-skin="game"] .alwheel .aw-chip { fill: rgba(255, 252, 242, .85); stroke: #b9a577; }
+[data-skin="game"] .alwheel .aw-cback { fill: rgba(255, 252, 242, .85); stroke: #b9a577; }
+[data-skin="game"] .alwheel .aw-abbr { fill: #3a2c1c; }
+[data-skin="game"] .alwheel .aw-w:hover .aw-fill { fill: rgba(122, 47, 43, .14); }
+[data-skin="game"] .alwheel .aw-w.sel .aw-fill { fill: rgba(91, 42, 82, .8); }
+[data-skin="game"] .alwheel .aw-w.sel .aw-chip, [data-skin="game"] .alwheel .aw-c.sel .aw-cback { fill: rgba(91, 42, 82, .9); stroke: #b8944a; }
+[data-skin="game"] .alwheel .aw-w.sel .aw-abbr, [data-skin="game"] .alwheel .aw-c.sel .aw-abbr { fill: #fff8e8; }
+[data-skin="game"] .alwheel-name { color: #4a3a26; }
 [data-skin="game"] .grow-label { color: #5b4a2e; }
 [data-skin="game"] .grow-num.on { color: #5b2a52; border-color: #7a3d8f; }
 [data-skin="game"] .grow-glyph { background: #f2e9d2; border-color: #b9a577; color: #6b4a1e; }
