@@ -129,3 +129,21 @@ export function mythicCap(key?: string | null): string {
   const a = mythicArt(key);
   return CAP_ARTS.has(a) ? ui(`UI_Mythic_ProgressionCap_${a}`) : ui("UI_Mythic_Progression_Active");
 }
+
+/** 阵营缩写贴图（游戏角色卡上那九个花体字母组合，67×70 灰度） */
+const ALIGN_ART: Record<string, string> = {
+  LawfulGood: "LG",
+  LawfulNeutral: "LN",
+  LawfulEvil: "LE",
+  NeutralGood: "NG",
+  TrueNeutral: "TN",
+  NeutralEvil: "NE",
+  ChaoticGood: "CG",
+  ChaoticNeutral: "CN",
+  ChaoticEvil: "CE",
+};
+
+export function alignArt(id?: string | null): string {
+  const a = ALIGN_ART[String(id)];
+  return a ? ui(`UI_CharScreen_alignment_${a}`) : ui("UI_CharScreen_alignment_TN");
+}

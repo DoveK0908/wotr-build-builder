@@ -994,3 +994,14 @@ img.row-mark { opacity: .95; }
 [data-skin="game"] .lvnum.mythic { background: #f0e2c6; border-color: #b8944a; }
 [data-skin="game"] .lvname { color: #40352a; }
 [data-skin="game"] .lvattr { color: var(--muted); }
+
+/* ---------------------------------------------------------------- game art */
+.aw-w.lock .aw-art,
+.aw-c.lock .aw-art { opacity: .35; }
+.aw-art { pointer-events: none; }
+[data-skin="game"] .sect-rule {
+  border-bottom: 0;
+  height: 9px;
+  margin: 3px 0 8px;
+  background: url("/assets/ui/UI_CharScreen_CaptionArt01.png") 0 50% / 100% 9px no-repeat;
+}
