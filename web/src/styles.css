@@ -1046,3 +1046,11 @@ img.row-mark { opacity: .95; }
   background-repeat: no-repeat;
 }
 [data-skin="plain"] .slot-ico.framed { background-image: none !important; }
+
+/* detail head letter medallion: the game's circular class/creature frame */
+[data-skin="game"] .dhead-glyph {
+  background: url("/assets/ui/UI_CharScreen_FrameCircle.png") center / 100% 100% no-repeat;
+  border-color: transparent;
+  border-radius: 50%;
+  box-shadow: none;
+}
