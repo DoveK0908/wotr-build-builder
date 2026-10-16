@@ -85,6 +85,9 @@ export function App() {
   const meta = db.meta;
   const idx = Math.max(0, steps.findIndex((s) => s.id === step));
   const cur = steps[idx] || steps[0];
+  /** 神话相关的步骤（神话 / 道途子步骤 / 道途法术书）—— 计数牌匾换成「神话 + 阶层」 */
+  const isMythicStep =
+    cur.id === "mythic" || cur.id.startsWith("my:") || cur.id.startsWith("mysp:");
   const notes = steps.map((s) => ({ id: s.id, note: stepNote(db, build, derived, s.id) }));
   const curNote = notes[idx]?.note || "";
   const go = (i: number) => setStep(steps[Math.min(steps.length - 1, Math.max(0, i))].id);
@@ -135,11 +138,32 @@ export function App() {
               ‹
             </button>
             <div className="pq-scroll">
-              {/* 游戏里牌匾条最前面那块是进度计数（升级时是「N 等级」，神话时是「神话 等级 N」）；
-                  游戏在创建角色时总是从第 1 级开始，所以没排职业时也显示 1，而不是 0。 */}
-              <div className="pq-counter" title={`角色等级 ${derived.level} / ${db.rules.levelRange?.[1] || 20}`}>
-                <b>{Math.max(1, derived.level)}</b>
-                <span>等级</span>
+              {/* 游戏里牌匾条最前面那块是进度计数：升级时竖排两个数字（旧级 / 新级）+「等级」，
+                  升神话阶层时是「神话」+ 阶层。这里同样按当前步骤切换口径：
+                  等级步骤显示「已排 / 20」，神话步骤显示「神话 / 已得阶层」。 */}
+              <div
+                className="pq-counter"
+                title={
+                  isMythicStep
+                    ? `神话阶层 ${derived.rank} / ${db.rules.mythicRankRange?.[1] || 10}`
+                    : `角色等级 ${derived.level} / ${db.rules.levelRange?.[1] || 20}`
+                }
+              >
+                <span className="pqc-nums">
+                  {isMythicStep ? (
+                    <>
+                      <b className="pqc-word">神话</b>
+                      <b>{derived.rank}</b>
+                    </>
+                  ) : (
+                    <>
+                      <b>{derived.level}</b>
+                      <i>/</i>
+                      <b>{db.rules.levelRange?.[1] || 20}</b>
+                    </>
+                  )}
+                </span>
+                <span>{isMythicStep ? "阶层" : "等级"}</span>
               </div>
               {steps.map((s) => {
                 const val = stepValue(db, build, derived, s.id);

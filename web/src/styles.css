@@ -411,6 +411,10 @@ input.text:focus, textarea.text:focus, .cl-search:focus { border-color: var(--ac
 }
 .pq-counter b { font-size: 17px; line-height: 1.15; color: var(--gold2); }
 .pq-counter span { font-size: 10px; color: var(--muted); }
+/* 游戏里那块计数牌匾竖排两个数字（旧级 / 新级），上面再写「等级」 */
+.pq-counter .pqc-nums { display: flex; align-items: baseline; gap: 2px; font-size: 10px; }
+.pq-counter .pqc-nums i { font-style: normal; font-size: 11px; color: var(--muted); }
+.pq-counter .pqc-word { font-size: 11px; letter-spacing: .5px; }
 .pq-stats {
   flex: none; display: flex; align-items: center; gap: 8px;
   margin-left: auto; padding-left: 10px; border-left: 1px solid var(--line);
@@ -524,6 +528,8 @@ input.text:focus, textarea.text:focus, .cl-search:focus { border-color: var(--ac
 }
 [data-skin="game"] .pq-counter b { color: #f7edd0; }
 [data-skin="game"] .pq-counter span { color: #cbb894; }
+[data-skin="game"] .pq-counter .pqc-nums i { color: #cbb894; }
+[data-skin="game"] .pq-counter .pqc-word { color: #e3c37a; }
 [data-skin="game"] .pq-attr i { color: #b8a684; }
 [data-skin="game"] .pq-attr b { color: #f7edd0; }
 [data-skin="game"] .pq-attr em { color: #e3c37a; }
