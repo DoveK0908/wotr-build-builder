@@ -58,6 +58,25 @@ D:\SteamLibrary\steamapps\common\Pathfinder Second Adventure
 
 可用环境变量 `WOTR_GAME_DIR` 或 `--game <目录>` 覆盖。管线只读游戏目录里的 `blueprints.zip` 与 `Localization/*.json`，不修改游戏本体。
 
+## 部署（当网站跑）
+
+双击仓库根目录的 `启动网页版.bat` 就行：它会在需要时装依赖、跑一次生产构建，再用内置的零依赖静态服务器把 `web\dist` 发布到
+
+http://127.0.0.1:5200/
+
+（批处理本身只用 ASCII 写，中文提示交给页面；加 `--no-open` 参数可以只起服务、不自动开浏览器。）
+
+想手动来：
+
+```powershell
+cd web
+node node_modules\vite\bin\vite.js build            # 产出 dist（约 80 MB，含数据与两张素材目录）
+node scripts\serve.mjs --port 5200                  # 只监听本机
+node scripts\serve.mjs --host 0.0.0.0 --port 5200   # 同一局域网里的手机 / 平板也能打开
+```
+
+构建产物里带着从本机游戏提取的界面贴图与图标（`dist\assets`，归 Owlcat），所以这个站点适合自己在本机 / 内网用；要传到公网请先想清楚素材版权，或者切素色皮后再发。
+
 ## 开发
 
 ```powershell
