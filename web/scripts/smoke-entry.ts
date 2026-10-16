@@ -5,7 +5,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import type { Db, FeatureEntry, Preset, Prereq } from "../src/types";
+import type { Db, FeatureEntry, MythicPathEntry, Preset, Prereq } from "../src/types";
 import { emptyBuild, serialize, deserialize } from "../src/store";
 import { applyPreset } from "../src/presets";
 import type { Build } from "../src/store";
@@ -21,8 +21,11 @@ import {
   levelCtxList,
   levelRootSlots,
   livePicks,
+  mythicHeroPath,
+  mythicSource,
   num,
   ownedFeatures,
+  pathStartRank,
   pointBuySpent,
   raceRootSlots,
   rankRootSlots,
@@ -313,6 +316,60 @@ export function run(dir: string): void {
 
   // 神话阶层本身不加属性；加属性的是道途特性（传奇 +4 全属性、恶魔之相按阶层、碎片之力诅咒之力）
   const ATTR_IDS = db.rules.attributes.map((a) => a.id) as (keyof Build["attributes"])[];
+  /** 道途特性实际出现在第几阶（主道途 +2、晚期道途 +7 的映射） */
+  const rankOf = (p: MythicPathEntry, featId: string): number => {
+    const L = (p.progression || []).find((x) => (x.features || []).includes(featId));
+    return L ? pathStartRank(db, p) + L.level - 1 : 0;
+  };
+  /** 把某个神话阶填上内容（哪怕只是随便挑一项），让 mythicRank 认为走到了这一阶 */
+  const fillRank = (b: Build, r: number): void => {
+    const s = rankRootSlots(db, b, r)[0];
+    b.ranks[r - 1].picks = s ? { [s.id]: (s.choices || [])[0] || "" } : { __marker__: "" };
+  };
+  // 前两阶是通用的「神话英雄」：没选道途也有 1–2 阶，第 1 阶给超凡飞升 + 神话能力、第 2 阶给神话专长
+  {
+    const hero = mythicHeroPath(db);
+    ok(!!hero, "神话英雄（MythicStartingClass）在数据里", hero?.name || hero?.nameEn || "");
+    ok((hero?.progression || []).length === 7, "神话英雄升级表是 7 级",
+      String((hero?.progression || []).length));
+    const noPath: Build = { ...emptyBuild(), mythicPath: null };
+    const r1 = rankRootSlots(db, noPath, 1);
+    const r2 = rankRootSlots(db, noPath, 2);
+    const r3 = rankRootSlots(db, noPath, 3);
+    ok(r1.length >= 2 && r1.some((s) => s.id === db.mythic.selections?.FirstAscensionSelection?.id),
+      "没选道途时第 1 阶也是神话英雄：超凡飞升 + 神话能力",
+      r1.map((s) => s.name).join("、"));
+    ok(r2.some((s) => s.id === db.mythic.selections?.MythicFeatSelection?.id),
+      "没选道途时第 2 阶给神话专长", r2.map((s) => s.name).join("、"));
+    ok(r3.some((s) => s.id === db.mythic.selections?.MythicAbilitySelection?.id),
+      "神话英雄第 3 级只有奇数阶的神话能力（数据里没有别的选择表，走兜底）",
+      r3.map((s) => s.name).join("、"));
+    const angel = Object.values(db.mythic.paths).find((p) => p.name === "天使");
+    if (angel) {
+      eq(String(pathStartRank(db, angel)), "3", "天使道途从第 3 阶起");
+      const withAngel: Build = { ...emptyBuild(), mythicPath: angel.id };
+      ok(rankRootSlots(db, withAngel, 1).some((s) => s.id === db.mythic.selections?.FirstAscensionSelection?.id),
+        "选了天使，第 1 阶仍然走神话英雄（不是天使自己的表）");
+      const angelNames = mythicSource(db, withAngel, 3).features.map((id) => db.features[id]?.name || "");
+      ok(angelNames.includes("天使光环") && angelNames.includes("天堂宝剑"),
+        "选了天使，第 3 阶给的是天使第 1 级（天使光环 / 天堂宝剑）", angelNames.filter(Boolean).join("、"));
+      const a3 = rankRootSlots(db, withAngel, 3).map((s) => s.name);
+      ok(!a3.some((n) => (n || "").includes("超凡飞升")), "第 3 阶不再给神话英雄独有的超凡飞升",
+        a3.join("、"));
+      const src1 = mythicSource(db, withAngel, 1);
+      eq(String(src1.level), "1", "第 1 阶映射到神话英雄第 1 级");
+      const src5 = mythicSource(db, withAngel, 5);
+      eq(String(src5.level), "3", "第 5 阶映射到天使第 3 级（rank - 2）");
+    }
+    const dragon = Object.values(db.mythic.paths).find((p) => p.name === "金龙");
+    if (dragon) {
+      eq(String(pathStartRank(db, dragon)), "8", "金龙（晚期道途）从第 8 阶起");
+      const withDragon: Build = { ...emptyBuild(), mythicPath: dragon.id };
+      ok(rankRootSlots(db, withDragon, 3).length > 0 && !rankRootSlots(db, withDragon, 3).some((s) => (s.name || "").includes("金龙")),
+        "选了金龙，第 3 阶还是神话英雄的内容");
+      eq(String(mythicSource(db, withDragon, 8).level), "1", "第 8 阶映射到金龙第 1 级");
+    }
+  }
   // 属性面板的拆分（基础/种族/升级/特性/手工）必须与 attrsAtLevel 的合计一致
   {
     const probe: Build = { ...emptyBuild(), race: db.races && Object.values(db.races)[0]?.id };
@@ -324,9 +381,10 @@ export function run(dir: string): void {
   const legend = Object.values(db.mythic.paths).find((p) => p.name === "传奇");
   if (legend) {
     const lb: Build = { ...emptyBuild(), mythicPath: legend.id };
+    fillRank(lb, 8); // 传奇是晚期道途，第 8 阶才换
     const la = attrsAtLevel(db, lb, 20);
     const base = emptyBuild().attributes;
-    ok(ATTR_IDS.every((a) => la[a] - base[a] === 4), "传奇道途：全属性 +4（蓝图只有文字）",
+    ok(ATTR_IDS.every((a) => la[a] - base[a] === 4), "传奇道途（第 8 阶生效后）：全属性 +4（蓝图只有文字）",
       ATTR_IDS.map((a) => `${a}${la[a] - base[a] >= 0 ? "+" : ""}${la[a] - base[a]}`).join(" "));
     const lbr = attrBreakdown(db, lb, 20);
     ok(ATTR_IDS.every((a) => lbr[a].feat === 4 && lbr[a].level === 0),
@@ -342,12 +400,13 @@ export function run(dir: string): void {
       ok(!ownedFeatures(db, sb2).ids.has(cursed.id),
         "选了道途但没走阶层：高层道途特性不算进来（阶层门控）");
     }
-    const root3 = rankRootSlots(db, sb2, 3)[0];
-    if (root3) {
-      sb2.ranks[2].picks = { [root3.id]: (root3.choices || [])[0] || "" };
+    const cr = cursed ? rankOf(shards, cursed.id) : 0; // 碎片之力第 3 级 → 第 10 阶
+    const root10 = cr > 0 ? rankRootSlots(db, sb2, cr)[0] : undefined;
+    if (root10 && cr > 0) {
+      sb2.ranks[cr - 1].picks = { [root10.id]: (root10.choices || [])[0] || "" };
       const after = attrsAtLevel(db, sb2, 20);
       ok(ATTR_IDS.every((a) => after[a] - before[a] === 4),
-        "碎片之力 3 阶的「诅咒之力」全属性 +4 进了属性面板",
+        `碎片之力第 ${cr} 阶（= 它的第 3 级）的「诅咒之力」全属性 +4 进了属性面板`,
         ATTR_IDS.map((a) => `${a}${after[a] - before[a] >= 0 ? "+" : ""}${after[a] - before[a]}`).join(" "));
     }
   }
@@ -362,12 +421,15 @@ export function run(dir: string): void {
     ? (aspectSlot.choices || []).map((id) => db.features[id]).find((f) => f?.name === "威加魔相")
     : undefined;
   if (demonPath && aspectSlot && might) {
-    // 3 阶：数值 = floor(3/2)+1 = 2
+    // 恶魔是主道途（第 3 阶起），高等恶魔之相在它自己的第 3 级 → 神话第 5 阶；
+    // 数值 = floor(阶层/2)+1 = 3
+    const ar = rankOf(demonPath, aspectSlot.id);
     const dp: Build = { ...emptyBuild(), mythicPath: demonPath.id };
-    dp.ranks[2].picks = { [aspectSlot.id]: might.id };
+    dp.ranks[ar - 1].picks = { [aspectSlot.id]: might.id };
     const da = attrsAtLevel(db, dp, 20);
     const db0 = attrsAtLevel(db, { ...emptyBuild(), mythicPath: demonPath.id }, 20);
-    eq(String(da.Strength - db0.Strength), "2", "恶魔 高等恶魔之相（威加魔相）3 阶给力量 +2（阶层一半+1）");
+    eq(String(da.Strength - db0.Strength), String(Math.floor(ar / 2) + 1),
+      `恶魔 高等恶魔之相（威加魔相）第 ${ar} 阶给力量 +${Math.floor(ar / 2) + 1}（阶层一半+1）`);
   }
 
   const fighterCls = Object.values(db.classes).find((c) => c.key === "FighterClass");

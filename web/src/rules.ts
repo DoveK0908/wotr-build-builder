@@ -6,7 +6,7 @@
  * 只有游戏数据里确实没有的（技能关键属性、点买花费表）才写死，并在注释里说明。
  */
 import type {
-  AttrId, BackgroundEntry, ClassEntry, Db, FeatureEntry, Prereq,
+  AttrId, BackgroundEntry, ClassEntry, Db, FeatureEntry, MythicPathEntry, Prereq,
   RaceEntry, SpellEntry,
 } from "./types";
 import { ATTRS, MAX_LEVEL, MAX_RANK, type Build } from "./store";
@@ -183,10 +183,49 @@ export function levelRootSlots(db: Db, build: Build, level: number): FeatureEntr
   return out;
 }
 
-/** 某个神话等级要玩家做选择的槽位（道途自家内容优先，没有就走通用神话能力/专长） */
-export function rankRootSlots(db: Db, build: Build, rank: number): FeatureEntry[] {
+/**
+ * 神话英雄：选道途之前的那几阶走的就是它（`Mythic/MythicStartingClass.jbp`，7 级）。
+ * 第 1 阶选「超凡飞升」+ 一项神话能力，第 2 阶一项神话专长，之后逐阶交替。
+ */
+export function mythicHeroPath(db: Db): MythicPathEntry | undefined {
+  return Object.values(db.mythic.paths).find(
+    (p) => !p.selectable && /MythicStartingClass/.test(p.path || ""),
+  );
+}
+
+/**
+ * 道途从第几阶开始生效。
+ * 数据事实：主道途（天使/恶魔/御衡者/灵使/诡计大师/巫妖）升级表 8 级，晚期道途（金龙/虫群/魔鬼）3 级，
+ * 神话英雄 7 级；7+3=10、2+8=10，所以主道途从第 3 阶起、晚期道途从第 8 阶起。
+ * 社区记录一致：1-2 阶是通用「神话英雄」，第 3 阶（第 2 章结尾）选道途，第 8 阶可换晚期道途。
+ */
+export function pathStartRank(db: Db, path?: MythicPathEntry | null): number {
+  if (!path) return 1;
+  if (/MythicStartingClass/.test(path.path || "")) return 1;
+  const levels = (path.progression || []).length;
+  if (levels >= 8) return 3;
+  return 8; // 金龙 / 虫群行者 / 魔鬼 / 传奇 / 碎片之力
+}
+
+/** 第 rank 阶由谁提供内容：神话英雄（还没到道途起点）还是已选道途，以及对应它的第几级 */
+export function mythicSource(
+  db: Db,
+  build: Build,
+  rank: number,
+): { owner: MythicPathEntry | null; level: number; features: string[] } {
+  const hero = mythicHeroPath(db);
   const path = build.mythicPath ? db.mythic.paths[build.mythicPath] : null;
-  const ids = (path?.progression || []).find((x) => x.level === rank)?.features || [];
+  const start = pathStartRank(db, path);
+  const useHero = !path || rank < start;
+  const owner = useHero ? hero || null : path;
+  const level = useHero ? rank : rank - start + 1;
+  const features = (owner?.progression || []).find((x) => x.level === level)?.features || [];
+  return { owner, level, features };
+}
+
+/** 某个神话等级要玩家做选择的槽位（英雄/道途自家的内容优先，没有就走通用神话能力/专长） */
+export function rankRootSlots(db: Db, build: Build, rank: number): FeatureEntry[] {
+  const ids = mythicSource(db, build, rank).features;
   const slots = ids.map((id) => db.features[id]).filter((f): f is FeatureEntry => !!f && !!f.choices && f.choices.length > 0);
   if (slots.length) return slots;
   // 奇数等级给神话能力、偶数等级给神话专长
@@ -315,14 +354,14 @@ export function ownedFeatures(db: Db, build: Build): Owned {
     for (const x of expandFeature(db, build.deity)) ids.add(x);
   }
 
-  // 神话道途：只认已经走到的阶层（否则选了道途就把 10 阶特性全算上）
-  const path = build.mythicPath ? db.mythic.paths[build.mythicPath] : null;
-  if (path) {
+  // 神话：1–2 阶（晚期道途是 1–7 阶）都还是「神话英雄」，之后才是道途自己的升级表。
+  // 只认已经走到的阶层，否则选了道途就把 10 阶特性全算上。
+  {
     const reached = Math.max(1, mythicRank(build));
     for (let r = 1; r <= Math.min(MAX_RANK, reached); r += 1) {
       const lv = build.ranks[r - 1];
       if (!lv) continue;
-      for (const fid of (path.progression || []).find((x) => x.level === r)?.features || []) addAuto(fid);
+      for (const fid of mythicSource(db, build, r).features) addAuto(fid);
       for (const p of livePicks(db, rankRootSlots(db, build, r), lv.picks)) {
         picks[p.slot] = p.choice;
         ids.add(p.slot);
@@ -355,9 +394,8 @@ function increases(build: Build): { level: Record<AttrId, number>[]; rank: Recor
   return { level, rank };
 }
 
-/** 神话阶层：已填过内容的最高那一阶（什么都没填就是 0） */
+/** 神话阶层：已填过内容的最高那一阶（什么都没填就是 0）。没有道途也能有 1–2 阶神话英雄 */
 export function mythicRank(build: Build): number {
-  if (!build.mythicPath) return 0;
   let last = 0;
   for (let i = 0; i < build.ranks.length; i += 1) {
     if (Object.keys(build.ranks[i]?.picks || {}).length > 0) last = i + 1;
@@ -423,8 +461,11 @@ export function attrBreakdown(
   }
   // 神话道途里「按文字生效」的属性加值（蓝图没给数值）
   const path = build.mythicPath ? db.mythic.paths[build.mythicPath] : null;
-  if (path?.name === "传奇") for (const a of ATTRS) out[a].feat += 4;
   const mr = mythicRank(build);
+  // 传奇的全属性 +4 也要道途真的生效（阶层走到它的起点）才算，晚期道途起点是第 8 阶
+  if (path?.name === "传奇" && mr >= pathStartRank(db, path)) {
+    for (const a of ATTRS) out[a].feat += 4;
+  }
   if (mr > 0) {
     const v = Math.floor(mr / 2) + 1;
     for (const id of ids) {
