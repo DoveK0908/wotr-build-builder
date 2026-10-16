@@ -30,3 +30,4 @@ dist/
 .DS_Store
 Thumbs.db
 web/.smoke/
+dist-public/

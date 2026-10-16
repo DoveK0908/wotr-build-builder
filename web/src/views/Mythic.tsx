@@ -8,7 +8,7 @@ import {
 import { Chip, Collapse } from "../ui";
 import { SlotChain } from "../pick";
 import { DetailHead, ListPane, MythicGrowth, Sect, StatBox, StatRows, ThreePane } from "../pane";
-import { featureIcon, mythicCap, mythicCard, mythicSkillFrame, ui } from "../skin";
+import { ART, featureIcon, mythicCap, mythicCard, mythicSkillFrame, ui } from "../skin";
 
 export function Mythic(props: { db: Db }) {
   const { db } = props;
@@ -96,7 +96,7 @@ export function Mythic(props: { db: Db }) {
             title="前两阶走「神话英雄」：第 1 阶选超凡飞升 + 神话能力，第 2 阶选神话专长"
             onClick={() => act.setMythicPath(null)}
           >
-            <img className="mpcard-art" src={mythicCard("MythicStartingClass")} alt="" />
+            {ART && <img className="mpcard-art" src={mythicCard("MythicStartingClass")} alt="" />}
             <span className="mpcard-glyph">英</span>
             <span className="mpcard-name">神话英雄（通用）</span>
             <span className="mpcard-sub">第 1–2 阶 · 神话能力 / 神话专长</span>
@@ -114,8 +114,8 @@ export function Mythic(props: { db: Db }) {
                 title={r?.text || p.nameEn || p.name}
                 onClick={() => act.setMythicPath(p.id)}
               >
-                <img className="mpcard-art" src={mythicCard(p.key)} alt="" />
-                {sel && <img className="mpcard-arrow" src={ui("UI_Mythic_SelectFrameArrow")} alt="" />}
+                {ART && <img className="mpcard-art" src={mythicCard(p.key)} alt="" />}
+                {ART && sel && <img className="mpcard-arrow" src={ui("UI_Mythic_SelectFrameArrow")} alt="" />}
                 <span className="mpcard-glyph">{p.name.slice(0, 1)}</span>
                 <span className="mpcard-name">{p.name}</span>
                 <span className="mpcard-sub">
@@ -136,7 +136,7 @@ export function Mythic(props: { db: Db }) {
         <>
           {/* 进度表上方的横条（游戏里是道途专属的装饰条） */}
           <div className="mpcap">
-            <img src={mythicCap(cur.isHero ? "MythicStartingClass" : path?.key)} alt="" />
+            {ART && <img src={mythicCap(cur.isHero ? "MythicStartingClass" : path?.key)} alt="" />}
             <span>{cur.isHero ? "神话英雄" : path?.name || "神话"}</span>
           </div>
           <MythicGrowth db={db} build={build} sel={cur.rank} onSel={(r) => setSel(r)} />

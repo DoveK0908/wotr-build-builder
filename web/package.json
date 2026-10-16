@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
+    "build:public": "tsc --noEmit && vite build --mode public && node scripts/strip-art.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

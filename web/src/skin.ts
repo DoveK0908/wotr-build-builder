@@ -12,7 +12,15 @@ export type Skin = "game" | "plain";
 
 const KEY = "wotr-skin-v1";
 
+/**
+ * 有没有从游戏安装里提取的素材。
+ * 公网发布版（`npm run build:public`，`.env.public` 里 VITE_ART=0）没有这些图 —— 游戏贴图是
+ * Owlcat 的版权物，不适合随站点公开；关掉后界面自动退回素色皮 + 首字徽记。
+ */
+export const ART: boolean = (import.meta.env.VITE_ART ?? "1") !== "0";
+
 function initial(): Skin {
+  if (!ART) return "plain";
   try {
     const m = /[#&]skin=([a-z]+)/.exec(location.hash);
     if (m && (m[1] === "game" || m[1] === "plain")) return m[1];
@@ -60,14 +68,14 @@ export function useSkin(): Skin {
   return useSyncExternalStore(subscribe, getSkin, getSkin);
 }
 
-/** 素材地址：`web/public/assets/ui/…` → `/assets/ui/…`（构建后同样可用） */
-export const ui = (name: string): string => `./assets/ui/${name}.png`;
-/** 内容图标（专长/法术的 64×64 图标，`web/public/assets/icons/…`） */
-export const icon = (name: string): string => `./assets/icons/${name}.png`;
+/** 素材地址：`web/public/assets/ui/…` → `/assets/ui/…`（构建后同样可用）；没有素材时返回空串 */
+export const ui = (name: string): string => (ART ? `./assets/ui/${name}.png` : "");
+/** 内容图标（专长/法术的 64×64 图标，`web/public/assets/icons/…`）；没有素材时返回空串 */
+export const icon = (name: string): string => (ART ? `./assets/icons/${name}.png` : "");
 
-/** 蓝图内容的真实图标（64×64）；这个蓝图没有导出图标就返回 null */
+/** 蓝图内容的真实图标（64×64）；这个蓝图没有导出图标、或者构建里没有素材时返回 null */
 export function featureIcon(db: { icons?: { byId?: Record<string, string> } } | null | undefined, id?: string | null): string | null {
-  if (!db || !id) return null;
+  if (!ART || !db || !id) return null;
   const n = db.icons?.byId?.[id];
   return n ? icon(n) : null;
 }

@@ -5,7 +5,7 @@ import {
   classLevels, featuresAtClassLevel, isNamed, label, mythicHeroPath, pathStartRank,
   universalSlots,
 } from "./rules";
-import { alignArt, featureIcon, ui, useSkin } from "./skin";
+import { ART, alignArt, featureIcon, ui, useSkin } from "./skin";
 
 /* ────────────────────────────────────────────────────────────────────────────
    游戏里那套「左列表 + 中详情 + 右预览」三栏骨架，以及配套小件。
@@ -76,7 +76,7 @@ export function ListPane(props: {
             placeholder="搜索……"
             onChange={(e) => props.onSearch && props.onSearch(e.target.value)}
           />
-          <img className="lp-lens" src={ui("UI_Search_Icon")} alt="" />
+          {ART && <img className="lp-lens" src={ui("UI_Search_Icon")} alt="" />}
         </div>
       )}
       <div className="lp-list">{props.children}</div>

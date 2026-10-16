@@ -75,7 +75,28 @@ node scripts\serve.mjs --port 5200                  # 只监听本机
 node scripts\serve.mjs --host 0.0.0.0 --port 5200   # 同一局域网里的手机 / 平板也能打开
 ```
 
-构建产物里带着从本机游戏提取的界面贴图与图标（`dist\assets`，归 Owlcat），所以这个站点适合自己在本机 / 内网用；要传到公网请先想清楚素材版权，或者切素色皮后再发。
+构建产物里带着从本机游戏提取的界面贴图与图标（`dist\assets`，归 Owlcat），所以这个站点适合自己在本机 / 内网用。
+
+## 传到公网（GitHub Pages / Cloudflare Pages / Vercel）
+
+游戏贴图与图标是 Owlcat 的版权物、也没有入库，所以公网版**必须**用「不含素材」的构建：
+
+```powershell
+cd web
+npm.cmd run build:public      # = tsc + vite build --mode public + scripts\strip-art.mjs
+```
+
+`.env.public` 里的 `VITE_ART=0` 会让界面自动退回素色皮 + 首字徽记（素材皮开关也会隐藏），`strip-art.mjs` 再把 vite 从 `public/` 整包拷进来的 `assets\ui`、`assets\icons` 删掉。产物约 **9.6 MB**（页面 + 规则数据），没有任何游戏素材。构建用相对路径，丢进子目录也能跑。
+
+三个平台怎么填（都从仓库根开始）：
+
+| 平台 | 设置 |
+| --- | --- |
+| **GitHub Pages** | 已经写好 `.github/workflows/pages.yml`：推送后在仓库 Settings → Pages → Source 选 **GitHub Actions** 即可；CI 会自动 `npm ci` + `npm run build:public` + 冒烟自检后发布 `web/dist`。地址形如 https://<用户名>.github.io/<仓库名>/ |
+| **Cloudflare Pages** | 连仓库，Root directory `web`，Build command `npm run build:public`，Build output directory `dist` |
+| **Vercel** | 导入仓库，Root Directory `web`，Build Command `npm run build:public`，Output Directory `dist` |
+
+注意：CI 上跑不了 `pipeline\build_data.py` / `extract_ui.py`（它们要读本机的游戏安装），所以 `web\public\data\*.json` 是随仓库提交的；改了数据管线要重新跑一次并提交那些 JSON。
 
 ## 开发
 

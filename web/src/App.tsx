@@ -7,7 +7,7 @@ import {
   STEPS, allSteps, normalizeStep, stepFilled, stepGlyph, stepNote, stepValue, stepWarn,
 } from "./steps";
 import type { Step } from "./steps";
-import { featureIcon, stepUiIcon, useSkin, toggleSkin } from "./skin";
+import { ART, featureIcon, stepUiIcon, useSkin, toggleSkin } from "./skin";
 import { Align } from "./views/Align";
 import { Attrs } from "./views/Attrs";
 import { Background } from "./views/Background";
@@ -119,9 +119,11 @@ export function App() {
         <span className="muted small">
           {build.name || "未命名"} · {derived.level}/20 · 神话 {derived.rank}/10
         </span>
-        <button className="btn sm ghost" type="button" onClick={toggleSkin} title="切换皮肤：游戏素材 / 纯 CSS">
-          {skin === "game" ? "素材皮" : "素色皮"}
-        </button>
+        {ART && (
+          <button className="btn sm ghost" type="button" onClick={toggleSkin} title="切换皮肤：游戏素材 / 纯 CSS">
+            {skin === "game" ? "素材皮" : "素色皮"}
+          </button>
+        )}
         <button className="btn sm" type="button" onClick={() => setPresetsOpen(true)}>
           预置构筑
         </button>

@@ -1,0 +1,65 @@
+name: Deploy the planner to GitHub Pages
+
+# 只在公网发布版上跑：`npm run build:public` 用 VITE_ART=0 关掉从游戏里提取的贴图与图标
+# （那些是 Owlcat 的版权物、且没有入库，CI 里也不会存在），产物只有页面 + 规则数据。
+#
+# 用之前要做的事：
+#   1. 把仓库推到 GitHub
+#   2. Settings → Pages → Build and deployment → Source 选 "GitHub Actions"
+#   3. 回到 Actions 里手动跑一次 "Deploy the planner to GitHub Pages"（或再推一次提交）
+#
+# 项目页的地址形如 https://<用户名>.github.io/<仓库名>/ —— 构建用的是相对路径，不需要改 base。
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: 安装依赖
+        working-directory: web
+        run: npm ci
+
+      - name: 构建（不含游戏素材）
+        working-directory: web
+        run: npm run build:public
+
+      - name: 自检（数据与规则引擎）
+        working-directory: web
+        run: node scripts/smoke.mjs
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
