@@ -2,7 +2,7 @@ import React, { useMemo, useState } from "react";
 import type { Db } from "../types";
 import type { Build } from "../store";
 import { act, deserialize, serialize, shareUrl, useBuild } from "../store";
-import { attrMod, derive, label } from "../rules";
+import { attrBreakdown, attrMod, derive, label } from "../rules";
 import { Panel } from "../ui";
 
 export function Summary(props: { db: Db; build: Build; derived: ReturnType<typeof derive> }) {
@@ -13,19 +13,7 @@ export function Summary(props: { db: Db; build: Build; derived: ReturnType<typeo
 
   const race = build.race ? db.races[build.race] : null;
   const bg = build.background ? db.backgrounds[build.background] : null;
-
-  const racial = useMemo(() => {
-    const m: Record<string, number> = {};
-    for (const b of race?.statBonuses || []) m[b.stat] = (m[b.stat] || 0) + b.value;
-    return m;
-  }, [race]);
-
-  const fromLevels = useMemo(() => {
-    const m: Record<string, number> = {};
-    for (const lv of build.levels) if (lv.ability) m[lv.ability] = (m[lv.ability] || 0) + 1;
-    for (const lv of build.ranks) if (lv.ability) m[lv.ability] = (m[lv.ability] || 0) + 2;
-    return m;
-  }, [build]);
+  const attrBr = useMemo(() => attrBreakdown(db, build), [db, build]);
 
   // 每一级选了什么（用于「升级记录」）
   const perLevel = useMemo(() => {
@@ -76,21 +64,22 @@ export function Summary(props: { db: Db; build: Build; derived: ReturnType<typeo
 
       <Panel title="属性">
         <table className="tbl">
-          <thead><tr><th>属性</th><th>基础</th><th>种族</th><th>升级</th><th>合计</th><th>调整</th></tr></thead>
+          <thead><tr><th>属性</th><th>基础</th><th>种族</th><th>升级</th><th>特性</th><th>手工</th><th>合计</th><th>调整</th></tr></thead>
           <tbody>
             {db.rules.attributes.map((a) => {
-              const base = build.attributes[a.id] || 10;
-              const r = racial[a.id] || 0;
-              const u = fromLevels[a.id] || 0;
-              const tot = base + r + u;
+              const br = attrBr[a.id];
+              const sign = (v: number) => (v > 0 ? "+" : "") + (v || 0);
+              const cls2 = (v: number) => (v ? (v > 0 ? "pos" : "neg") : "muted");
               return (
                 <tr key={a.id}>
                   <td>{a.name}</td>
-                  <td>{base}</td>
-                  <td className={r ? (r > 0 ? "pos" : "neg") : "muted"}>{r > 0 ? "+" : ""}{r || 0}</td>
-                  <td className={u ? "pos" : "muted"}>{u > 0 ? "+" : ""}{u || 0}</td>
-                  <td className="bold">{tot}</td>
-                  <td>{attrMod(tot) >= 0 ? "+" : ""}{attrMod(tot)}</td>
+                  <td>{br.base}</td>
+                  <td className={cls2(br.race)}>{sign(br.race)}</td>
+                  <td className={cls2(br.level)}>{sign(br.level)}</td>
+                  <td className={cls2(br.feat)}>{sign(br.feat)}</td>
+                  <td className={cls2(br.manual)}>{sign(br.manual)}</td>
+                  <td className="bold">{br.total}</td>
+                  <td>{attrMod(br.total) >= 0 ? "+" : ""}{attrMod(br.total)}</td>
                 </tr>
               );
             })}

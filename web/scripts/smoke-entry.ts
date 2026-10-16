@@ -16,6 +16,7 @@ import {
   classLevels,
   derive,
   evalPrereqs,
+  attrBreakdown,
   backgroundRoot,
   levelCtxList,
   levelRootSlots,
@@ -167,9 +168,10 @@ export function run(dir: string): void {
   ok(traits.length >= 4, "精灵种族特性 >= 4", String(traits.length));
 
   // ---- 存档往返 ----
+  const angelPath = Object.values(db.mythic.paths).find((p) => p.name === "天使");
   b.name = "往返测试";
   b.background = bgItems[0]?.id || null;
-  b.mythicPath = Object.keys(db.mythic)[0];
+  b.mythicPath = angelPath?.id || Object.values(db.mythic.paths)[0]?.id || null;
   b.levels[0].picks = {};
   const s = serialize(b);
   const back = deserialize(s);
@@ -308,6 +310,65 @@ export function run(dir: string): void {
     .map((id) => db.features[id])
     .find((f) => f && (f.choices || []).length > 0);
   ok(!!nestedAbility, "神话能力里有带子选择的能力（如巅峰元素）", nestedAbility?.name || "");
+
+  // 神话阶层本身不加属性；加属性的是道途特性（传奇 +4 全属性、恶魔之相按阶层、碎片之力诅咒之力）
+  const ATTR_IDS = db.rules.attributes.map((a) => a.id) as (keyof Build["attributes"])[];
+  // 属性面板的拆分（基础/种族/升级/特性/手工）必须与 attrsAtLevel 的合计一致
+  {
+    const probe: Build = { ...emptyBuild(), race: db.races && Object.values(db.races)[0]?.id };
+    const br = attrBreakdown(db, probe, 20);
+    const tot = attrsAtLevel(db, probe, 20);
+    ok(ATTR_IDS.every((a) => br[a].total === tot[a]), "属性拆分合计 = attrsAtLevel（面板不会和引擎打架）",
+      ATTR_IDS.map((a) => `${a} ${br[a].total}/${tot[a]}`).join(" "));
+  }
+  const legend = Object.values(db.mythic.paths).find((p) => p.name === "传奇");
+  if (legend) {
+    const lb: Build = { ...emptyBuild(), mythicPath: legend.id };
+    const la = attrsAtLevel(db, lb, 20);
+    const base = emptyBuild().attributes;
+    ok(ATTR_IDS.every((a) => la[a] - base[a] === 4), "传奇道途：全属性 +4（蓝图只有文字）",
+      ATTR_IDS.map((a) => `${a}${la[a] - base[a] >= 0 ? "+" : ""}${la[a] - base[a]}`).join(" "));
+    const lbr = attrBreakdown(db, lb, 20);
+    ok(ATTR_IDS.every((a) => lbr[a].feat === 4 && lbr[a].level === 0),
+      "传奇 +4 落在属性面板的「特性」一栏（不是「升级」一栏）",
+      ATTR_IDS.map((a) => `${a} feat${lbr[a].feat}/lv${lbr[a].level}`).join(" "));
+  }
+  const shards = Object.values(db.mythic.paths).find((p) => p.name === "碎片之力");
+  if (shards) {
+    const cursed = Object.values(db.features).find((f) => f.name === "诅咒之力" && (f.statBonuses || []).length >= 6);
+    const sb2: Build = { ...emptyBuild(), mythicPath: shards.id };
+    const before = attrsAtLevel(db, sb2, 20);
+    if (cursed) {
+      ok(!ownedFeatures(db, sb2).ids.has(cursed.id),
+        "选了道途但没走阶层：高层道途特性不算进来（阶层门控）");
+    }
+    const root3 = rankRootSlots(db, sb2, 3)[0];
+    if (root3) {
+      sb2.ranks[2].picks = { [root3.id]: (root3.choices || [])[0] || "" };
+      const after = attrsAtLevel(db, sb2, 20);
+      ok(ATTR_IDS.every((a) => after[a] - before[a] === 4),
+        "碎片之力 3 阶的「诅咒之力」全属性 +4 进了属性面板",
+        ATTR_IDS.map((a) => `${a}${after[a] - before[a] >= 0 ? "+" : ""}${after[a] - before[a]}`).join(" "));
+    }
+  }
+  const demonPath = Object.values(db.mythic.paths).find((p) => p.name === "恶魔");
+  const aspectSlot = demonPath
+    ? (demonPath.progression || [])
+      .flatMap((lv) => lv.features || [])
+      .map((id) => db.features[id])
+      .find((f) => f?.name === "高等恶魔之相")
+    : undefined;
+  const might = aspectSlot
+    ? (aspectSlot.choices || []).map((id) => db.features[id]).find((f) => f?.name === "威加魔相")
+    : undefined;
+  if (demonPath && aspectSlot && might) {
+    // 3 阶：数值 = floor(3/2)+1 = 2
+    const dp: Build = { ...emptyBuild(), mythicPath: demonPath.id };
+    dp.ranks[2].picks = { [aspectSlot.id]: might.id };
+    const da = attrsAtLevel(db, dp, 20);
+    const db0 = attrsAtLevel(db, { ...emptyBuild(), mythicPath: demonPath.id }, 20);
+    eq(String(da.Strength - db0.Strength), "2", "恶魔 高等恶魔之相（威加魔相）3 阶给力量 +2（阶层一半+1）");
+  }
 
   const fighterCls = Object.values(db.classes).find((c) => c.key === "FighterClass");
   if (fighterCls) {

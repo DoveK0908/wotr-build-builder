@@ -40,6 +40,7 @@
 - **技能枚举别名**：职业的 `ClassSkills` 里有 `SkillThievery`（= 巧手 Trickery）、`CheckIntimidate`（不是技能，丢弃）
 - **金龙道途的显示名**：`GoldenDragonClass` 的 `m_DisplayName` 与 `LocalizedName` 都是空的，用 `MYTHIC_PATH_NAMES` 硬编码「金龙」
 - **种族的任选属性 +2**：人类 / 半精灵 / 半兽人的 `SelectableRaceStat` 只是个 `true`（没有数值），所以 +2 写在 `web/src/rules.ts` 的 `attrsAtLevel()` 里；界面用 `Build.raceStatPick` 记录选了哪一项
+- **神话道途按阶层算的属性加值**：神话阶层本身**不**给属性（游戏文本只写「奇数阶给神话能力、偶数阶给神话专长」，全库搜不到任何「提升阶层 +2 属性」的文案或蓝图）。加属性的是道途自己的特性，其中两条只有文字、没有数值组件，写在 `attrsAtLevel()` 里：传奇 = 所有属性 +4（`Mythic/Legend` 的 `传奇` 特性只有 `m_Description`），恶魔的**高等恶魔之相** = 某一项属性 +（阶层的一半 + 1）（`威加魔相`→力量、`霸烙魔相`→体质、`空奢魔相`→智力、`遁影魔相`→感知；沤泥/食魂厉两相给 DR 与快速回复，不给属性）。其余带数值组件的（例如碎片之力的「诅咒之力」全属性 +4、龙脉术士的「属性增强」+2、深渊蛮力的血统加值）都已经由 `statBonuses` 自动计入
 
 ## 选择链：选择项本身可能还是选择表
 

@@ -3,7 +3,7 @@ import type { Db, FeatureEntry } from "../types";
 import type { Build } from "../store";
 import { ATTRS, act, useBuild } from "../store";
 import {
-  attrMod, attrsAtLevel, backgroundRoot, classLevels, label, pointBuySpent, raceRootSlots,
+  attrMod, attrBreakdown, attrsAtLevel, backgroundRoot, classLevels, label, pointBuySpent, raceRootSlots,
   traitList, universalFeatures,
 } from "../rules";
 import { Chip, Collapse, Desc, Field, Meter, NumBox, Panel, SearchSelect } from "../ui";
@@ -87,11 +87,8 @@ export function Character(props: { db: Db }) {
 
   const spent = pointBuySpent(db, build);
   const total = rules.pointBuyTotal || 25;
-  const racial = useMemo(() => {
-    const m: Record<string, number> = {};
-    for (const b of race?.statBonuses || []) m[b.stat] = (m[b.stat] || 0) + b.value;
-    return m;
-  }, [race]);
+  // 属性来源拆分（基础 / 种族 / 升级 / 特性 / 手工），表格照这个显示
+  const attrs = useMemo(() => attrBreakdown(db, build), [db, build]);
 
   const cls = Object.keys(classLevels(build))[0];
   // 通用升级表里有几个纯内部机制特性没有显示名（读出来是一串 guid），不给玩家看
@@ -254,16 +251,16 @@ export function Character(props: { db: Db }) {
         <table className="tbl attrs">
           <thead>
             <tr>
-              <th>属性</th><th>基础</th><th>种族</th><th>手工</th><th>总</th><th>调整</th><th>点数</th>
+              <th>属性</th><th>基础</th><th>种族</th><th>升级</th><th>特性</th><th>手工</th><th>总</th><th>调整</th><th>点数</th>
             </tr>
           </thead>
           <tbody>
             {rules.attributes.map((a) => {
               const base = build.attributes[a.id] || 10;
-              const rr = racial[a.id] || 0;
-              const man = build.attrManual[a.id] || 0;
-              const tot = base + rr + man;
+              const br = attrs[a.id];
               const cost = rules.pointBuy[String(base)] ?? 0;
+              const sign = (v: number) => (v > 0 ? "+" : "") + (v || 0);
+              const cls2 = (v: number) => (v ? (v > 0 ? "pos" : "neg") : "muted");
               return (
                 <tr key={a.id}>
                   <td className="nowrap">{a.name}<span className="muted small"> {a.short}</span></td>
@@ -275,17 +272,21 @@ export function Character(props: { db: Db }) {
                       onChange={(v) => act.patch((b) => { b.attributes[a.id] = v; })}
                     />
                   </td>
-                  <td className={rr ? (rr > 0 ? "pos" : "neg") : "muted"}>{rr > 0 ? "+" : ""}{rr || 0}</td>
+                  <td className={cls2(br.race)}>{sign(br.race)}</td>
+                  <td className={cls2(br.level)}>{sign(br.level)}</td>
+                  <td className={cls2(br.feat)} title="种族传承 / 背景 / 专长 / 职业特性 / 神话道途带来的加值">
+                    {sign(br.feat)}
+                  </td>
                   <td>
                     <NumBox
-                      value={man}
+                      value={br.manual}
                       min={-20}
                       max={40}
                       onChange={(v) => act.setAttrManual(a.id, v)}
                     />
                   </td>
-                  <td className="bold">{tot}</td>
-                  <td>{attrMod(tot) >= 0 ? "+" : ""}{attrMod(tot)}</td>
+                  <td className="bold">{br.total}</td>
+                  <td>{attrMod(br.total) >= 0 ? "+" : ""}{attrMod(br.total)}</td>
                   <td className="muted">{cost}</td>
                 </tr>
               );
@@ -293,6 +294,7 @@ export function Character(props: { db: Db }) {
           </tbody>
         </table>
         <div className="muted small mt8">
+          「特性」一列是种族传承 / 背景 / 专长 / 职业特性 / 神话道途特性给的加值（例如传奇 +4 全属性）；
           「手工」一列用来记装备/药水之类的外部加值，不计入点买花费。
         </div>
         <div className="muted small mt8">

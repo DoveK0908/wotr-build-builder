@@ -1,13 +1,11 @@
 import React, { useMemo } from "react";
-import type { AttrId, Db, FeatureEntry } from "../types";
+import type { Db, FeatureEntry } from "../types";
 import { act, useBuild } from "../store";
 import {
   choiceVerdict, derive, label, ownedFeatures, rankRootSlots,
 } from "../rules";
 import { Chip, Collapse, Desc, Panel, SearchSelect } from "../ui";
 import { SlotChain } from "../pick";
-
-const MYTHIC_ATTR_RANKS = [2, 4, 6, 8, 10];
 
 export function Mythic(props: { db: Db }) {
   const { db } = props;
@@ -64,6 +62,11 @@ export function Mythic(props: { db: Db }) {
           width={260}
         />
         {path?.desc && <div className="mt8"><Desc text={path.desc} /></div>}
+        <div className="muted small mt8">
+          神话阶层本身不提升属性值（游戏里每阶给的是「奇数阶神话能力 / 偶数阶神话专长」）。
+          加属性的是道途自己的特性，例如传奇的全属性 +4、恶魔的高等恶魔之相（数值 = 阶层的一半 + 1）、
+          碎片之力的「诅咒之力」全属性 +4 —— 这些都已自动算进「角色 / 汇总」页的属性面板。
+        </div>
         <div className="row wrap mt8">
           <span className="kv">神话等级 <b>{derived.rank}</b></span>
           {path?.spellbookId && <Chip>有神话法术书</Chip>}
@@ -85,18 +88,6 @@ export function Mythic(props: { db: Db }) {
                 <header className="lvhead">
                   <span className="lvnum mythic">{r}</span>
                   <span className="lvname">神话等级 {r}</span>
-                  {MYTHIC_ATTR_RANKS.includes(r) && (
-                    <span className="lvattr">
-                      属性 +2：
-                      <SearchSelect
-                        value={lv.ability || null}
-                        options={db.rules.attributes.map((a) => ({ id: a.id, label: a.name }))}
-                        onChange={(v) => act.setRankAbility(r - 1, v as AttrId | null)}
-                        placeholder="未选"
-                        width={120}
-                      />
-                    </span>
-                  )}
                   <span className="spacer" />
                   {missing > 0 && <Chip tone="no">{missing} 项未选</Chip>}
                 </header>

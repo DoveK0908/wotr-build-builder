@@ -315,10 +315,11 @@ export function ownedFeatures(db: Db, build: Build): Owned {
     for (const x of expandFeature(db, build.deity)) ids.add(x);
   }
 
-  // 神话道途
+  // 神话道途：只认已经走到的阶层（否则选了道途就把 10 阶特性全算上）
   const path = build.mythicPath ? db.mythic.paths[build.mythicPath] : null;
   if (path) {
-    for (let r = 1; r <= MAX_RANK; r += 1) {
+    const reached = Math.max(1, mythicRank(build));
+    for (let r = 1; r <= Math.min(MAX_RANK, reached); r += 1) {
       const lv = build.ranks[r - 1];
       if (!lv) continue;
       for (const fid of (path.progression || []).find((x) => x.level === r)?.features || []) addAuto(fid);
@@ -354,27 +355,97 @@ function increases(build: Build): { level: Record<AttrId, number>[]; rank: Recor
   return { level, rank };
 }
 
-/** 到第 i 个等级（1 起）为止的属性值 */
-export function attrsAtLevel(db: Db, build: Build, level: number): Record<AttrId, number> {
-  const out = { ...build.attributes } as Record<AttrId, number>;
+/** 神话阶层：已填过内容的最高那一阶（什么都没填就是 0） */
+export function mythicRank(build: Build): number {
+  if (!build.mythicPath) return 0;
+  let last = 0;
+  for (let i = 0; i < build.ranks.length; i += 1) {
+    if (Object.keys(build.ranks[i]?.picks || {}).length > 0) last = i + 1;
+  }
+  return last;
+}
+
+/** 非玩家单位的属性加值（宠物升级 / 怪物模板）不算在角色头上 */
+const NON_PC_FEATURE = /\/(?:Pets|Monsters|Units|CreatureAbilities)\/|AnimalCompanion/i;
+
+/**
+ * 恶魔的高等恶魔之相：蓝图里只有文字「属性获得等于神话阶层一半加上一的加值」，没有数值组件。
+ * 沤泥魔相（DR）与食魂厉魔相（快速回复）不给属性，故不在此表内。
+ */
+const DEMON_ASPECT_ATTR: Record<string, AttrId> = {
+  "威加魔相": "Strength",
+  "霸烙魔相": "Constitution",
+  "空奢魔相": "Intelligence",
+  "遁影魔相": "Wisdom",
+};
+
+/** 一条属性的来源拆分（基础 / 种族 / 升级 / 特性与道途 / 手工） */
+export interface AttrBreak {
+  base: number; race: number; level: number; feat: number; manual: number; total: number;
+}
+
+const inAttrs = (s: string) => (ATTRS as string[]).includes(s);
+
+/** 属性拆分：每一栏都各自算，界面照这个显示，`attrsAtLevel()` 只是它的 total */
+export function attrBreakdown(
+  db: Db,
+  build: Build,
+  level?: number,
+  ownedIds?: Set<string>,
+): Record<AttrId, AttrBreak> {
+  const lv = level ?? charLevel(build);
+  const ids = ownedIds || ownedFeatures(db, build).ids;
+  const out = {} as Record<AttrId, AttrBreak>;
+  for (const a of ATTRS) {
+    out[a] = { base: num(build.attributes[a]), race: 0, level: 0, feat: 0, manual: num(build.attrManual[a]), total: 0 };
+  }
   const race = build.race ? db.races[build.race] : null;
+  // 种族一栏：种族自身的属性调整 + 传承/氏族等选择的加值 + 任选一项 +2
+  const raceIds = new Set<string>();
   if (race) {
-    for (const b of race.statBonuses || []) {
-      if ((ATTRS as string[]).includes(b.stat)) out[b.stat as AttrId] += b.value;
+    for (const b of race.statBonuses || []) if (inAttrs(b.stat)) out[b.stat as AttrId].race += b.value;
+    for (const p of livePicks(db, raceRootSlots(db, build), build.racePicks)) {
+      for (const x of expandFeature(db, p.choice)) raceIds.add(x);
     }
-    for (const cid of Object.values(build.racePicks || {})) {
-      for (const b of db.features[cid]?.statBonuses || []) {
-        if ((ATTRS as string[]).includes(b.stat)) out[b.stat as AttrId] += b.value;
-      }
+    if (race.selectableStat && build.raceStatPick) out[build.raceStatPick].race += 2;
+  }
+  // 已获得特性带来的属性加值：种族传承 / 背景 / 专长 / 职业特性 / 神话道途特性
+  for (const id of ids) {
+    const f = db.features[id];
+    if (!f || NON_PC_FEATURE.test(f.path || "")) continue;
+    for (const b of f.statBonuses || []) {
+      if (inAttrs(b.stat)) out[b.stat as AttrId][raceIds.has(id) ? "race" : "feat"] += b.value;
     }
-    // 人类 / 半精灵 / 半兽人：任选一项属性 +2（蓝图里只有 SelectableRaceStat=true）
-    if (race.selectableStat && build.raceStatPick) out[build.raceStatPick] += 2;
   }
   const inc = increases(build);
-  for (let i = 0; i < Math.min(level, inc.level.length); i += 1) {
-    for (const a of ATTRS) out[a] += inc.level[i][a];
+  for (let i = 0; i < Math.min(lv, inc.level.length); i += 1) {
+    for (const a of ATTRS) out[a].level += inc.level[i][a];
   }
-  for (const a of ATTRS) out[a] += num(build.attrManual[a]);
+  // 神话道途里「按文字生效」的属性加值（蓝图没给数值）
+  const path = build.mythicPath ? db.mythic.paths[build.mythicPath] : null;
+  if (path?.name === "传奇") for (const a of ATTRS) out[a].feat += 4;
+  const mr = mythicRank(build);
+  if (mr > 0) {
+    const v = Math.floor(mr / 2) + 1;
+    for (const id of ids) {
+      const a = DEMON_ASPECT_ATTR[db.features[id]?.name || ""];
+      if (a) out[a].feat += v;
+    }
+  }
+  for (const a of ATTRS) out[a].total = out[a].base + out[a].race + out[a].level + out[a].feat + out[a].manual;
+  return out;
+}
+
+/** 到第 i 个等级（1 起）为止的属性值 */
+export function attrsAtLevel(
+  db: Db,
+  build: Build,
+  level: number,
+  ownedIds?: Set<string>,
+): Record<AttrId, number> {
+  const br = attrBreakdown(db, build, level, ownedIds);
+  const out = {} as Record<AttrId, number>;
+  for (const a of ATTRS) out[a] = br[a].total;
   return out;
 }
 
@@ -537,8 +608,8 @@ export function derive(db: Db, build: Build): Derived {
   const sel = archSel(db, build);
   const owned = ownedFeatures(db, build);
   const level = charLevel(build);
-  const rank = build.mythicPath ? MAX_RANK : 0;
-  const attrs = attrsAtLevel(db, build, level);
+  const rank = mythicRank(build);
+  const attrs = attrsAtLevel(db, build, level, owned.ids);
 
   let bab = 0; let fort = 0; let ref = 0; let will = 0; let hp = 0;
   const casterLevelsMap: Record<string, number> = {};
