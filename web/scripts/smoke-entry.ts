@@ -600,6 +600,19 @@ export function run(dir: string): void {
   ok(noarchTxt.startsWith("无变体：") && !noarchTxt.includes("（未命名）"),
     "「无变体」前置会写出变体名（对齐游戏里的「无变体: 野性神卫」）", noarchTxt);
 
+  // ── 候选列表的「已拥有」绿标：拿过的选项要进 owned，且它仍在候选池里 ────
+  const pw = Object.values(db.features).find((f) => f.name === "猛力攻击" && (f.prereq || []).length > 0);
+  const basicSlotId = db.rules.basicFeatSelection as string;
+  const basicSlot = db.features[basicSlotId];
+  ok(!!pw && !!basicSlot && (basicSlot.choices || []).includes(pw.id),
+    "猛力攻击在通用专长候选池里（挑选取的列表里会出现它）");
+  const ownedBuild: Build = {
+    ...emptyBuild(),
+    levels: emptyBuild().levels.map((l, i) => (i === 0 ? { ...l, picks: { [basicSlotId]: pw?.id || "" } } : l)),
+  };
+  ok(ownedFeatures(db, ownedBuild).ids.has(pw?.id || ""),
+    "已经拿过的专长会进 ownedFeatures（候选列表据此打「已拥有」标）");
+
   const oneofFeat = Object.values(db.features)
     .find((f) => (f.prereq || []).some((p) => p.k === "oneof" && Number(p.amount) >= 2));
   const oneofP = (oneofFeat?.prereq || []).find((p) => p.k === "oneof" && Number(p.amount) >= 2);

@@ -125,6 +125,7 @@
 | 按**神话阶层**动态插入道途子步骤 | ✅ `mythicSubSteps`（`web/src/steps.ts`）：把已排到的每个阶层用 `rankRootSlots` 展开、按阶去重，插在「神话」之后；视图是 `web/src/views/MythicFeature.tsx`（对应 `build.ranks[rank-1].picks`）。实测天使 3 阶 → 牌匾条多出「超凡飞升 / 神话能力 / 神话专长」，共 16 块牌匾 |
 | 道途送的法术单独成步（游戏的 `法术:等级 N` 牌匾） | ✅ 同一条 `mythicSubSteps`：只给**要自己挑法术**的道途（`allSpellsKnown === false`，即灵使 / 御衡者 / 恶魔 / 诡计大师）生成 `mysp:<环位>` 步骤，插在道途能力牌匾之后，点进去直接落在 `web/src/views/Spells.tsx` 的那本法术书那一环上（视图带 `focusBook` / `focusLevel`）。天使 / 巫妖 / 金龙整张表都会，游戏里没有挑选步骤，这里也照数据不出 |
 | 左列表 + 搜索 + 紫色高亮 + `»` 下级 | ✅ `ListPane` / `ListRow`（名称、第二行说明、右侧数字/徽章、选中紫底、悬停、禁用） |
+| 挑选取列表里给「已经拥有」的选项打绿标 | ✅ `web/src/pick.tsx` 的 `PickModal`：行内按 `ownedFeatures(db, build).ids` 判断，素材皮用游戏贴图 `UI_CharGen_IconLike.png`（52×50，实测 100% 绿像素），素色皮退化成绿色 `✓`；样式 `.row-mark`（`web/src/styles.css`）。用于专长/巫术/秘示域等所有槽位 |
 | 中间：大标题 + 衬线正文 + 机制高亮 + 图标网格 | ✅ `DetailHead` / `Sect` / `IconGrid`（可选项网格、能力网格）；法术详情按游戏字段顺序排（目标 / 施法时间 / 持续时间 / 法术抗力 / 豁免检定 / 组件） |
 | 右栏：数值盒子 + 本职技能 | ✅ `StatBox` / `StatRows`（职业页：强韧/反射/意志 高低、基础攻击加值档位、生命骰、技能点、起始金币、本职技能） |
 | 职业进度表 1–20 图标行 | ✅ `GrowthTable`（职业页可点等级轴定位）；神话用 `MythicGrowth`（10 阶，标出前两阶是「神话英雄」、道途从第 N 阶起） |

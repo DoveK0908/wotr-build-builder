@@ -1,9 +1,10 @@
 import React, { useMemo, useState } from "react";
 import type { Db, FeatureEntry, SpellEntry } from "./types";
-import { label, livePicks, prereqText } from "./rules";
+import { label, livePicks, ownedFeatures, prereqText } from "./rules";
 import type { Verdict } from "./rules";
 import { Chip, Desc, Modal, VerdictTag } from "./ui";
-import { featureIcon } from "./skin";
+import { featureIcon, ui, useSkin } from "./skin";
+import { useBuild } from "./store";
 
 const V_ORDER: Record<Verdict, number> = { ok: 0, unknown: 1, no: 2 };
 
@@ -122,6 +123,16 @@ export function PickModal(props: {
   const held = props.multi ? (props.selected || new Set<string>()) : null;
   /** 游戏里的 64×64 内容图标；这个蓝图没导出图标就返回 null（列表里就不放图） */
   const ico = (id: string) => featureIcon(db, id);
+  // 游戏会给自己已经拿过的选项打一个绿色叶子小标（截图里 武器专攻 / 战斗特技 那两行）
+  const build = useBuild();
+  const skin = useSkin();
+  const owned = useMemo(() => ownedFeatures(db, build).ids, [db, build]);
+  const ownedMark = (id: string) =>
+    owned.has(id)
+      ? skin === "game"
+        ? <img className="row-mark" src={ui("UI_CharGen_IconLike")} alt="" title="已经拥有了" />
+        : <span className="row-mark" title="已经拥有了">✓</span>
+      : null;
 
   return (
     <Modal wide title={`${props.title} — 候选 ${ids.length} 项`} onClose={props.onClose}>
@@ -160,6 +171,7 @@ export function PickModal(props: {
                   {props.multi && <input type="checkbox" checked={!!on} readOnly />}
                   {ico(id) && <img className="row-ico" src={ico(id)!} alt="" />}
                   <span className="pick-name">{label(f)}</span>
+                  {ownedMark(id)}
                   {f.nameEn && <span className="pick-en">{f.nameEn}</span>}
                   <span className="spacer" />
                   <VerdictTag v={v} />
