@@ -5,16 +5,21 @@
 param(
   [string]$Base = "http://127.0.0.1:5199/",
   [int]$Budget = 9000,
-  [string]$Extra = ""
+  [string]$Extra = "",
+  [switch]$KeepProfile
 )
 
 $exe = "C:\Users\Dove\AppData\Local\Google\Chrome\Application\chrome.exe"
 if (-not (Test-Path $exe)) {
   $exe = "${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe"
 }
-$prof = Join-Path $env:TEMP "wotr-chrome-prof"
+# A throw-away profile per run: the planner persists the build in localStorage, so a
+# reused profile would silently re-apply the previous run's build ("empty" run was not
+# empty). Fresh profile = the page really starts from an empty build.
+$prof = Join-Path $env:TEMP ("wotr-chrome-" + [guid]::NewGuid().ToString("N").Substring(0, 10))
 $tabs = @("class", "race", "background", "attrs", "skills", "feats", "spells", "deity", "align", "mythic", "summary")
 $bad = 0
+"profile: $prof"
 
 # patterns (kept as escapes so this file stays pure ASCII)
 $reBoot = '\u6b63\u5728\u8bfb\u53d6\u6e38\u620f\u6570\u636e'      # loading text
@@ -72,4 +77,5 @@ foreach ($t in $tabs) {
   }
 }
 
+if (-not $KeepProfile) { Remove-Item $prof -Recurse -Force -ErrorAction SilentlyContinue }
 if ($bad -gt 0) { "### $bad tab(s) broken ###"; exit 1 } else { "### all $($tabs.Count) steps rendered ###" }

@@ -87,8 +87,25 @@ def save_sprites(path: str, out_dir: str, only: set[str] | None = None) -> dict[
 
 
 # ── 图标对位：把实体名变成若干候选 sprite 名 ──────────────────────────────
-SUFFIXES = ("Feature", "Selection", "Progression", "Ability", "Cast", "Buff",
-            "Effect", "Toggle", "ActivatableAbility", "AbilityFeature", "Rank")
+#
+# 实测结论（2026-10-16，见 docs/game-ui-spec.md §6）：
+#   蓝图里的 "m_Icon": {"guid": "<32hex>", "fileid": 21300000} 是 Unity 的资产引用，
+#   fileid 恒为 Sprite 的类别号，guid 是 sprite 的资产 guid；但游戏安装里**没有**
+#   可用的 guid → sprite 对照（Bundles 里既没有 <guid>.unit，guid 也不在
+#   blueprint.assets / icons / ui 的 container 里，dependencylist.json / cheatdata.json
+#   也不含它）。所以只能按名字约定对位；对不上就用「统一底纹 + 首字」占位
+#   （游戏自己对背景就是这么做的）。
+#   因此这里做两轮：① 原名精确匹配；② 去掉所有分隔符并小写后再匹配
+#   （游戏 sprite 名会把空格写成连字符，如 "Spell-Focus"）。
+ROMAN = ("I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X")
+SUFFIXES = ("FeatureSelection", "ActivatableAbility", "ParametrizedFeature", "ToggleAbility",
+            "Feature", "Selection", "Progression", "Ability", "Cast", "Buff",
+            "Effect", "Toggle", "Rank", "Spell", "Trait")
+
+
+def norm(name: str) -> str:
+    """去掉一切非字母数字并小写 —— "Spell-Focus" 与 "Spell Focus" 视为同名。"""
+    return "".join(ch for ch in name.lower() if ch.isalnum())
 
 
 def candidates(entry: dict) -> list[str]:
@@ -96,22 +113,29 @@ def candidates(entry: dict) -> list[str]:
     out: list[str] = []
     name_en = (entry.get("nameEn") or "").replace(" ", "")
     key = entry.get("key") or ""
-    base = os.path.basename(entry.get("path") or "")
+    path = (entry.get("path") or "").replace("\\", "/")
+    base = os.path.basename(path)
     if base.endswith(".jbp"):
         base = base[:-4]
-    for raw in (name_en, key, base):
+    segs = [s for s in path.split("/") if s and s.lower() != "blueprints"][-4:]
+    raws = [name_en, key, base] + segs
+    for raw in raws:
         if not raw:
             continue
         out.append(raw)
         out.append(raw + "Feature")
         out.append(raw + "Cast")
         out.append(raw + "Ability")
+        out.append(raw + "Icon")
         stem = raw
         for suf in SUFFIXES:
             if stem.endswith(suf) and len(stem) > len(suf):
                 stem = stem[: -len(suf)]
                 out.append(stem)
                 out.append(stem + "Feature")
+        for rom in ROMAN:
+            if raw.endswith(rom) and len(raw) > len(rom):
+                out.append(raw[: -len(rom)])
         if raw.endswith("Class"):
             out.append(raw[: -len("Class")])
         if raw.endswith("Race"):
@@ -123,8 +147,27 @@ def candidates(entry: dict) -> list[str]:
     return list(seen)
 
 
-def build_icon_map(data_dir: str, sprites: set[str]) -> dict:
-    """实体 id → sprite 名。返回 {byId, stats, missing}。"""
+class SpriteIndex:
+    """sprite 名索引：先精确（不分大小写），再忽略分隔符。"""
+
+    def __init__(self, names):
+        self.exact: dict[str, str] = {}
+        self.folded: dict[str, str] = {}
+        for n in names:
+            self.exact.setdefault(n.lower(), n)
+            self.folded.setdefault(norm(n), n)
+
+    def find(self, cand: str) -> str | None:
+        hit = self.exact.get(cand.lower())
+        if hit:
+            return hit
+        if len(cand) >= 4:
+            return self.folded.get(norm(cand))
+        return None
+
+
+def build_icon_map(data_dir: str, sprites) -> dict:
+    """实体 id → sprite 名。返回 {byId, stats, missing}。sprites 是 SpriteIndex。"""
     by_id: dict[str, str] = {}
     stats: dict[str, dict] = {}
     missing: dict[str, list] = {}
@@ -147,8 +190,9 @@ def build_icon_map(data_dir: str, sprites: set[str]) -> dict:
                 continue
             found = None
             for cand in candidates(e):
-                if cand in sprites:
-                    found = cand
+                got = sprites.find(cand)
+                if got:
+                    found = got
                     break
             if found:
                 by_id[eid] = found
@@ -229,7 +273,7 @@ def main() -> int:
     print(f"图标 bundle 里 {len(sprite_set)} 个 sprite 名")
 
     # ── 3. 对照表 ────────────────────────────────────────────────
-    icon_map = build_icon_map(args.data, sprite_set)
+    icon_map = build_icon_map(args.data, SpriteIndex(sprite_set))
     by_id = icon_map["byId"]
     used = set(by_id.values())
     print("图标对位覆盖率：")

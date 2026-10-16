@@ -130,7 +130,7 @@
 | 阵营九宫轮盘 | ✅ `AlignWheel`（3×3 节点 + 选中紫底；被职业/变体锁住的阵营标小圆点并在右栏给出原因） |
 | 底部 `« ‹ 返回 下一项 › »` + 右侧上下文按钮 | ✅（法术步骤→「法术书」，职业步骤→「总结」，其余→「职业成长」；**最后一步**的「下一项」变成「完成」，点它复制分享链接，右下按钮不再出现 —— 与截图里 150444 的排布一致） |
 | 羊皮纸 / 外框 / 牌匾 / 按钮 / 勾选 / 滚动条 真实贴图 | ✅（881 张 `UI_*`，`pipeline/extract_ui.py` 导出） |
-| 内容图标（特性 / 法术） | ✅ 部分（法术 69%、特性 8% 有真实 64×64 图标，其余回退首字徽记 —— 游戏自己对背景也是用字母缩写当图标） |
+| 内容图标（特性 / 法术） | ✅ 部分（法术 498/699＝71.2%、特性 1886/10675＝17.7% 有真实 64×64 图标，其余回退首字徽记 —— 游戏自己对背景也是用字母缩写当图标）。为什么到不了 100%：见第 7 节 |
 | 两套皮可切换（素材皮 / 素色皮） | ✅（右下角「素材皮 / 素色皮」；`#skin=plain` 也行） |
 | 衬线中文 | ✅ 素材皮下走 `--serif`＝`Noto Serif SC / Source Han Serif SC / Songti SC / SimSun, serif`（游戏里没有可用的中文 TTF，中文走 TMP 图集，所以用免费衬线替代）；素色皮保持系统无衬线 |
 
@@ -147,3 +147,39 @@
 ## 6. 素材版权提示
 
 `web/public/assets/**` 全部是从用户本机正版安装里提取的 Owlcat 游戏素材（界面贴图与内容图标）。**自用/本地运行没问题**；若要公开部署，应改用 `skin=plain`，或自行替换素材。该目录已在 `.gitignore` 中排除，不会进仓库。
+
+
+## 7. 内容图标的对位：实测与上限
+
+蓝图里的图标引用长这样：`"m_Icon": {"guid": "d41189298bcd65d41bad53782de65b27", "fileid": 21300000}`。
+
+* `fileid: 21300000` 是 Unity 里 Sprite 的固定类别号（所有条目都一样），**不是**资源 path_id。
+* `guid` 是那个 Sprite 资产的 guid。
+
+**安装里没有可用的 guid → sprite 对照表**（都已实测）：
+
+| 查过的地方 | 结果 |
+| --- | --- |
+| `Bundles/<guid>.unit` 之类的文件 | 不存在（`Bundles/` 是 23,570 个 `<guid>.<ext>` 扁平文件，`d411*` 一个都没有） |
+| `Bundles/blueprint.assets` 的 container | 只有 1 个键，就是它自己的包名 `99d28ed7c8b9caa46a2022f5ce9c0778` |
+| `Bundles/icons`（2,341 个 sprite，是**物品**图标）、`Bundles/ui`（1,656 个界面 sprite） | 都没有这个 guid |
+| `Bundles/dependencylist.json`（23,566 条） | 键是包名（`fx` / `ui` / `kenabresmap.scenes`…），不是 guid |
+| `Bundles/cheatdata.json`（39.8 MB） | 只列蓝图（`Name`/`Guid`/`TypeFullName`/`Path`），不含 Sprite |
+
+所以只能**按名字约定**对位，`pipeline/extract_ui.py` 里的 `candidates()` + `SpriteIndex` 做两轮：
+
+1. 原名（不分大小写）精确匹配；
+2. 去掉所有非字母数字再小写后匹配 —— 游戏会把空格写成连字符，例：法术专攻 `Spell Focus` → sprite `Spell-Focus`。
+
+候选名从 `nameEn` / `key` / 文件名 / 路径末几段生成，并剥掉 `Feature`/`Selection`/`Progression`/`Ability`/`Toggle`… 后缀与末尾罗马数字；**不做子串模糊匹配**（实测会把 `Light` 配到 `UnholyBlight`、`Hunter` 配到 `MasterHunter`，属于错配）。
+
+实测覆盖率（`web/public/data/icons.json` 的 `stats`，重跑 `python pipeline\extract_ui.py --prune` 可复现）：
+
+| 类别 | 命中 | 说明 |
+| --- | --- | --- |
+| 法术 | 498/699 ＝ 71.2% | 玩家最常看的图标基本都有 |
+| 特性 | 1886/10675 ＝ 17.7% | 分母里有大量从不露面的内部 buff / DLC 奖励特性 |
+| 变体 / 背景 | 1/197、4/55 | 游戏里变体行用 ♦ 圆点、背景行用字母缩写徽记，本来就不是每个都有独立图标 |
+| 职业 / 种族 / 神话道途 / 法术书 | 0 | 它们的图标不在 `blueprint.assets` 里（界面里也主要在牌匾条与立绘卡上，本项目按用户要求不做立绘） |
+
+上限参考：`blueprint.assets` 共 2,519 个 sprite，其中还有物品图标与 DLC 奖励 buff；把我们导出的全部实体加起来只能按名对上 924 个。剩余一律回退「统一底纹 + 首字徽记」。

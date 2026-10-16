@@ -96,7 +96,7 @@ export function Spells(props: { db: Db }) {
 
   const sp = derived.spells[Math.min(clsIdx, derived.spells.length - 1)];
   const chosen = new Set(sp.chosen);
-  const maxLevel = sp.maxSpellLevel;
+  const maxLevel = Math.max(0, sp.maxSpellLevel);
   const activeLevel = Math.min(lvl, maxLevel);
   const pool = sp.byLevel[activeLevel] || [];
   const bonus = bonusSpells(db, derived);
@@ -126,7 +126,7 @@ export function Spells(props: { db: Db }) {
           foot={
             <span>
               已选 {chosen.size} 个
-              {sp.knownCount != null ? ` / 上限 ${sp.knownCount}` : ""}
+              {sp.knownCount != null && sp.knownCount >= 0 ? ` / 上限 ${sp.knownCount}` : ""}
             </span>
           }
         >
@@ -189,7 +189,7 @@ export function Spells(props: { db: Db }) {
                 {isChosen ? "移出法术书" : "加入法术书"}
               </button>
               {isChosen && <Chip tone="ok">已在法术书里</Chip>}
-              {sp.knownCount != null && chosen.size >= sp.knownCount && !isChosen && (
+              {sp.knownCount != null && sp.knownCount >= 0 && chosen.size >= sp.knownCount && !isChosen && (
                 <Chip tone="no">已达已知上限 {sp.knownCount}</Chip>
               )}
             </div>
