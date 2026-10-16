@@ -90,6 +90,15 @@ node scripts\smoke.mjs                    # 规则引擎冒烟测试
 powershell -File scripts\render-check.ps1 # 无头 Chrome 逐个渲染 11 个步骤
 ```
 
+> **改 `web/src/**` 之前一定要先停掉 vite**：开发服务器在跑时写源码会报
+> `Error: ReplaceFileW EIO (Win32 1175)`。停法：
+> `(Get-NetTCPConnection -LocalPort 5199 -State Listen).OwningProcess | Stop-Process -Force`，
+> 改完再起（`node node_modules\vite\bin\vite.js --port 5199 --strictPort --host 127.0.0.1`）。
+> `tsc` 与 `vite build` 用 `node node_modules\typescript\bin\tsc --noEmit`、
+> `node node_modules\vite\bin\vite.js build` 直接调，绕开 PowerShell 对 `.ps1` 包装脚本的执行策略限制。
+> 无头截图自检：`chrome --headless=new --screenshot=out.png --window-size=1600,1000
+> --virtual-time-budget=9000 --user-data-dir=<临时目录> "http://127.0.0.1:5199/#tab=class"`。
+
 ## 许可
 
 本项目自身代码以 GPL-3.0 发布（与原 Tkinter 工具一致）。

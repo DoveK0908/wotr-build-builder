@@ -914,3 +914,20 @@ img.row-mark { opacity: .95; }
   font-size: 12px; font-weight: 700; color: #fff; background: #6b3a5e;
 }
 [data-skin="game"] .lp-badge { background: #7a3d8f; font-family: var(--serif); box-shadow: 0 0 0 1px #c9b487 inset; }
+
+/* ── 两套皮的颜色统一 ────────────────────────────────────────────────
+   基础色是为暗底写的；游戏皮下要落在羊皮纸（或反过来：暗色条上的按钮）
+   都得各自补一条，否则会出现「白底白字 / 黑底黑字」。 */
+/* 暗色顶条上的幽灵按钮：文字必须是亮的 */
+[data-skin="game"] .topstrip .btn.ghost { color: #e8dcc0; border-color: #6b5a3c; }
+[data-skin="game"] .topstrip .btn.ghost:hover { color: #f7edd0; border-color: #b8944a; background: rgba(184, 148, 74, .14); }
+/* 羊皮纸上的次要文字统一用同一个棕灰（原来 .muted 比 --muted 更浅） */
+[data-skin="game"] .muted { color: var(--muted); }
+/* 代码块、标签 hover、等级圆牌：原本是暗底浅字 */
+[data-skin="game"] code { background: #ece1c6; color: #7a2f2b; border: 1px solid #d8c9a4; }
+[data-skin="game"] .tab:hover { background: #efe4c8; color: #3a2c1c; }
+[data-skin="game"] .tab.on { background: #7a3d8f; color: #fff8e8; border-color: #b8944a; }
+[data-skin="game"] .lvnum { background: #ece1c6; border: 1px solid #b9a577; color: #7a2f2b; }
+[data-skin="game"] .lvnum.mythic { background: #f0e2c6; border-color: #b8944a; }
+[data-skin="game"] .lvname { color: #40352a; }
+[data-skin="game"] .lvattr { color: var(--muted); }

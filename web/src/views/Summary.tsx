@@ -3,7 +3,7 @@ import type { Db } from "../types";
 import type { Build } from "../store";
 import { act, deserialize, serialize, shareUrl, useBuild } from "../store";
 import { attrBreakdown, attrMod, derive, label, ownedFeatures } from "../rules";
-import { Chip, Collapse } from "../ui";
+import { Chip, Collapse, Confirm } from "../ui";
 import { GrowthTable, IconGrid, Sect, StatBox, StatRows, ThreePane } from "../pane";
 import { featureIcon } from "../skin";
 
@@ -13,6 +13,7 @@ export function Summary(props: { db: Db }) {
   const build = useBuild();
   const d = useMemo(() => derive(db, build), [db, build]);
   const [msg, setMsg] = useState("");
+  const [askReset, setAskReset] = useState(false);
   const [pasteOpen, setPasteOpen] = useState(false);
   const [pasteText, setPasteText] = useState("");
 
@@ -70,6 +71,7 @@ export function Summary(props: { db: Db }) {
     ids.map((id) => ({ id, name: label(db.features[id]), ico: featureIcon(db, id), title: db.features[id]?.desc || "" }));
 
   return (
+    <>
     <ThreePane
       left={
         <>
@@ -323,7 +325,7 @@ export function Summary(props: { db: Db }) {
                   }}
                 />
               </label>
-              <button type="button" className="btn ghost danger" onClick={() => { act.reset(); setMsg("已清空"); }}>重新开始</button>
+              <button type="button" className="btn ghost danger" onClick={() => setAskReset(true)}>重新开始</button>
             </div>
             {pasteOpen && (
               <div className="mt8">
@@ -347,7 +349,20 @@ export function Summary(props: { db: Db }) {
         </>
       }
     />
-  );
+    {askReset && (
+      <Confirm
+        title="清空构筑"
+        danger
+        confirmText="清空"
+        text={<>
+          确定要清空当前构筑吗？<b>职业、种族、背景、属性、技能、专长、法术、神话</b>都会一起清掉，
+          分享链接里原有的内容也会失效。此操作不可撤销。
+        </>}
+        onCancel={() => setAskReset(false)}
+        onConfirm={() => { act.reset(); setAskReset(false); setMsg("已清空"); }}
+      />
+    )}
+  </>);
 }
 
 function groupByLevel(db: Db, ids: string[]): Record<string, string[]> {

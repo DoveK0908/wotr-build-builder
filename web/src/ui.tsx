@@ -309,6 +309,35 @@ export function Modal(props: { title: string; onClose: () => void; children: Rea
   );
 }
 
+/** 二次确认弹窗：用于清空构筑这类不可撤销的操作。 */
+export function Confirm(props: {
+  title: string;
+  text: React.ReactNode;
+  confirmText?: string;
+  danger?: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  const btn = useRef<HTMLButtonElement>(null);
+  useEffect(() => { btn.current?.focus(); }, []);
+  return (
+    <Modal title={props.title} onClose={props.onCancel}>
+      <div className="confirm-body">{props.text}</div>
+      <div className="confirm-foot">
+        <button type="button" className="btn ghost" onClick={props.onCancel}>取消</button>
+        <button
+          ref={btn}
+          type="button"
+          className={"btn" + (props.danger ? " ghost danger" : "")}
+          onClick={props.onConfirm}
+        >
+          {props.confirmText || "确定"}
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
 /** 富文本描述：把游戏里的 \n 变成段落，去掉残留标记 */
 export function Desc(props: { text?: string; limit?: number }) {
   const [full, setFull] = useState(false);
