@@ -990,10 +990,13 @@ export function evalPrereq(db: Db, ctx: LevelCtx, p: Prereq): Verdict {
       return "unknown";
     }
     case "clvl": {
+      // 前置里也会引用怪物 / NPC / 神话内部职业（不在 classes.json 里）：玩家永远拿不到，按「无法判定」算，不拦人也不显示
+      if (!db.classes[String(p.class)]) return "unknown";
       const n = num(ctx.classLevels[String(p.class)] || 0);
       return n >= (num2(p.v) ?? 1) ? "ok" : "no";
     }
     case "nocl":
+      if (!db.classes[String(p.class)]) return "unknown";
       return num(ctx.classLevels[String(p.class)] || 0) === 0 ? "ok" : "no";
     case "alvl": {
       const arch = String(p.arch || "");
@@ -1117,8 +1120,8 @@ export function prereqText(db: Db, p: Prereq): string {
       return `${attr || sk?.name || s} ≥ ${p.v}`;
     }
     case "statfull": return `${p.stat} ≥ ${p.v}`;
-    case "clvl": return `${label(db.classes[String(p.class)])} 职业等级 ≥ ${p.v}`;
-    case "nocl": return `非 ${label(db.classes[String(p.class)])}`;
+    case "clvl": return `${db.classes[String(p.class)] ? label(db.classes[String(p.class)]) : "内部职业"} 职业等级 ≥ ${p.v}`;
+    case "nocl": return `非 ${db.classes[String(p.class)] ? label(db.classes[String(p.class)]) : "内部职业"}`;
     case "chlvl": return `角色等级 ≥ ${p.v}`;
     case "align": return `阵营：${((p.v as string[]) || []).join(" / ")}`;
     case "prof": return `擅长：${[...((p.armor as string[]) || []), ...((p.weapon as string[]) || [])].join(" / ")}`;
