@@ -85,10 +85,17 @@ export function ClassPlan(props: { db: Db; onPresets?: () => void }) {
   const shownId = lv?.classId ?? hover ?? classOpts[0]?.id ?? null;
   const preview = !lv?.classId && !!shownId;
   const shown = shownId ? db.classes[shownId] : null;
-  const archList = (lv?.classId && build.classArchetypes[lv.classId]) || [];
+  const archList = (shownId && build.classArchetypes[shownId]) || [];
   const classLvl = lv?.classId ? (running[lv.classId] || 0) + 1 : 1;
   const archChoices = (shown?.archetypes || []).map((id) => db.archetypes[id]).filter(Boolean);
-  const override = lv?.classId ? alignOverrideOf(db, lv.classId, archList) : null;
+  const override = shownId ? alignOverrideOf(db, shownId, archList) : null;
+  // 变体只在职业的**第 1 级**选（游戏如此）。当前这一级还没排职业时也显示，方便先挑好变体再排职业。
+  const showArch = !!shownId && archChoices.length > 0 && (!lv?.classId || classLvl <= 1);
+  const archTitle = preview
+    ? `变体（${shown ? shown.name : ""}，一个职业只能选一个）`
+    : "变体（一个职业只能选一个，会替换职业特性）";
+  /** 某个职业在构筑里排到的第 1 级（1 基）；没排到返回 0 */
+  const firstLvlOf = (cid: string) => build.levels.findIndex((l) => l.classId === cid) + 1;
   const got = (shownId ? featuresAtClassLevel(db, shownId, classLvl, archList) : []).filter((id) => isNamed(db.features[id]));
 
   const pickClass = (cid: string) => {
@@ -208,45 +215,65 @@ export function ClassPlan(props: { db: Db; onPresets?: () => void }) {
                 )}
               </Sect>
 
-              {lv?.classId && classLvl === 1 && archChoices.length > 0 && (
-                <Sect title="变体（一个职业只能选一个，会替换职业特性）">
+              {!!shownId && archChoices.length > 0 && !showArch && firstLvlOf(shownId) > 0 && (
+                <Sect title="变体">
                   <div className="row wrap">
+                    <span className="muted small">
+                      「{shown?.name}」的变体只能在它的第 1 级（第 {firstLvlOf(shownId)} 级）选择。
+                    </span>
+                    <button
+                      type="button"
+                      className="btn sm ghost"
+                      onClick={() => setLevel(firstLvlOf(shownId))}
+                    >
+                      跳到第 {firstLvlOf(shownId)} 级
+                    </button>
+                    {archList.length > 0 && <Chip tone="ok">已选：{db.archetypes[archList[0]]?.name}</Chip>}
+                  </div>
+                </Sect>
+              )}
+
+              {showArch && (
+                <Sect title={archTitle}>
+                  {archList.length > 0 && (
+                    <div className="row wrap" style={{ marginBottom: 4 }}>
+                      <Chip tone="any" onClick={() => act.clearArchetype(shownId as string)}>
+                        不用变体
+                      </Chip>
+                    </div>
+                  )}
+                  {/* 游戏里变体是左栏里带 ♦ 的列表行，这里照排 */}
+                  <div className="varlist">
                     {archChoices.map((a) => {
                       const on = archList.includes(a.id);
                       const toks = alignTokensOf(a.prereq);
                       const bad = !alignAllows(build.alignment, toks);
                       return (
-                        <Chip
+                        <ListRow
                           key={a.id}
-                          tone={on ? "ok" : bad ? "no" : undefined}
-                          title={
-                            bad
-                              ? `需要 ${alignNeedText(db, toks)}`
-                              : a.desc
-                                ? a.desc.slice(0, 200)
-                                : a.nameEn
+                          plain
+                          name={
+                            <>
+                              <span className="dia">♦</span>
+                              {a.name}
+                            </>
                           }
+                          sub={bad ? `需要 ${alignNeedText(db, toks)}` : a.nameEn || undefined}
+                          badge={bad ? <span className="badge no">阵营不符</span> : undefined}
+                          dis={bad}
+                          sel={on}
+                          title={bad ? `需要 ${alignNeedText(db, toks)}` : a.desc ? a.desc.slice(0, 200) : a.nameEn}
                           onClick={() => {
                             if (bad && !on) return;
-                            act.toggleArchetype(lv!.classId as string, a.id);
+                            act.toggleArchetype(shownId as string, a.id);
                           }}
-                        >
-                          {on ? "● " : ""}
-                          {a.name}
-                          {bad ? "（阵营不符）" : ""}
-                        </Chip>
+                        />
                       );
                     })}
-                    {archList.length > 0 && (
-                      <Chip tone="any" onClick={() => act.clearArchetype(lv!.classId as string)}>
-                        不用变体
-                      </Chip>
-                    )}
                   </div>
                   <div className="muted small" style={{ marginTop: 4 }}>
                     原作里一个职业同时只能有一个变体（游戏本体如此，同时叠两个要靠 MOD）。
-                  </div>
-                  {override && (
+                  </div>                  {override && (
                     <div className="muted small" style={{ marginTop: 4 }}>
                       「{override.archName}」自带阵营要求（{alignNeedText(db, override.tokens)}），选中后取代本职业的「
                       {alignNeedText(db, override.classTokens)}」——两条互斥，游戏里也只取变体那条。

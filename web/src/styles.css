@@ -719,6 +719,10 @@ input.text:focus, textarea.text:focus, .cl-search:focus { border-color: var(--ac
 .alwheel .aw-w.lock, .alwheel .aw-c.lock { cursor: not-allowed; }
 .alwheel-name { text-align: center; font-size: 17px; font-weight: 700; letter-spacing: 1px; }
 
+/* 变体列表：游戏里是带 ♦ 的列表行 */
+.varlist { border-top: 1px solid var(--line); }
+.dia { color: var(--accent); margin-right: 6px; font-size: 12px; }
+
 /* 成长表（1..N 等级轴） */
 .growth { font-size: 12px; overflow-x: auto; }
 .grow-head, .grow-row { display: grid; grid-template-columns: 132px repeat(20, minmax(24px, 1fr)); align-items: center; gap: 1px; }
