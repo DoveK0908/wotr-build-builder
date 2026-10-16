@@ -53,6 +53,8 @@ export function ThreePane(props: {
 /** 左列表栏（带搜索框、标题、底部说明） */
 export function ListPane(props: {
   title?: React.ReactNode;
+  /** 标题右侧的圆形计数徽章（游戏里法术选择那栏左上角就有一个） */
+  badge?: React.ReactNode;
   search?: string;
   onSearch?: (v: string) => void;
   children: React.ReactNode;
@@ -60,7 +62,12 @@ export function ListPane(props: {
 }) {
   return (
     <div className="lp">
-      {props.title !== undefined && <div className="lp-title">{props.title}</div>}
+      {(props.title !== undefined || props.badge !== undefined) && (
+        <div className="lp-title">
+          {props.title}
+          {props.badge !== undefined && <span className="lp-badge">{props.badge}</span>}
+        </div>
+      )}
       {props.onSearch && (
         <div className="lp-search">
           <input

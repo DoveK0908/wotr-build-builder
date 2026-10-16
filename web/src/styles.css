@@ -850,3 +850,12 @@ input.text:focus, textarea.text:focus, .cl-search:focus { border-color: var(--ac
 }
 img.row-mark { opacity: .95; }
 [data-skin="game"] span.row-mark { color: #2e8b73; }
+
+/* ── 列表栏标题右侧的圆形计数徽章（法术选择那栏左上角） ── */
+.lp-title { display: flex; align-items: center; gap: 6px; }
+.lp-badge {
+  flex: 0 0 auto; margin-left: auto; min-width: 20px; height: 20px; padding: 0 5px;
+  border-radius: 999px; display: inline-flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; color: #fff; background: #6b3a5e;
+}
+[data-skin="game"] .lp-badge { background: #7a3d8f; font-family: var(--serif); box-shadow: 0 0 0 1px #c9b487 inset; }

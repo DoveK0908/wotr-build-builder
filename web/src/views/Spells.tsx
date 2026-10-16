@@ -144,6 +144,7 @@ export function Spells(props: { db: Db; focusBook?: string; focusLevel?: number 
               <span className="muted small">{activeLevel === 0 ? "戏法" : `${activeLevel} 环`}</span>
             </span>
           }
+          badge={pool.filter((s) => chosen.has(s.id)).length}
           search={q}
           onSearch={setQ}
           foot={
