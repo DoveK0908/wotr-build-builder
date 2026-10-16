@@ -12,6 +12,7 @@ import { Align } from "./views/Align";
 import { Attrs } from "./views/Attrs";
 import { Background } from "./views/Background";
 import { ClassFeature } from "./views/ClassFeature";
+import { MythicFeature } from "./views/MythicFeature";
 import { ClassPlan } from "./views/ClassPlan";
 import { Deity } from "./views/Deity";
 import { Feats } from "./views/Feats";
@@ -209,8 +210,12 @@ export function App() {
                 )}
               </div>
 
-              {cur.dynamic && cur.slotId && cur.classId ? (
-                <ClassFeature db={db} slotId={cur.slotId} classId={cur.classId} />
+              {cur.dynamic && cur.slotId ? (
+                cur.id.startsWith("my:") ? (
+                  <MythicFeature db={db} slotId={cur.slotId} />
+                ) : (
+                  <ClassFeature db={db} slotId={cur.slotId} classId={cur.classId || ""} />
+                )
               ) : (
                 <>
                   {step === "class" && <ClassPlan db={db} />}

@@ -9,7 +9,7 @@ import type { Build } from "./store";
 import type { Derived } from "./rules";
 import {
   alignConflicts, archSel, featuresAtClassLevel, label, levelRootSlots, mythicRank, pointBuySpent,
-  universalSlots,
+  rankRootSlots, universalSlots,
 } from "./rules";
 
 export interface Step {
@@ -49,14 +49,17 @@ const ALIASES: Record<string, string> = {
 
 export function normalizeStep(id: string | null | undefined): string {
   if (!id) return STEPS[0].id;
-  if (id.startsWith(DYN_PREFIX)) return id; // 动态步骤（cls:<槽位 guid>）
+  if (id.startsWith(DYN_PREFIX) || id.startsWith(DYN_MYTHIC_PREFIX)) return id; // 动态步骤
   const v = ALIASES[id] || id;
   return STEP_IDS.includes(v) ? v : STEPS[0].id;
 }
 
 // ── 动态子步骤 ──────────────────────────────────────────────────────────
-/** 动态步骤 id 前缀（后面跟槽位 guid） */
+/** 职业子步骤的 id 前缀（后面跟槽位 guid） */
 export const DYN_PREFIX = "cls:";
+
+/** 神话子步骤的 id 前缀（后面跟槽位 guid）—— 游戏升神话阶层时也会多出这类牌匾 */
+export const DYN_MYTHIC_PREFIX = "my:";
 
 /** 这些「额外专长」类槽位留在 ⑥ 专长 一步里，不单独出步骤 */
 const GENERIC_SLOT = /额外专长|额外战斗专长|Bonus ?Feat/i;
@@ -115,12 +118,60 @@ export function classSubSteps(db: Db, build: Build): Step[] {
   return out;
 }
 
-/** 基础 11 步 + 动态子步骤（插在 ⑥ 专长 之后，跟游戏一样「上一步是专长，下一步是法术」） */
+/** 基础 11 步 + 职业动态子步骤（插在 ⑥ 专长 之后）+ 神话动态子步骤（插在 ⑩ 神话 之后） */
 export function allSteps(db: Db, build: Build): Step[] {
-  const subs = classSubSteps(db, build);
-  if (!subs.length) return STEPS;
-  const i = STEPS.findIndex((s) => s.id === "feats");
-  return [...STEPS.slice(0, i + 1), ...subs, ...STEPS.slice(i + 1)];
+  const cls = classSubSteps(db, build);
+  const my = mythicSubSteps(db, build);
+  let out = STEPS;
+  if (cls.length) {
+    const i = out.findIndex((s) => s.id === "feats");
+    out = [...out.slice(0, i + 1), ...cls, ...out.slice(i + 1)];
+  }
+  if (my.length) {
+    const i = out.findIndex((s) => s.id === "mythic");
+    out = [...out.slice(0, i + 1), ...my, ...out.slice(i + 1)];
+  }
+  return out;
+}
+
+/**
+ * 神话道途自己的子步骤。游戏里升神话阶层时，顶部除了「神话」还会多出道途自己的牌匾
+ * （天使 → 神话能力 / 强化天堂宝剑 / 强化天使光环 / 高等天堂宝剑；巫妖 → 骷髅战将；
+ * 御衡者 → 逼迫凝视；金龙 → 精通金龙吐息…）。
+ *
+ * 判别办法与职业一致：神话升级表里「带 choices 的槽位」（`rankRootSlots` 已把
+ * 「奇数阶神话能力 / 偶数阶神话专长」的兜底也算进来了），按阶层顺序去重。
+ * 只列到**已经排到的阶层**为止 —— 与游戏一样，阶层推进后牌匾才出现。
+ */
+export function mythicSubSteps(db: Db, build: Build): Step[] {
+  const rank = mythicRank(build);
+  if (!rank) return [];
+  const out: Step[] = [];
+  const seen = new Set<string>();
+  const names = new Set<string>();
+  for (let r = 1; r <= rank; r += 1) {
+    for (const f of rankRootSlots(db, build, r)) {
+      if (seen.has(f.id)) continue;
+      seen.add(f.id);
+      const nm = label(f);
+      let name = nm;
+      if (names.has(name)) {
+        let n = 2;
+        while (names.has(`${name} ${n}`)) n += 1;
+        name = `${name} ${n}`;
+      }
+      names.add(name);
+      out.push({
+        id: DYN_MYTHIC_PREFIX + f.id,
+        name,
+        num: "",
+        hint: `第 ${r} 神话阶的「${nm}」：${(f.choices || []).length} 个可选`,
+        dynamic: true,
+        slotId: f.id,
+      });
+    }
+  }
+  return out;
 }
 
 // ── 牌匾上的「已选值」 ───────────────────────────────────────────────────
@@ -152,9 +203,10 @@ export function mainClass(db: Db, build: Build): { classId: string; levels: numb
 
 /** 牌匾右侧那块「已选值」牌匾上的文字（空串 = 还没选） */
 export function stepValue(db: Db, build: Build, d: Derived, id: string): string {
-  if (id.startsWith(DYN_PREFIX)) {
-    const slotId = id.slice(DYN_PREFIX.length);
+  if (id.startsWith(DYN_PREFIX) || id.startsWith(DYN_MYTHIC_PREFIX)) {
+    const slotId = id.slice(id.indexOf(":") + 1);
     for (const lv of build.levels) if (lv.picks[slotId]) return label(db.features[lv.picks[slotId]]);
+    for (const r of build.ranks) if (r.picks[slotId]) return label(db.features[r.picks[slotId]]);
     return "";
   }
   switch (id) {
@@ -214,7 +266,7 @@ export function stepFilled(db: Db, build: Build, d: Derived, id: string): boolea
 
 /** 牌匾图标里那个字（没有内容图标时，游戏自己也用字母缩写当图标） */
 export function stepGlyph(id: string, name?: string): string {
-  if (id.startsWith(DYN_PREFIX)) return (name || "").trim().charAt(0) || "·";
+  if (id.startsWith(DYN_PREFIX) || id.startsWith(DYN_MYTHIC_PREFIX)) return (name || "").trim().charAt(0) || "·";
   const fixed: Record<string, string> = {
     class: "职", race: "种", background: "景", attrs: "属", skills: "技", feats: "专",
     spells: "法", deity: "信", align: "阵", mythic: "神", summary: "总",

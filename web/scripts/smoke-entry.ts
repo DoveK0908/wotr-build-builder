@@ -10,8 +10,8 @@ import { act, buildStore, emptyBuild, migrate, serialize, deserialize } from "..
 import { applyPreset } from "../src/presets";
 import type { Build } from "../src/store";
 import {
-  DYN_PREFIX, STEP_IDS, allSteps, classSubSteps, normalizeStep, stepFilled, stepGlyph, stepNote,
-  stepValue,
+  DYN_MYTHIC_PREFIX, DYN_PREFIX, STEP_IDS, allSteps, classSubSteps, mythicSubSteps, normalizeStep,
+  stepFilled, stepGlyph, stepNote, stepValue,
 } from "../src/steps";
 import {
   alignAllows,
@@ -706,6 +706,41 @@ export function run(dir: string): void {
     ok(!stepFilled(db, buildStore.get(), derive(db, buildStore.get()), "attrs"), "空构筑时购点牌匾未配置");
     eq(stepGlyph("mythic"), "神", "神话步骤有字母徽记");
     eq(stepGlyph("cls:abc", "先知诅咒"), "先", "动态步骤用槽位名首字当徽记");
+
+    // 神话子步骤（游戏里升神话阶层时道途自己的牌匾：神话能力 / 强化天堂宝剑 / 骷髅战将…）
+    const angel = Object.values(db.mythic.paths).find((p) => p.key === "AngelMythicClass");
+    if (angel) {
+      act.reset();
+      eq(mythicSubSteps(db, buildStore.get()).length, 0, "没到神话阶层时没有神话子步骤");
+
+      act.setMythicPath(angel.id);
+      for (let r = 1; r <= 3; r += 1) {
+        for (const s of rankRootSlots(db, buildStore.get(), r)) {
+          const c = (s.choices || [])[0];
+          if (c && !buildStore.get().ranks[r - 1].picks[s.id]) act.setRankPick(r - 1, s.id, c);
+        }
+      }
+      const mb = buildStore.get();
+      const my = mythicSubSteps(db, mb);
+      const myNames = my.map((s) => s.name);
+      ok(my.length >= 2, `天使 3 阶带出 ${my.length} 个神话子步骤（期望 ≥2）`, myNames.join("/"));
+      ok(myNames.some((n) => n.includes("神话")), "神话子步骤含神话能力/神话专长", myNames.join("/"));
+      for (const s of my) {
+        ok(s.id.startsWith(DYN_MYTHIC_PREFIX), `神话子步骤 id 带 ${DYN_MYTHIC_PREFIX} 前缀`);
+        ok(!!db.features[s.slotId || ""]?.choices?.length, `神话子步骤「${s.name}」指向真实选择表`);
+        ok(!s.classId, `神话子步骤「${s.name}」不带职业归属`);
+      }
+      const mall = allSteps(db, mb);
+      const mi = mall.findIndex((s) => s.id === "mythic");
+      ok(
+        mall.slice(mi + 1, mi + 1 + my.length).every((s) => s.dynamic),
+        "神话子步骤插在「神话」之后",
+      );
+      ok(normalizeStep(my[0].id) === my[0].id, "normalizeStep 放行神话子步骤 id");
+      ok(stepValue(db, mb, derive(db, mb), my[0].id) !== "", "神话子步骤牌匾显示已选值");
+      eq(stepGlyph(my[0].id, my[0].name), my[0].name.slice(0, 1), "神话子步骤用名字首字当徽记");
+      act.reset();
+    }
   }
 
   // ── 图标索引（从本机游戏 blueprint.assets 导出）────────────────────────
