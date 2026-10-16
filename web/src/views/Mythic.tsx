@@ -2,10 +2,10 @@ import React, { useMemo } from "react";
 import type { AttrId, Db, FeatureEntry } from "../types";
 import { act, useBuild } from "../store";
 import {
-  choiceVerdict, derive, label, ownedFeatures,
+  choiceVerdict, derive, label, ownedFeatures, rankRootSlots,
 } from "../rules";
 import { Chip, Collapse, Desc, Panel, SearchSelect } from "../ui";
-import { PickSlot } from "../pick";
+import { SlotChain } from "../pick";
 
 const MYTHIC_ATTR_RANKS = [2, 4, 6, 8, 10];
 
@@ -27,18 +27,11 @@ export function Mythic(props: { db: Db }) {
     [db],
   );
 
-  // 每一个神话等级可选的槽位
-  const rankSlots = useMemo(() => {
-    const gen = Object.values(db.mythic.selections);
-    const out: FeatureEntry[][] = [];
-    for (let r = 1; r <= 10; r += 1) {
-      const ids = (path?.progression || []).find((x) => x.level === r)?.features || [];
-      let slots = ids.map((id) => db.features[id]).filter((f): f is FeatureEntry => !!f && !!f.choices);
-      if (!slots.length) slots = gen as unknown as FeatureEntry[];
-      out.push(slots);
-    }
-    return out;
-  }, [db, path]);
+  // 每一个神话等级可选的槽位：道途自家内容优先，空着的等级走通用神话能力/专长
+  const rankSlots = useMemo(
+    () => Array.from({ length: 10 }, (_, i) => rankRootSlots(db, build, i + 1)),
+    [db, build],
+  );
 
   const ctxBase = useMemo(() => {
     const o = ownedFeatures(db, build);
@@ -111,13 +104,13 @@ export function Mythic(props: { db: Db }) {
                 {slots.length > 0 && (
                   <div className="slots">
                     {slots.map((s) => (
-                      <PickSlot
+                      <SlotChain
                         key={s.id}
                         db={db}
-                        slot={s}
-                        value={lv.picks[s.id] || null}
+                        root={s}
+                        picks={lv.picks}
                         verdict={(fid) => choiceVerdict(db, ctxBase, fid)}
-                        onChange={(v) => act.setRankPick(r - 1, s.id, v)}
+                        onChange={(slotId, v) => act.setRankPick(r - 1, slotId, v)}
                       />
                     ))}
                   </div>

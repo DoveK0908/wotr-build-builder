@@ -16,10 +16,15 @@ import {
   classLevels,
   derive,
   evalPrereqs,
+  backgroundRoot,
   levelCtxList,
+  levelRootSlots,
+  livePicks,
   num,
   ownedFeatures,
   pointBuySpent,
+  raceRootSlots,
+  rankRootSlots,
   traitList,
 } from "../src/rules";
 
@@ -222,6 +227,101 @@ export function run(dir: string): void {
       "预置带上了变体", JSON.stringify(r.build.classArchetypes).slice(0, 80));
     ok(r.build.levels.filter((x) => x.classId).length === 20, "预置铺满 20 级职业");
     ok(r.build.levels.filter((x) => x.ability).length > 0, "预置带上了升级加点");
+  }
+
+  // ---- 嵌套选择链（选择项本身还可能是选择表） ----
+  const featByName = (n: string, withChoices = false): FeatureEntry | undefined =>
+    Object.values(db.features).find(
+      (f) => f.name === n && (!withChoices || (f.choices || []).length > 0),
+    );
+  const bgRootSel = backgroundRoot(db);
+  ok(!!bgRootSel && (bgRootSel.choices || []).length >= 9, "背景根是选择表",
+    String((bgRootSel?.choices || []).length));
+
+  const scholarSel = featByName("学者", true);
+  const natureSel = featByName("自然学者", true);
+  const lightCantrip = featByName("光亮术");
+  ok(!!scholarSel && !!natureSel && !!lightCantrip, "找得到 学者 / 自然学者 / 光亮术");
+
+  if (bgRootSel && scholarSel && natureSel && lightCantrip) {
+    const chain: Record<string, string> = {
+      [bgRootSel.id]: scholarSel.id,
+      [scholarSel.id]: natureSel.id,
+      [natureSel.id]: lightCantrip.id,
+    };
+    const b1: Build = { ...emptyBuild(), background: lightCantrip.id, bgPicks: chain };
+    const o1 = ownedFeatures(db, b1);
+    eq(String(livePicks(db, [bgRootSel], chain).length), "3", "背景链展开成 3 段");
+    ok(o1.ids.has(lightCantrip.id), "背景第三层的「光亮术」进了 owned");
+
+    const arcaneSel = featByName("奥法学者");
+    if (arcaneSel) {
+      const b2: Build = {
+        ...b1,
+        bgPicks: { [bgRootSel.id]: scholarSel.id, [scholarSel.id]: arcaneSel.id, [natureSel.id]: lightCantrip.id },
+      };
+      const o2 = ownedFeatures(db, b2);
+      ok(!o2.ids.has(lightCantrip.id), "换掉上层选择后，陈旧的下层选择不再泄漏");
+      ok(o2.ids.has(arcaneSel.id), "新选中的「奥法学者」生效");
+    }
+  }
+
+  const combatSel = featByName("战斗专长", true);
+  const styleSel = combatSel
+    ? (combatSel.choices || []).map((id) => db.features[id]).find((f) => f && (f.choices || []).length >= 5)
+    : undefined;
+  ok(!!styleSel, "「战斗专长」下面还有带子选择的分支", styleSel?.name || "");
+
+  const wfFeat = featByName("武器专攻");
+  ok(!!wfFeat && (wfFeat.paramVariants || []).length >= 10, "「武器专攻」是参数化专长",
+    String((wfFeat?.paramVariants || []).length));
+
+  const elfRace = Object.values(db.races).find((r) => r.name === "精灵");
+  ok(!!elfRace && raceRootSlots(db, { ...emptyBuild(), race: elfRace.id }).length > 0,
+    "精灵有「种族传承」槽位");
+  const humanRace = Object.values(db.races).find((r) => r.name === "人类");
+  const humanSlots = humanRace ? raceRootSlots(db, { ...emptyBuild(), race: humanRace.id }) : [];
+  ok(humanSlots.some((s) => (s.choices || []).length >= 200), "人类种族槽位是额外专长（≥200 项）",
+    humanSlots.map((s) => (s.choices || []).length).join(","));
+
+  const compOnlyBg = Object.values(db.backgrounds).filter((b) => b.companionOnly).map((b) => b.name);
+  ok(compOnlyBg.includes("城市猎人") && compOnlyBg.includes("纽玫瑞亚同伴"),
+    "同伴专属背景有 companionOnly 标记", compOnlyBg.join("/"));
+
+  if (humanRace) {
+    const hb: Build = { ...emptyBuild(), race: humanRace.id, raceStatPick: "Strength" };
+    const wa = attrsAtLevel(db, hb, 1);
+    eq(String(wa.Strength - emptyBuild().attributes.Strength), "2", "人类的自由属性 +2 生效");
+  }
+
+  // 神话：道途自家内容优先，9/10 级走通用神话能力/专长
+  const angel = Object.values(db.mythic.paths).find((p) => p.nameEn === "AngelMythicClass") ||
+    Object.values(db.mythic.paths).find((p) => p.name === "天使");
+  if (angel) {
+    const mb: Build = { ...emptyBuild(), mythicPath: angel.id };
+    ok(rankRootSlots(db, mb, 1).length >= 1, "神话 1 级有道途自己的槽位",
+      String(rankRootSlots(db, mb, 1).length));
+    ok(rankRootSlots(db, mb, 9).length >= 1, "神话 9 级回退到通用选择表",
+      rankRootSlots(db, mb, 9).map((f) => f.name).join("/"));
+  }
+  const abilitySel = db.mythic.selections?.MythicAbilitySelection;
+  const nestedAbility = (abilitySel?.choices || [])
+    .map((id) => db.features[id])
+    .find((f) => f && (f.choices || []).length > 0);
+  ok(!!nestedAbility, "神话能力里有带子选择的能力（如巅峰元素）", nestedAbility?.name || "");
+
+  const fighterCls = Object.values(db.classes).find((c) => c.nameEn === "FighterClass");
+  if (fighterCls) {
+    const fighterBuild: Build = {
+      ...emptyBuild(),
+      levels: emptyBuild().levels.map((l) => ({ ...l, classId: (fighterCls as { id: string }).id })),
+    };
+    ok(levelRootSlots(db, fighterBuild, 1).length >= 2, "1 级合并了职业选择表与通用升级表",
+      String(levelRootSlots(db, fighterBuild, 1).length));
+    ok(levelRootSlots(db, fighterBuild, 3).length >= 1, "3 级有通用专长槽",
+      String(levelRootSlots(db, fighterBuild, 3).length));
+    ok(!levelRootSlots(db, fighterBuild, 1).some((f) => f.id === db.rules.deitySelection),
+      "神祇选择不在升级页重复出现（角色页有专门控件）");
   }
 
   const total = pass + fails.length;

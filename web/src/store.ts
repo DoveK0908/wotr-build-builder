@@ -25,7 +25,11 @@ export interface Build {
   /** 种族自带的选择表（传承/血脉/氏族/额外专长）→ 选项 id */
   racePicks: Record<string, string>;
   raceParams: Record<string, string>;
+  /** 人类/半精灵/半兽人的「任选一项属性 +2」（种族蓝图里只有 SelectableRaceStat=true，值固定 +2） */
+  raceStatPick: AttrId | null;
   background: string | null;
+  /** 背景整条链的挑选：选择背景→大类，大类→具体，具体→子选择（如自然学者→戏法） */
+  bgPicks: Record<string, string>;
   /** 神祇（牧师/审判官等需要；来自通用升级表的「神祇选择」） */
   deity: string | null;
   alignment: string | null;
@@ -65,7 +69,9 @@ export function emptyBuild(): Build {
     race: null,
     racePicks: {},
     raceParams: {},
+    raceStatPick: null,
     background: null,
+    bgPicks: {},
     deity: null,
     alignment: null,
     attributes: {
@@ -95,6 +101,8 @@ export function migrate(raw: unknown): Build {
     attrManual: { ...(b.attrManual || {}) },
     racePicks: { ...(b.racePicks || {}) },
     raceParams: { ...(b.raceParams || {}) },
+    raceStatPick: b.raceStatPick || null,
+    bgPicks: { ...(b.bgPicks || {}) },
     skills: { ...(b.skills || {}) },
     spells: { ...(b.spells || {}) },
     notes: typeof b.notes === "string" ? b.notes : "",
@@ -130,7 +138,7 @@ function fromBase64Url(s: string): string {
   return new TextDecoder().decode(bytes);
 }
 
-const COMPACT_KEYS = ["name", "race", "racePicks", "raceParams", "background",
+const COMPACT_KEYS = ["name", "race", "racePicks", "raceParams", "raceStatPick", "background", "bgPicks",
   "deity", "alignment", "attributes", "attrManual", "levels", "classArchetypes",
   "mythicPath", "ranks", "skills", "spells", "notes"] as const;
 
@@ -209,15 +217,24 @@ export const act = {
   reset: () => buildStore.reset(),
   setName: (name: string) => buildStore.patch((b) => { b.name = name; }),
   setRace: (id: string | null) => buildStore.patch((b) => {
-    b.race = id; b.racePicks = {}; b.raceParams = {};
+    b.race = id; b.racePicks = {}; b.raceParams = {}; b.raceStatPick = null;
   }),
+  setRaceStatPick: (a: AttrId | null) => buildStore.patch((b) => { b.raceStatPick = a; }),
   setRacePick: (sel: string, choice: string | null) => buildStore.patch((b) => {
     if (choice) b.racePicks[sel] = choice; else delete b.racePicks[sel];
   }),
   setRaceParam: (feat: string, p: string | null) => buildStore.patch((b) => {
     if (p) b.raceParams[feat] = p; else delete b.raceParams[feat];
   }),
-  setBackground: (id: string | null) => buildStore.patch((b) => { b.background = id; }),
+  setBackground: (id: string | null) => buildStore.patch((b) => {
+    b.background = id;
+    if (!id) b.bgPicks = {};
+  }),
+  /** 背景链改选：bgPicks 是权威来源，background 只记最深那一个（显示/前置条件用） */
+  setBgPicks: (picks: Record<string, string>, deepest: string | null) => buildStore.patch((b) => {
+    b.bgPicks = picks;
+    b.background = deepest;
+  }),
   setDeity: (id: string | null) => buildStore.patch((b) => { b.deity = id; }),
   setAlignment: (id: string | null) => buildStore.patch((b) => { b.alignment = id; }),
   setAttr: (a: AttrId, v: number) => buildStore.patch((b) => { b.attributes[a] = v; }),

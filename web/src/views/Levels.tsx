@@ -4,10 +4,10 @@ import type { Build } from "../store";
 import { act, useBuild } from "../store";
 import {
   choiceVerdict, classLevels, derive, featuresAtClassLevel, label, levelCtxList,
-  universalSlots,
+  levelRootSlots,
 } from "../rules";
 import { Chip, Collapse, Panel, SearchSelect } from "../ui";
-import { PickSlot } from "../pick";
+import { SlotChain } from "../pick";
 
 const ATTR_LEVELS = [4, 8, 12, 16, 20];
 
@@ -78,13 +78,8 @@ export function Levels(props: { db: Db }) {
         const autoIds = lv.classId
           ? featuresAtClassLevel(db, lv.classId, classLvl, archList)
           : [];
-        const slots: FeatureEntry[] = [
-          ...autoIds.map((id) => db.features[id]).filter((f): f is FeatureEntry => !!f && !!f.choices),
-          ...universalSlots(db, level),
-        ];
-        // 去重（同一个选择表可能既来自职业又来自通用表）
-        const seen = new Set<string>();
-        const uniqSlots = slots.filter((s) => (seen.has(s.id) ? false : (seen.add(s.id), true)));
+        // 该级要做的选择：职业升级表给的 + 通用升级表给的（rules 里的单一真源）
+        const uniqSlots = levelRootSlots(db, build, level);
         const missing = uniqSlots.filter((s) => !lv.picks[s.id]).length;
 
         if (onlyUnfinished && missing === 0 && lv.classId) return null;
@@ -147,18 +142,13 @@ export function Levels(props: { db: Db }) {
             {uniqSlots.length > 0 && (
               <div className="slots">
                 {uniqSlots.map((s) => (
-                  <PickSlot
+                  <SlotChain
                     key={s.id}
                     db={db}
-                    slot={s}
-                    value={lv.picks[s.id] || null}
+                    root={s}
+                    picks={lv.picks}
                     verdict={(fid) => choiceVerdict(db, ctx, fid)}
-                    onChange={(v) => act.setPick(level, s.id, v)}
-                    hint={
-                      lv.picks[s.id] && db.features[lv.picks[s.id]]?.param
-                        ? "这是参数化专长，下面再选参数"
-                        : undefined
-                    }
+                    onChange={(slotId, v) => act.setPick(level, slotId, v)}
                   />
                 ))}
               </div>

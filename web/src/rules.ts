@@ -112,7 +112,7 @@ export function universalFeatures(db: Db, level: number): string[] {
 /** 通用升级表里需要玩家做选择的槽位（背景/神祇有专门界面，这里排除掉） */
 export function universalSlots(db: Db, level: number): FeatureEntry[] {
   const skip = new Set(
-    [db.rules.backgroundSelection].filter(Boolean) as string[],
+    [db.rules.backgroundSelection, db.rules.deitySelection].filter(Boolean) as string[],
   );
   return universalFeatures(db, level)
     .map((id) => db.features[id])
@@ -126,6 +126,108 @@ export function expandFeature(db: Db, id: string, depth = 0): string[] {
   if (!f || !f.progression) return [id];
   const out = [id];
   for (const e of f.progression) for (const sub of e.features) out.push(...expandFeature(db, sub, depth + 1));
+  return out;
+}
+
+// ── 槽位与嵌套链 ────────────────────────────────────────────────────────
+/**
+ * 「槽位里选中的那个东西本身还是个选择表」时，往下继续要的那一层。
+ * 游戏里这种嵌套很常见：战斗专长 › 战斗流派专长 › 弓术；
+ * 神话能力 › 巅峰元素；种族传承 › 基本 › 一技之长；学者 › 自然学者 › 光亮术。
+ */
+export interface LivePick {
+  /** 选择表（槽位）id */
+  slot: string;
+  /** 选中的特性 id */
+  choice: string;
+}
+
+/** 从一组根槽位出发，沿「选中的东西还是不是选择表」一路向下，收集真正活着的那条链 */
+export function livePicks(
+  db: Db, roots: (FeatureEntry | undefined)[], picks: Record<string, string> | undefined,
+): LivePick[] {
+  const out: LivePick[] = [];
+  if (!picks) return out;
+  for (const r of roots) {
+    if (!r) continue;
+    let slotId = r.id;
+    let node: FeatureEntry | undefined = r;
+    for (let guard = 0; node && guard < 8; guard += 1) {
+      const choice = picks[slotId];
+      if (!choice) break;
+      out.push({ slot: slotId, choice });
+      const f = db.features[choice];
+      if (!f || !f.choices || !f.choices.length) break;
+      slotId = choice;
+      node = f;
+    }
+  }
+  return out;
+}
+
+/** 某一级真正要玩家做选择的根槽位：职业升级表给的 + 角色通用升级表给的 */
+export function levelRootSlots(db: Db, build: Build, level: number): FeatureEntry[] {
+  const lv = build.levels[level - 1];
+  const sel = archSel(db, build);
+  const out: FeatureEntry[] = [];
+  const seen = new Set<string>();
+  const push = (f?: FeatureEntry) => {
+    if (f && f.choices && f.choices.length && !seen.has(f.id)) { seen.add(f.id); out.push(f); }
+  };
+  if (lv && lv.classId) {
+    let cl = 0;
+    for (let i = 0; i < level; i += 1) if (build.levels[i].classId === lv.classId) cl += 1;
+    for (const id of featuresAtClassLevel(db, lv.classId, cl, sel[lv.classId] || [])) push(db.features[id]);
+  }
+  for (const f of universalSlots(db, level)) push(f);
+  return out;
+}
+
+/** 某个神话等级要玩家做选择的槽位（道途自家内容优先，没有就走通用神话能力/专长） */
+export function rankRootSlots(db: Db, build: Build, rank: number): FeatureEntry[] {
+  const path = build.mythicPath ? db.mythic.paths[build.mythicPath] : null;
+  const ids = (path?.progression || []).find((x) => x.level === rank)?.features || [];
+  const slots = ids.map((id) => db.features[id]).filter((f): f is FeatureEntry => !!f && !!f.choices && f.choices.length > 0);
+  if (slots.length) return slots;
+  // 奇数等级给神话能力、偶数等级给神话专长
+  const sel = db.mythic.selections || {};
+  const want = rank % 2 === 1 ? sel.MythicAbilitySelection : sel.MythicFeatSelection;
+  const alt = rank % 2 === 1 ? sel.MythicFeatSelection : sel.MythicAbilitySelection;
+  const pick = (want || alt) as unknown as FeatureEntry | undefined;
+  return pick && pick.choices && pick.choices.length ? [pick] : [];
+}
+
+/** 种族自带的传承/子选择槽位 */
+export function raceRootSlots(db: Db, build: Build): FeatureEntry[] {
+  const race = build.race ? db.races[build.race] : null;
+  return (race?.heritageSelections || [])
+    .map((id) => db.features[id])
+    .filter((f): f is FeatureEntry => !!f && !!f.choices && f.choices.length > 0);
+}
+
+/** 背景树的根（「选择背景」那张选择表） */
+export function backgroundRoot(db: Db): FeatureEntry | undefined {
+  const id = db.rules.backgroundSelection;
+  return id ? db.features[id] : undefined;
+}
+
+/** 旧存档只存了最深那一个背景 id：顺着 children 反查，把中间路径补回来 */
+export function legacyBackgroundPicks(db: Db, deepest: string | null | undefined): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (!deepest) return out;
+  const parentOf: Record<string, string> = {};
+  for (const b of Object.values(db.backgrounds)) {
+    for (const c of b.children || []) parentOf[c] = b.id;
+  }
+  const root = db.rules.backgroundSelection;
+  const path: string[] = [];
+  const guard = new Set<string>();
+  let cur: string | undefined = deepest;
+  while (cur && !guard.has(cur)) { guard.add(cur); path.unshift(cur); cur = parentOf[cur]; }
+  while (path.length && path[0] === root) path.shift();
+  if (!path.length) return out;
+  if (root) out[root] = path[0];
+  for (let i = 0; i + 1 < path.length; i += 1) out[path[i]] = path[i + 1];
   return out;
 }
 
@@ -156,29 +258,28 @@ export function ownedFeatures(db: Db, build: Build): Owned {
   // 种族特性 + 种族自带选择表
   const race = build.race ? db.races[build.race] : null;
   if (race) for (const t of race.traits || []) addAuto(t);
-  for (const [s, c] of Object.entries(build.racePicks || {})) {
-    if (!c) continue;
-    picks[s] = c;
-    ids.add(s);
-    for (const x of expandFeature(db, c)) ids.add(x);
+  // 种族传承（可能还有下一层，例如「基本 › 一技之长」）
+  for (const p of livePicks(db, raceRootSlots(db, build), build.racePicks)) {
+    picks[p.slot] = p.choice;
+    ids.add(p.slot);
+    for (const x of expandFeature(db, p.choice)) ids.add(x);
   }
   for (const [f, p] of Object.entries(build.raceParams || {})) {
-    if (!p) continue;
+    if (!p || !ids.has(f)) continue;
     params[f] = p;
-    ids.add(f);
   }
 
-  // 背景（一条链：无 → 大类 → 具体），只取真正选中的那一条
-  if (build.background) {
-    if (db.rules.backgroundSelection) ids.add(db.rules.backgroundSelection);
-    let cur: BackgroundEntry | undefined = db.backgrounds[build.background];
-    const guard = new Set<string>();
-    while (cur && !guard.has(cur.id)) {
-      guard.add(cur.id);
-      ids.add(cur.id);
-      for (const x of expandFeature(db, cur.id)) ids.add(x);
-      cur = cur.parent ? db.backgrounds[cur.parent] : undefined;
-    }
+  // 背景：一条链「大类 → 具体 → 子选择（如德鲁伊戏法）」，只取真正选中的那条
+  const bgRoot = backgroundRoot(db);
+  const bgPicks = build.bgPicks && Object.keys(build.bgPicks).length
+    ? build.bgPicks
+    // 兼容旧存档：只有最深的那一个背景 id，没有中间路径
+    : legacyBackgroundPicks(db, build.background);
+  if (bgRoot) ids.add(bgRoot.id);
+  for (const p of livePicks(db, [bgRoot], bgPicks)) {
+    picks[p.slot] = p.choice;
+    ids.add(p.slot);
+    for (const x of expandFeature(db, p.choice)) ids.add(x);
   }
 
   // 种族 + 职业 + 通用升级表
@@ -193,17 +294,16 @@ export function ownedFeatures(db: Db, build: Build): Owned {
         addAuto(fid);
       }
     }
-    // 本级的挑选（职业选择表 + 通用专长都记在这里，各用各的 key）
-    for (const [s, c] of Object.entries(lv.picks || {})) {
-      if (!c) continue;
-      picks[s] = c;
-      ids.add(s);
-      for (const x of expandFeature(db, c)) ids.add(x);
+    // 本级的挑选：从「活着的根槽位」往下走，只收真正达得到的选择
+    // （换了职业/变体/改写上层选择后，残留在存档里的旧选择不会再泄漏进来）
+    for (const p of livePicks(db, levelRootSlots(db, build, i + 1), lv.picks)) {
+      picks[p.slot] = p.choice;
+      ids.add(p.slot);
+      for (const x of expandFeature(db, p.choice)) ids.add(x);
     }
     for (const [f, p] of Object.entries(lv.params || {})) {
-      if (!p) continue;
+      if (!p || !ids.has(f)) continue;
       params[f] = p;
-      ids.add(f);
     }
   }
 
@@ -222,16 +322,14 @@ export function ownedFeatures(db: Db, build: Build): Owned {
       const lv = build.ranks[r - 1];
       if (!lv) continue;
       for (const fid of (path.progression || []).find((x) => x.level === r)?.features || []) addAuto(fid);
-      for (const [s, c] of Object.entries(lv.picks || {})) {
-        if (!c) continue;
-        picks[s] = c;
-        ids.add(s);
-        for (const x of expandFeature(db, c)) ids.add(x);
+      for (const p of livePicks(db, rankRootSlots(db, build, r), lv.picks)) {
+        picks[p.slot] = p.choice;
+        ids.add(p.slot);
+        for (const x of expandFeature(db, p.choice)) ids.add(x);
       }
       for (const [f, p] of Object.entries(lv.params || {})) {
-        if (!p) continue;
+        if (!p || !ids.has(f)) continue;
         params[f] = p;
-        ids.add(f);
       }
     }
   }
@@ -269,6 +367,8 @@ export function attrsAtLevel(db: Db, build: Build, level: number): Record<AttrId
         if ((ATTRS as string[]).includes(b.stat)) out[b.stat as AttrId] += b.value;
       }
     }
+    // 人类 / 半精灵 / 半兽人：任选一项属性 +2（蓝图里只有 SelectableRaceStat=true）
+    if (race.selectableStat && build.raceStatPick) out[build.raceStatPick] += 2;
   }
   const inc = increases(build);
   for (let i = 0; i < Math.min(level, inc.level.length); i += 1) {

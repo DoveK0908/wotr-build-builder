@@ -39,6 +39,20 @@
 - **技能 → 关键属性**：蓝图里没有这张映射，写在 `web/src/rules.ts` 的 `SKILL_ATTR`
 - **技能枚举别名**：职业的 `ClassSkills` 里有 `SkillThievery`（= 巧手 Trickery）、`CheckIntimidate`（不是技能，丢弃）
 - **金龙道途的显示名**：`GoldenDragonClass` 的 `m_DisplayName` 与 `LocalizedName` 都是空的，用 `MYTHIC_PATH_NAMES` 硬编码「金龙」
+- **种族的任选属性 +2**：人类 / 半精灵 / 半兽人的 `SelectableRaceStat` 只是个 `true`（没有数值），所以 +2 写在 `web/src/rules.ts` 的 `attrsAtLevel()` 里；界面用 `Build.raceStatPick` 记录选了哪一项
+
+## 选择链：选择项本身可能还是选择表
+
+蓝图里的「选择表」（`BlueprintFeatureSelection`）放进 `choices` 时，**池子里可能出现另一张选择表**，于是形成多层：
+
+- 背景：`选择背景 → 学者 → 自然学者 → 光亮术`（`BackgroundsDruidSpellLikeSelection`）
+- 专长：`战斗专长 → 战斗流派专长 → 弓术`、`额外专长 → 高等元素专攻`、`额外巫术（萨满）→ 秘咒`
+- 种族：`种族传承 → 基本 → 一技之长`；人类/半精灵/半兽人的传承槽其实是「额外专长」（276 项）
+- 神话：`神话能力 → 巅峰元素 / 转瞬即发 / 巅峰血承 / 奇迹领域`（神话能力 67 项、神话专长 48 项，奇数级给能力、偶数级给专长）
+
+因此**不能**把 `children`/`choices` 当成扁平的候选列表来渲染：界面用 `web/src/pick.tsx` 的 `SlotChain` 沿「选中的东西是否还有 `choices`」逐层展开（最多 8 层），规则层用 `web/src/rules.ts` 的 `livePicks()` 只统计**当前真的可达**的那条链——换了上层选择后，残留在存档里的下层旧选择不会再泄漏进 `ownedFeatures()`。
+
+⚠️ **重名蓝图**：`学者` 下面的三项里，「自然学者」有两个蓝图 —— `Scholar/BackgroundScholarNature.jbp`（`BlueprintFeature`，0 个 choices，是背景本体）和 `Scholar/BackgroundsDruidSpellLikeSelection.jbp`（`BlueprintFeatureSelection`，5 个戏法）。**按名字查会走错**，必须顺着父级的 `choices`/`children` 用 id 往下走。同理 `奥法学者` 的戏法选择（`BackgroundsWizardSpellLikeSelection`）只挂在妮妮欧与术士预生成角色身上，**不属于背景**，已确认不在背景树里。
 
 ## 文件一览
 

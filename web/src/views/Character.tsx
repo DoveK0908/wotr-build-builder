@@ -1,12 +1,13 @@
 import React, { useMemo } from "react";
-import type { Db } from "../types";
+import type { Db, FeatureEntry } from "../types";
 import type { Build } from "../store";
-import { act, useBuild } from "../store";
+import { ATTRS, act, useBuild } from "../store";
 import {
-  attrMod, attrsAtLevel, classLevels, label, pointBuySpent, traitList, universalFeatures,
+  attrMod, attrsAtLevel, backgroundRoot, classLevels, label, pointBuySpent, raceRootSlots,
+  traitList, universalFeatures,
 } from "../rules";
 import { Chip, Collapse, Desc, Field, Meter, NumBox, Panel, SearchSelect } from "../ui";
-import { AutoList, PickSlot } from "../pick";
+import { AutoList, SlotChain, reachable } from "../pick";
 
 export function Character(props: { db: Db }) {
   const { db } = props;
@@ -39,6 +40,50 @@ export function Character(props: { db: Db }) {
       return { id, label: label(f), hint: f?.nameEn };
     });
   }, [db, deitySlot]);
+
+  // 种族传承槽位（传承本身还可能有下一层）
+  const raceSlots = useMemo(() => raceRootSlots(db, build), [db, build]);
+
+  // 背景：按游戏里的树逐层展开「大类 → 具体背景 → 子选择」
+  const bgRootSlot = backgroundRoot(db);
+  const bgPicks = build.bgPicks || {};
+  const companionOnly = useMemo(() => {
+    const s = new Set<string>();
+    for (const b of Object.values(db.backgrounds)) if (b.companionOnly) s.add(b.id);
+    return s;
+  }, [db]);
+  const bgLevels = useMemo(() => {
+    const out: { slot: string; options: string[] }[] = [];
+    let slot: FeatureEntry | undefined = bgRootSlot;
+    for (let depth = 0; slot && depth < 4; depth += 1) {
+      out.push({
+        slot: slot.id,
+        options: (slot.choices || []).filter((id) => !companionOnly.has(id) && !!db.features[id]),
+      });
+      const chosen = bgPicks[slot.id];
+      if (!chosen) break;
+      const f = db.features[chosen];
+      slot = f && f.choices && f.choices.length ? f : undefined;
+    }
+    return out;
+  }, [db, bgRootSlot, bgPicks, companionOnly]);
+  const onBgPick = (slot: string, v: string | null) => {
+    const next: Record<string, string> = { ...bgPicks };
+    if (v) next[slot] = v; else delete next[slot];
+    const roots: FeatureEntry[] = bgRootSlot ? [bgRootSlot] : [];
+    for (const key of Object.keys(next)) if (!reachable(db, roots, next, key)) delete next[key];
+    // 最深的那一项用于显示与前置条件上下文
+    let deepest: string | null = null;
+    let node: FeatureEntry | undefined = bgRootSlot;
+    while (node) {
+      const c = next[node.id];
+      if (!c) break;
+      deepest = c;
+      const f = db.features[c];
+      node = f && f.choices && f.choices.length ? f : undefined;
+    }
+    act.setBgPicks(next, deepest);
+  };
 
   const spent = pointBuySpent(db, build);
   const total = rules.pointBuyTotal || 25;
@@ -112,29 +157,45 @@ export function Character(props: { db: Db }) {
               ))}
               {race.size && <Chip>{race.size === "Large" ? "大型" : race.size === "Small" ? "小型" : "中型"}</Chip>}
             </div>
-            {(race.heritageSelections || []).length > 0 && (
+            {race.selectableStat && (
+              <div className="row wrap mt8">
+                <span className="muted small">任选一项 +2：</span>
+                {ATTRS.map((a) => (
+                  <button
+                    key={a}
+                    type="button"
+                    className={build.raceStatPick === a ? "btn sm" : "btn sm ghost"}
+                    onClick={() => act.setRaceStatPick(build.raceStatPick === a ? null : a)}
+                  >
+                    {label(rules.attributes.find((x) => x.id === a))}
+                  </button>
+                ))}
+                {!build.raceStatPick && <span className="muted small">（还没选）</span>}
+              </div>
+            )}
+            {raceSlots.length > 0 && (
               <div className="slots mt8">
-                {(race.heritageSelections || []).map((sid) => {
-                  const slot = db.features[sid];
-                  if (!slot) return null;
-                  return (
-                    <PickSlot
-                      key={sid}
-                      db={db}
-                      slot={slot}
-                      value={build.racePicks[sid] || null}
-                      verdict={() => "ok"}
-                      onChange={(v) => act.patch((b) => {
-                        if (v) b.racePicks[sid] = v; else delete b.racePicks[sid];
-                        const chosen = v ? db.features[v] : null;
-                        if (chosen?.param) {
-                          const pv = (chosen.paramVariants || [])[0] || "";
-                          if (pv) b.raceParams[chosen.id] = pv;
-                        }
-                      })}
-                    />
-                  );
-                })}
+                {raceSlots.map((slot) => (
+                  <SlotChain
+                    key={slot.id}
+                    db={db}
+                    root={slot}
+                    picks={build.racePicks}
+                    verdict={() => "ok"}
+                    onChange={(slotId, v) => act.patch((b) => {
+                      if (v) b.racePicks[slotId] = v; else delete b.racePicks[slotId];
+                      // 换掉上层选择后，下层已经不可达的旧选择也一并丢掉
+                      for (const key of Object.keys(b.racePicks)) {
+                        if (!reachable(db, raceSlots, b.racePicks, key)) delete b.racePicks[key];
+                      }
+                      const chosen = v ? db.features[v] : null;
+                      if (chosen?.param) {
+                        const pv = (chosen.paramVariants || [])[0] || "";
+                        if (pv) b.raceParams[chosen.id] = pv;
+                      }
+                    })}
+                  />
+                ))}
               </div>
             )}
             {traits.length > 0 && (
@@ -151,17 +212,35 @@ export function Character(props: { db: Db }) {
         )}
       </Panel>
 
-      <Panel title="背景">
-        <SearchSelect
-          value={build.background}
-          options={bgOpts}
-          onChange={(v) => act.setBackground(v)}
-          placeholder="选择背景（可选）"
-          width={300}
-        />
+      <Panel
+        title="背景"
+        sub="按游戏里的层级选：大类 → 具体背景 → 有些背景还会再让你挑一项（例如自然学者要选一个德鲁伊戏法）"
+      >
+        <div className="bgtree">
+          {bgLevels.map((lvl, depth) => (
+            <div className="row" key={lvl.slot}>
+              <span className="muted small bgtree-tag">
+                {depth === 0 ? "大类" : depth === 1 ? "具体背景" : "再选一项"}
+              </span>
+              <SearchSelect
+                value={bgPicks[lvl.slot] || null}
+                options={lvl.options.map((id) => {
+                  const f = db.features[id];
+                  return { id, label: label(f), hint: f?.nameEn };
+                })}
+                onChange={(v) => onBgPick(lvl.slot, v)}
+                placeholder={depth === 0 ? "选择背景（可选）" : "选择…"}
+                width={300}
+              />
+            </div>
+          ))}
+        </div>
         {build.background && (
           <div className="mt8">
-            <Desc text={db.backgrounds[build.background]?.desc} limit={700} />
+            <Desc
+              text={db.backgrounds[build.background]?.desc || db.features[build.background]?.desc}
+              limit={700}
+            />
           </div>
         )}
       </Panel>

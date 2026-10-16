@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import type { Db, FeatureEntry, SpellEntry } from "./types";
-import { label, prereqText } from "./rules";
+import { label, livePicks, prereqText } from "./rules";
 import type { Verdict } from "./rules";
 import { Chip, Desc, Modal, VerdictTag } from "./ui";
 
@@ -217,5 +217,67 @@ export function AutoList(props: { db: Db; ids: string[]; empty?: string }) {
         );
       })}
     </div>
+  );
+}
+
+/**
+ * 某个槽位里选出「本身还是一个选择表」的东西时，继续往下要的那一层。
+ * 例：战斗专长 → 战斗流派专长 → 弓术；背景 › 学者 → 自然学者 → 光亮术。
+ */
+export function nextSlot(db: Db, slotId: string, picks: Record<string, string>): FeatureEntry | null {
+  const c = picks[slotId];
+  if (!c) return null;
+  const f = db.features[c];
+  return f && f.choices && f.choices.length ? f : null;
+}
+
+/** key 这个槽位或选择在当前 picks 下是否真的可达（沿着活着的链往下走） */
+export function reachable(
+  db: Db, roots: FeatureEntry[], picks: Record<string, string>, key: string,
+): boolean {
+  if (roots.some((r) => r.id === key)) return true;
+  return livePicks(db, roots, picks).some((p) => p.slot === key || p.choice === key);
+}
+
+/**
+ * 一个槽位 + 它下面层层嵌套的子选择。层级是数据驱动的：
+ * 只要「选中的那个东西」自己还是个选择表，就再渲染一层。
+ */
+export function SlotChain(props: {
+  db: Db;
+  root: FeatureEntry;
+  picks: Record<string, string>;
+  verdict: (fid: string) => Verdict;
+  onChange: (slotId: string, value: string | null) => void;
+  depth?: number;
+  /** 上一层的选择名，用来给子槽位做标题 */
+  from?: string;
+}) {
+  const { db, root, picks, verdict, onChange, depth = 0, from } = props;
+  const child = nextSlot(db, root.id, picks);
+  const cur = picks[root.id];
+  return (
+    <>
+      <PickSlot
+        db={db}
+        slot={root}
+        value={cur || null}
+        verdict={verdict}
+        onChange={(v) => onChange(root.id, v)}
+        title={from ? `${from} › ${label(root)}` : undefined}
+        hint={depth > 0 ? "这是上一项选择带出来的后续选择" : undefined}
+      />
+      {child && (
+        <SlotChain
+          db={db}
+          root={child}
+          picks={picks}
+          verdict={verdict}
+          onChange={onChange}
+          depth={depth + 1}
+          from={cur ? label(db.features[cur]) : from}
+        />
+      )}
+    </>
   );
 }
