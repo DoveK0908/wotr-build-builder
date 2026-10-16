@@ -8,6 +8,7 @@ import {
 } from "./steps";
 import type { Step } from "./steps";
 import { ART, featureIcon, stepUiIcon, useSkin, toggleSkin } from "./skin";
+import { Confirm } from "./ui";
 import { Align } from "./views/Align";
 import { Attrs } from "./views/Attrs";
 import { Background } from "./views/Background";
@@ -29,6 +30,7 @@ export function App() {
   const [pct, setPct] = useState(0);
   const [presetsOpen, setPresetsOpen] = useState(() => /[#&]presets=1/.test(location.hash));
   const [doneMsg, setDoneMsg] = useState("");
+  const [askReset, setAskReset] = useState(false);
   const [step, setStep] = useState(() => {
     const m = /[#&]tab=([A-Za-z0-9:_-]+)/.exec(location.hash);
     return normalizeStep(m ? m[1] : null);
@@ -126,6 +128,9 @@ export function App() {
         )}
         <button className="btn sm" type="button" onClick={() => setPresetsOpen(true)}>
           预置构筑
+        </button>
+        <button className="btn sm ghost danger" type="button" onClick={() => setAskReset(true)} title="清空当前构筑，回到空白状态">
+          重置
         </button>
       </div>
 
@@ -317,7 +322,28 @@ export function App() {
         </div>
       </div>
 
-      {presetsOpen && <PresetPicker db={db} onClose={() => setPresetsOpen(false)} />}
+      {presetsOpen && db && <PresetPicker db={db} onClose={() => setPresetsOpen(false)} />}
+
+      {askReset && (
+        <Confirm
+          title="重置构筑"
+          danger
+          confirmText="清空"
+          text={
+            <>
+              确定要清空当前构筑吗？<b>职业、种族、背景、购点、技能、专长、法术、神祇、阵营、神话</b>会一起清掉，
+              分享链接里原有的内容也会失效。此操作不可撤销。
+            </>
+          }
+          onCancel={() => setAskReset(false)}
+          onConfirm={() => {
+            act.reset();
+            setAskReset(false);
+            setStep("class");
+            setDoneMsg("已清空，可以重新开始规划");
+          }}
+        />
+      )}
     </div>
   );
 }

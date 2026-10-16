@@ -339,7 +339,7 @@ export function Summary(props: { db: Db }) {
                   }}
                 />
               </label>
-              <button type="button" className="btn ghost danger" onClick={() => setAskReset(true)}>重新开始</button>
+              <button type="button" className="btn ghost danger" onClick={() => setAskReset(true)} title="清空当前构筑">重置</button>
             </div>
             {pasteOpen && (
               <div className="mt8">
