@@ -2,7 +2,7 @@ import React, { useMemo, useState } from "react";
 import type { AttrId, Db } from "../types";
 import { act, useBuild } from "../store";
 import {
-  choiceVerdict, derive, featuresAtClassLevel, label, levelCtxList, levelRootSlots,
+  choiceVerdict, derive, featuresAtClassLevel, isNamed, label, levelCtxList, levelRootSlots,
 } from "../rules";
 import { Chip, Collapse, SearchSelect } from "../ui";
 import { SlotChain } from "../pick";
@@ -37,7 +37,9 @@ export function Feats(props: { db: Db }) {
   const cur = info[(sel ?? fallback) - 1] || info[info.length - 1];
   const ctx = ctxs[cur.idx];
   const archList = (cur.lv.classId && build.classArchetypes[cur.lv.classId]) || [];
-  const autoIds = cur.lv.classId ? featuresAtClassLevel(db, cur.lv.classId, cur.classLvl, archList) : [];
+  const autoIds = (cur.lv.classId ? featuresAtClassLevel(db, cur.lv.classId, cur.classLvl, archList) : []).filter(
+    (id) => isNamed(db.features[id]),
+  );
   const cls = cur.lv.classId ? db.classes[cur.lv.classId] : null;
 
   const rows = onlyUnfinished ? info.filter((i) => i.missing > 0) : info;

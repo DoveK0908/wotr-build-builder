@@ -48,7 +48,13 @@ export function num(n: number | undefined, d = 0): number {
 /** 依次取 name / nameEn，名字缺失时给个可读的占位 */
 export function label(e: { name?: string; nameEn?: string; id?: string } | null | undefined): string {
   if (!e) return "（未知）";
-  return e.name || e.nameEn || (e.id ? e.id.slice(0, 8) : "（未知）");
+  return e.name || e.nameEn || "（未命名）";
+}
+
+/** 有没有可显示的名字。游戏里有些内部占位特性（射线/接触命中计算、法术书包装、宠物特性……）压根没有名字，
+ *  它们会出现在职业升级表里；按游戏的做法，这些不列进「本级获得」，只当内部数据用。 */
+export function isNamed(e: { name?: string; nameEn?: string } | null | undefined): boolean {
+  return !!(e && (e.name || e.nameEn));
 }
 
 // ── 职业等级 / 变体 ──────────────────────────────────────────────────────

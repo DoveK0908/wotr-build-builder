@@ -2,7 +2,7 @@ import React, { useMemo } from "react";
 import type { Db } from "./types";
 import type { Build } from "./store";
 import {
-  classLevels, featuresAtClassLevel, label, mythicHeroPath, pathStartRank,
+  classLevels, featuresAtClassLevel, isNamed, label, mythicHeroPath, pathStartRank,
   universalSlots,
 } from "./rules";
 import { featureIcon, ui } from "./skin";
@@ -328,7 +328,7 @@ export function GrowthTable(props: {
             <div className="grow-row">
               <span className="grow-label" />
               {cols.map((l) => {
-                const ids = l <= n ? featuresAtClassLevel(db, cid, l, arches) : [];
+                const ids = (l <= n ? featuresAtClassLevel(db, cid, l, arches) : []).filter((id) => isNamed(db.features[id]));
                 const shown = ids.slice(0, 4);
                 return (
                   <span className="grow-cell" key={l}>
