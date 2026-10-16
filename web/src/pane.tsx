@@ -372,7 +372,7 @@ export function GrowthTable(props: {
         <div className="grow-row">
           <span className="grow-label">专长</span>
           {cols.map((l) => (
-            <span className="grow-cell" key={l}>
+            <span className={"grow-cell" + (l === (props.sel || 1) ? " on" : "")} key={l}>
               {featCells[l - 1].map((id) => icoCell(db, id))}
             </span>
           ))}
@@ -397,7 +397,7 @@ export function GrowthTable(props: {
                 const ids = (l <= n ? featuresAtClassLevel(db, cid, l, arches) : []).filter((id) => isNamed(db.features[id]));
                 const shown = ids.slice(0, 4);
                 return (
-                  <span className="grow-cell" key={l}>
+                  <span className={"grow-cell" + (l === (props.sel || 1) ? " on" : "")} key={l}>
                     {shown.map((id) => icoCell(db, id))}
                     {ids.length > shown.length && <span className="grow-more">+{ids.length - shown.length}</span>}
                   </span>

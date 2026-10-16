@@ -1014,3 +1014,21 @@ img.row-mark { opacity: .95; }
   border-radius: 2px;
 }
 [data-skin="game"] .sect-title { text-shadow: 0 1px 0 rgba(255, 250, 235, .5); }
+
+/* growth table: the game's class-screen level ruler (point, connecting line, active column) */
+[data-skin="game"] .grow-head {
+  background: url("/assets/ui/UI_CharScreen_Class_LinePoint.png") 0 68% / 100% 4px no-repeat;
+}
+[data-skin="game"] .grow-num.on {
+  background: #fdf8ea;
+  border: 1px solid #7a3d8f;
+  border-radius: 3px;
+  color: #4a2f1c;
+  font-weight: 700;
+  box-shadow: 0 0 0 1px rgba(255, 250, 235, .6) inset;
+}
+[data-skin="game"] .grow-cell.on {
+  background: rgba(91, 42, 82, .10);
+  border-left: 1px solid rgba(122, 61, 143, .55);
+  border-right: 1px solid rgba(122, 61, 143, .55);
+}
