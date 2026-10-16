@@ -8,7 +8,7 @@ import {
 import { Chip, Collapse } from "../ui";
 import { SlotChain } from "../pick";
 import { DetailHead, ListPane, MythicGrowth, Sect, StatBox, StatRows, ThreePane } from "../pane";
-import { featureIcon, mythicCap, mythicCard, ui } from "../skin";
+import { featureIcon, mythicCap, mythicCard, mythicSkillFrame, ui } from "../skin";
 
 export function Mythic(props: { db: Db }) {
   const { db } = props;
@@ -166,6 +166,7 @@ export function Mythic(props: { db: Db }) {
                     picks={curLv.picks}
                     verdict={(fid) => choiceVerdict(db, ctxBase, fid)}
                     onChange={(slotId, v) => act.setRankPick(cur.rank - 1, slotId, v)}
+                    icoFrame={mythicSkillFrame(cur.isHero ? "MythicStartingClass" : path?.key)}
                   />
                 ))}
               </div>

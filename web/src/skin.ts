@@ -110,6 +110,16 @@ export function mythicArt(key?: string | null): string {
   return (key && MYTHIC_ART[key]) || "Default";
 }
 
+/** 神话能力槽的图标框（游戏里每条道途一种纹样；神话英雄/传奇/碎片之力没有专属框，退回 Default） */
+const SKILL_ARTS = new Set([
+  "Aion", "Angel", "Azata", "Demon", "Devil", "Dragon", "Dragon_Corrupted", "Lich", "Locust", "Trickster",
+]);
+
+export function mythicSkillFrame(key?: string | null): string {
+  const a = mythicArt(key);
+  return ui(`UI_Mythic_SkillFrame_${SKILL_ARTS.has(a) ? a : "Default"}`);
+}
+
 /** 道途横卡立绘 */
 export function mythicCard(key?: string | null): string {
   return ui(`UI_Mythic_SelectPortrait_${mythicArt(key)}`);

@@ -33,6 +33,8 @@ export function PickSlot(props: {
   /** 是否允许自由输入（参数化专长之类的兜底） */
   title?: string;
   hint?: React.ReactNode;
+  /** 神话能力槽那种贴图框（素材皮用；传 URL） */
+  icoFrame?: string;
 }) {
   const { db, slot, value, verdict, onChange } = props;
   const [open, setOpen] = useState(false);
@@ -50,6 +52,19 @@ export function PickSlot(props: {
         <span className="slot-opt">{n} 选 1</span>
       </div>
       <div className="slot-body">
+        {value && (
+          <span
+            className={"slot-ico" + (props.icoFrame ? " framed" : "")}
+            style={props.icoFrame ? { backgroundImage: `url(${props.icoFrame})` } : undefined}
+            title={label(cur)}
+          >
+            {featureIcon(db, value) ? (
+              <img src={featureIcon(db, value) || undefined} alt="" />
+            ) : (
+              <span className="slot-glyph">{label(cur).slice(0, 1)}</span>
+            )}
+          </span>
+        )}
         {value ? (
           <>
             <span className="slot-val" title={label(cur)}>{label(cur)}</span>
@@ -297,8 +312,10 @@ export function SlotChain(props: {
   depth?: number;
   /** 上一层的选择名，用来给子槽位做标题 */
   from?: string;
+  /** 神话能力槽那种贴图框（素材皮用），逐层往下传 */
+  icoFrame?: string;
 }) {
-  const { db, root, picks, verdict, onChange, depth = 0, from } = props;
+  const { db, root, picks, verdict, onChange, depth = 0, from, icoFrame } = props;
   const child = nextSlot(db, root.id, picks);
   const cur = picks[root.id];
   return (
@@ -311,6 +328,7 @@ export function SlotChain(props: {
         onChange={(v) => onChange(root.id, v)}
         title={from ? `${from} › ${label(root)}` : undefined}
         hint={depth > 0 ? "这是上一项选择带出来的后续选择" : undefined}
+        icoFrame={icoFrame}
       />
       {child && (
         <SlotChain
@@ -321,6 +339,7 @@ export function SlotChain(props: {
           onChange={onChange}
           depth={depth + 1}
           from={cur ? label(db.features[cur]) : from}
+          icoFrame={icoFrame}
         />
       )}
     </>
