@@ -1088,3 +1088,9 @@ img.row-mark { opacity: .95; }
 .grow-row .grow-cell > * { position: relative; }
 [data-skin="game"] .grow-label.track { color: #6f5c3d; }
 [data-skin="game"] .grow-row .grow-cell::before { border-top-color: #d9cba6; }
+
+/* collapsible class blocks in the growth table */
+.grow-row.name.clickable { cursor: pointer; }
+.grow-row.name.clickable:hover { background: rgba(122, 61, 143, .08); }
+.sect-v.fold { cursor: pointer; transition: transform .12s ease; transform-origin: 50% 40%; }
+.sect-v.fold.closed { transform: rotate(-90deg); }

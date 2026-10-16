@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import type { Db } from "./types";
 import type { Build } from "./store";
 import {
@@ -342,6 +342,21 @@ export function GrowthTable(props: {
   const cls = classLevels(build);
   const sel = props.sel || 1;
 
+  /* 块可以点表头展开 / 收起（游戏里那个 ∨ 就是干这个的） */
+  const [closed, setClosed] = useState<Record<string, boolean>>({});
+  const toggle = (k: string) => setClosed((o) => ({ ...o, [k]: !o[k] }));
+  const fold = (k: string) => (
+    <span
+      className={"sect-v fold" + (closed[k] ? " closed" : "")}
+      role="button"
+      tabIndex={0}
+      onClick={(e) => {
+        e.stopPropagation();
+        toggle(k);
+      }}
+    />
+  );
+
   /* 通用专长那一组：一行一个槽位（专长 / 选择背景 / 神祇选择），图标落在被填的等级上 */
   const featRows = (() => {
     const order: string[] = [];
@@ -393,12 +408,12 @@ export function GrowthTable(props: {
 
       {props.showFeats !== false && (
         <div className="grow-block">
-          <div className="grow-row name">
+          <div className="grow-row name clickable" onClick={() => toggle("feats")} title="点一下展开 / 收起">
             <span className="grow-label">
-              <span className="sect-v" /> 通用专长
+              {fold("feats")} 通用专长
             </span>
           </div>
-          {featRows.map((r) => (
+          {!closed["feats"] && featRows.map((r) => (
             <div className="grow-row" key={r.id}>
               <span className="grow-label track" title={label(db.features[r.id])}>
                 {label(db.features[r.id])}
@@ -410,7 +425,7 @@ export function GrowthTable(props: {
               ))}
             </div>
           ))}
-          {!featRows.length && (
+          {!closed["feats"] && !featRows.length && (
             <div className="grow-row">
               <span className="grow-label track muted">还没有通用专长槽位</span>
             </div>
@@ -420,14 +435,14 @@ export function GrowthTable(props: {
 
       {blocks.map((b) => (
         <div className="grow-block" key={b.cid}>
-          <div className="grow-row name">
+          <div className="grow-row name clickable" onClick={() => toggle(b.cid)} title="点一下展开 / 收起">
             <span className="grow-label">
-              <span className="sect-v" /> {label(b.c)}
+              {fold(b.cid)} {label(b.c)}
               {b.arches.length ? " " + b.arches.map((a) => db.archetypes[a]?.name || "").join(" ") : ""} ({b.n} 级)
             </span>
             <span className="grow-hearts">{b.c?.hitDie ? "♥ " + b.c.hitDie + " / 等级" : ""}</span>
           </div>
-          {b.tracks.map((t) => (
+          {!closed[b.cid] && b.tracks.map((t) => (
             <div className="grow-row" key={t.id}>
               <span className="grow-label track" title={label(db.features[t.id])}>
                 {label(db.features[t.id])}
