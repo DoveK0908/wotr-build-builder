@@ -1054,3 +1054,21 @@ img.row-mark { opacity: .95; }
   border-radius: 50%;
   box-shadow: none;
 }
+
+/* spell icons framed by the game's spell slot frame (spells step and mythic spellbook steps) */
+[data-skin="game"] [data-step="spells"] .row-ico,
+[data-skin="game"] [data-step^="mysp:"] .row-ico {
+  border: 0;
+  border-radius: 2px;
+  padding: 5px;
+  box-sizing: content-box;
+  background: url("/assets/ui/UI_FrameIconSpell.png") center / 100% 100% no-repeat;
+}
+[data-skin="game"] [data-step="spells"] .detail-ico,
+[data-skin="game"] [data-step^="mysp:"] .detail-ico {
+  border: 0;
+  border-radius: 3px;
+  padding: 9px;
+  box-sizing: content-box;
+  background: url("/assets/ui/UI_FrameIconSpell_Active.png") center / 100% 100% no-repeat;
+}

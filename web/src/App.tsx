@@ -224,7 +224,7 @@ export function App() {
           </nav>
 
           <div className="book-body">
-            <main className="detail-pane">
+            <main className="detail-pane" data-step={cur.id}>
               <div className="stephead">
                 <h2>
                   {cur.num} {cur.name}
