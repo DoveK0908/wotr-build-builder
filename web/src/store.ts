@@ -119,6 +119,14 @@ export function migrate(raw: unknown): Build {
       ? { picks: { ...(r.picks || {}) }, params: { ...(r.params || {}) }, ability: r.ability ?? null }
       : emptyRank();
   });
+  // 原作规则：一个职业同时只能有一个变体（游戏本体如此，多选要靠 MOD）。
+  // 老存档/外部代码里若塞了多个，这里只留第一个。
+  const arch: Record<string, string[]> = {};
+  for (const [cid, list] of Object.entries(out.classArchetypes || {})) {
+    const keep = (Array.isArray(list) ? list : []).filter(Boolean);
+    if (keep.length) arch[cid] = [keep[0]];
+  }
+  out.classArchetypes = arch;
   out.v = 1;
   return out;
 }
@@ -259,12 +267,14 @@ export const act = {
     if (!b.levels[i]) return;
     b.levels[i].ability = a;
   }),
+  /** 原作规则：一个职业只能有一个变体 —— 选新的会顶掉旧的，再点一次取消。 */
   toggleArchetype: (classId: string, archId: string) => buildStore.patch((b) => {
     const cur = b.classArchetypes[classId] || [];
-    const i = cur.indexOf(archId);
-    if (i >= 0) cur.splice(i, 1); else cur.push(archId);
-    if (cur.length) b.classArchetypes[classId] = cur;
-    else delete b.classArchetypes[classId];
+    if (cur.includes(archId)) delete b.classArchetypes[classId];
+    else b.classArchetypes[classId] = [archId];
+  }),
+  clearArchetype: (classId: string) => buildStore.patch((b) => {
+    delete b.classArchetypes[classId];
   }),
   setMythicPath: (id: string | null) => buildStore.patch((b) => {
     b.mythicPath = id; b.ranks = Array.from({ length: MAX_RANK }, emptyRank);

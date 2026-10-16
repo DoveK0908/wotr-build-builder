@@ -97,7 +97,11 @@ function placeInto(
 export function applyPreset(db: Db, p: Preset): ApplyResult {
   const b = emptyBuild();
   b.name = `${p.who}·预置`;
-  for (const [cid, ids] of Object.entries(p.archetypes || {})) b.classArchetypes[cid] = [...ids];
+  // 一个职业只能有一个变体（原作规则）——攻略里若写了两个，只取第一个
+  for (const [cid, ids] of Object.entries(p.archetypes || {})) {
+    const keep = (ids || []).filter(Boolean);
+    if (keep.length) b.classArchetypes[cid] = [keep[0]];
+  }
 
   for (const pl of p.levels || []) {
     const i = pl.level - 1;

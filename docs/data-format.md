@@ -69,6 +69,18 @@
 | `spellbooks.json` | 45 本施法书：施法属性、是否自发施法、是否已知全部法术、法术位表 |
 | `races.json` | 12 个种族：体型、种族特性、传承选择、属性加值 |
 | `backgrounds.json` | 55 条背景（10 个大类 + 45 个具体背景），用 `children` 表达层级 |
+
+## 一个职业只能有一个变体
+
+游戏本体**不允许**同一个职业同时叠两个变体（桌面的 Pathfinder 允许「不冲突就叠」，Owlcat 没实现）——
+社区为此专门做了 MOD（[Vek17/WrathMods-MultipleArchetypes](https://github.com/Vek17/WrathMods-MultipleArchetypes)，
+描述就是「enables multiple compatible archetypes to be applied at the same time … using tabletop's standard rules」），
+用 Toybox 也得先打开「Allow Multiple Archetypes When Selecting a New Class」这个开关。
+
+规划器的对应处理：`Build.classArchetypes` 虽然还是 `Record<classId, string[]>`（分享码/预置沿用这个形状），
+但**每个职业只会有一项** —— `act.toggleArchetype()` 选中新变体会顶掉旧的，再点一次取消，另有 `act.clearArchetype()`；
+`migrate()` 与 `applyPreset()` 也会把外部塞进来的多个变体截断成第一个。
+变体只能在该职业的第 1 级选（与游戏一致），界面也只在那一级的卡片上显示变体块。
 | `mythic.json` | 14 条道途（含 `higher`/`selectable`）+ 3 个神话选择表（超凡飞升 6 / 神话能力 67 / 神话专长 48） |
 | `presets.json` | 24 套社区预置构筑，见 [`presets-source.md`](presets-source.md) |
 | `meta.json` | 蓝图数、本地化条数、各文件大小、耗时、未解析引用 |

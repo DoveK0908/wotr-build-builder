@@ -101,7 +101,7 @@ export function ClassPlan(props: { db: Db }) {
 
               {firstOfClass && archChoices.length > 0 && (
                 <div className="arch">
-                  <span className="muted small">变体（可多选，会替换职业特性）：</span>
+                  <span className="muted small">变体（一个职业只能选一个，会替换职业特性）：</span>
                   <div className="row wrap">
                     {archChoices.map((a) => {
                       const on = archList.includes(a.id);
@@ -119,10 +119,18 @@ export function ClassPlan(props: { db: Db }) {
                             act.toggleArchetype(lv.classId as string, a.id);
                           }}
                         >
-                          {on ? "✓ " : ""}{a.name}{bad ? "（阵营不符）" : ""}
+                          {on ? "● " : ""}{a.name}{bad ? "（阵营不符）" : ""}
                         </Chip>
                       );
                     })}
+                    {archList.length > 0 && (
+                      <Chip tone="any" onClick={() => act.clearArchetype(lv.classId as string)}>
+                        不用变体
+                      </Chip>
+                    )}
+                  </div>
+                  <div className="muted small" style={{ marginTop: 4 }}>
+                    原作里一个职业同时只能有一个变体（游戏本体如此，同时叠两个要靠 MOD）。
                   </div>
                   {archOverride && (
                     <div className="muted small" style={{ marginTop: 4 }}>

@@ -6,7 +6,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { Db, FeatureEntry, MythicPathEntry, Preset, Prereq } from "../src/types";
-import { act, buildStore, emptyBuild, serialize, deserialize } from "../src/store";
+import { act, buildStore, emptyBuild, migrate, serialize, deserialize } from "../src/store";
 import { applyPreset } from "../src/presets";
 import type { Build } from "../src/store";
 import { STEP_IDS, normalizeStep, stepNote } from "../src/steps";
@@ -626,6 +626,33 @@ export function run(dir: string): void {
     eq(buildStore.get().levels[4].ability, null, "setAbility(3) 不碰第 5 级");
     act.setClass(20, fighter ? fighter.id : null);
     eq(buildStore.get().levels.length, 20, "越界的 setClass(20) 被忽略");
+    act.reset();
+  }
+
+  // ── 变体单选（原作规则：一个职业同时只能有一个变体）───────────────────
+  {
+    const cls = Object.values(db.classes).find((c) => (c.archetypes || []).length >= 2);
+    if (cls) {
+      const [a1, a2] = cls.archetypes;
+      act.reset();
+      act.toggleArchetype(cls.id, a1);
+      eq((buildStore.get().classArchetypes[cls.id] || []).length, 1, "选第一个变体");
+      act.toggleArchetype(cls.id, a2);
+      eq((buildStore.get().classArchetypes[cls.id] || []).join(","), a2, "选第二个变体会顶掉第一个");
+      act.toggleArchetype(cls.id, a2);
+      eq(buildStore.get().classArchetypes[cls.id], undefined, "再点一次取消变体");
+      act.toggleArchetype(cls.id, a1);
+      act.clearArchetype(cls.id);
+      eq(buildStore.get().classArchetypes[cls.id], undefined, "「不用变体」清空");
+      const m = migrate({ ...emptyBuild(), classArchetypes: { [cls.id]: [a1, a2] } });
+      eq((m.classArchetypes[cls.id] || []).length, 1, "老存档里两个变体只留一个");
+    }
+    let worst = 0;
+    for (const p of presets) {
+      const r = applyPreset(db, p);
+      for (const v of Object.values(r.build.classArchetypes)) worst = Math.max(worst, v.length);
+    }
+    ok(worst <= 1, `预置载入后每个职业最多 1 个变体（实测最多 ${worst}）`);
     act.reset();
   }
 
