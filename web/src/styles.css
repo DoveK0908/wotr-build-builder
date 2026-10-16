@@ -909,6 +909,66 @@ input.text:focus, textarea.text:focus, .cl-search:focus { border-color: var(--ac
 img.row-mark { opacity: .95; }
 [data-skin="game"] span.row-mark { color: #2e8b73; }
 
+/* ── 神话道途立绘卡（素材皮用游戏里那张 854×227 横卡；素色皮退化成一行文字） ── */
+.mpcard {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  padding: 7px 9px; margin-bottom: 4px; cursor: pointer; text-align: left;
+  border: 1px solid var(--line); border-radius: 8px; background: transparent;
+  color: inherit; font: inherit;
+}
+.mpcard:hover { background: rgba(122, 61, 143, .12); border-color: #7a3d8f; }
+.mpcard.sel {
+  background: linear-gradient(90deg, rgba(91, 42, 82, .92) 0%, rgba(123, 58, 110, .7) 72%, rgba(123, 58, 110, 0) 100%);
+  border-color: #b8944a; color: #fff;
+}
+.mpcard.dis { opacity: .5; }
+.mpcard-art, .mpcard-arrow { display: none; }
+.mpcard-glyph {
+  flex: 0 0 auto; width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--line); border-radius: 6px; font-size: 13px;
+}
+.mpcard-name { font-weight: 600; }
+.mpcard-sub { font-size: 11px; opacity: .78; }
+.mpcard-badge { margin-left: auto; font-size: 11px; }
+
+/* 素材皮：横卡当底图，名字压在左下角；未选 / 门槛未达的变灰（游戏里就是这个规则） */
+[data-skin="game"] .mpcard {
+  display: block; position: relative; padding: 0; margin-bottom: 5px;
+  border: 0; border-radius: 0; background: transparent; overflow: hidden;
+}
+[data-skin="game"] .mpcard:hover { background: transparent; }
+[data-skin="game"] .mpcard-art { display: block; width: 100%; height: auto; filter: none; }
+[data-skin="game"] .mpcard-glyph { display: none; }
+[data-skin="game"] .mpcard-name {
+  position: absolute; left: 12px; bottom: 8px; color: #f7edd0;
+  font-family: var(--serif); text-shadow: 0 1px 3px rgba(0, 0, 0, .85);
+}
+[data-skin="game"] .mpcard-sub {
+  position: absolute; left: 12px; top: 7px; color: #e3c37a; opacity: 1;
+  max-width: calc(100% - 96px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, .85);
+}
+[data-skin="game"] .mpcard-badge { position: absolute; right: 8px; top: 7px; margin: 0; }
+[data-skin="game"] .mpcard::after {
+  content: ""; position: absolute; inset: 0; border: 2px solid transparent; pointer-events: none;
+}
+[data-skin="game"] .mpcard.sel::after { border-color: #d8b45c; box-shadow: 0 0 0 1px rgba(0, 0, 0, .5) inset; }
+[data-skin="game"] .mpcard-arrow { display: block; position: absolute; left: 0; top: 50%; width: 34px; margin-top: -13px; }
+[data-skin="game"] .mpcard-art { filter: grayscale(1) brightness(.82); opacity: .7; }
+[data-skin="game"] .mpcard.sel .mpcard-art, [data-skin="game"] .mpcard:hover .mpcard-art { filter: none; opacity: 1; }
+[data-skin="game"] .mpcard.dis .mpcard-art { filter: grayscale(1) brightness(.6); opacity: .45; }
+
+/* ── 神话进度表上方的装饰横条 ── */
+.mpcap { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; }
+.mpcap img { display: none; }
+.mpcap span { font-size: 13px; color: var(--muted); }
+[data-skin="game"] .mpcap { position: relative; justify-content: center; margin-bottom: 2px; }
+[data-skin="game"] .mpcap img { display: block; width: 100%; max-width: 520px; height: auto; }
+[data-skin="game"] .mpcap span {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  color: #f3e6c8; font-family: var(--serif); text-shadow: 0 1px 3px rgba(0, 0, 0, .8);
+}
+
 /* ── 列表栏标题右侧的圆形计数徽章（法术选择那栏左上角） ── */
 .lp-title { display: flex; align-items: center; gap: 6px; }
 .lp-badge {

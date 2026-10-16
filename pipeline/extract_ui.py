@@ -35,6 +35,32 @@ DEFAULT_DATA = os.path.join(ROOT, "web", "public", "data")
 
 # 带界面贴图的 Unity 资源文件（实测这三个里有 Sprite）
 UI_FILES = ("sharedassets0.assets", "resources.assets", "sharedassets2.assets")
+# Bundles/ui 是界面自己的大 package（约 146 MB，1656 个 Sprite）：牌匾、书页、神话道途立绘卡等都在里面。
+# 全量导出太大，只挑界面会用到的前缀。
+UI_BUNDLE = os.path.join("Bundles", "ui")
+UI_BUNDLE_PREFIXES = (
+    "UI_Mythic_",                 # 道途立绘卡 SelectPortrait / SelectFrame / ProgressionFrame / SkillFrame / Symbol
+    "UI_CardMythic",
+    "UI_DefaultMythicPlaceholder",
+    "UI_Icon_MythicLevelup",
+    "UI_CharGen_",
+    "UI_CharScreen_",
+    "UI_SpellBook_",
+    "UI_FramePortrait",
+    "UI_IconArmor",
+    "UI_IconAttack",
+    "UI_IconCritical",
+    "UI_IconDamage",
+    "UI_IconFlatFooted",
+    "UI_IconFortitude",
+    "UI_IconReflex",
+    "UI_IconWill",
+    "UI_IconTouch",
+    "UI_IconSpeed",
+    "UI_IconMelee",
+    "UI_IconGold",
+    "UI_Weight_Icon",
+)
 # 内容图标都在这个 bundle 里
 ICON_BUNDLE = os.path.join("Bundles", "blueprint.assets")
 
@@ -257,6 +283,17 @@ def main() -> int:
         print(json.dumps({"perFile": per_file, "unique": len(all_ui_names),
                           "names": sorted(all_ui_names)[:400]}, ensure_ascii=False, indent=1))
         return 0
+
+    # ── 1b. Bundles/ui 里的大件（神话道途立绘卡等，按前缀挑） ──────
+    ui_bundle = os.path.join(gd, UI_BUNDLE)
+    if os.path.exists(ui_bundle):
+        names = sprite_names(ui_bundle)
+        want = {n for n in names if n.startswith(UI_BUNDLE_PREFIXES) and n not in all_ui_names}
+        res = save_sprites(ui_bundle, ui_dir, only=want or {"__none__"})
+        per_file["Bundles/ui"] = res["written"]
+        total_ui += res["written"]
+        print(f"  Bundles/ui: sprite {len(names)} 个 → 命中前缀 {len(want)}，写出 {res['written']}"
+              f"（跳过 {res['skipped']}，失败 {res['failed']}）")
     print(f"UI 贴图：{total_ui} 张 → {ui_dir}")
 
     report: dict = {"ui": {"written": total_ui, "perFile": per_file}}

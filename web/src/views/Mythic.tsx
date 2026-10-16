@@ -7,8 +7,8 @@ import {
 } from "../rules";
 import { Chip, Collapse } from "../ui";
 import { SlotChain } from "../pick";
-import { DetailHead, ListPane, ListRow, MythicGrowth, Sect, StatBox, StatRows, ThreePane } from "../pane";
-import { featureIcon } from "../skin";
+import { DetailHead, ListPane, MythicGrowth, Sect, StatBox, StatRows, ThreePane } from "../pane";
+import { featureIcon, mythicCap, mythicCard, ui } from "../skin";
 
 export function Mythic(props: { db: Db }) {
   const { db } = props;
@@ -89,41 +89,56 @@ export function Mythic(props: { db: Db }) {
           title="选择神话道途"
           foot={<span>共 {paths.length} 条可选道途　·　前两阶都是「神话英雄」</span>}
         >
-          <ListRow
-            glyph="英"
-            name="神话英雄（通用）"
-            sub="第 1–2 阶 · 神话能力 / 神话专长"
-            sel={!build.mythicPath}
+          {/* 神话英雄（前两阶的通用道途） */}
+          <button
+            type="button"
+            className={"mpcard" + (build.mythicPath ? "" : " sel")}
+            title="前两阶走「神话英雄」：第 1 阶选超凡飞升 + 神话能力，第 2 阶选神话专长"
             onClick={() => act.setMythicPath(null)}
-          />
+          >
+            <img className="mpcard-art" src={mythicCard("MythicStartingClass")} alt="" />
+            <span className="mpcard-glyph">英</span>
+            <span className="mpcard-name">神话英雄（通用）</span>
+            <span className="mpcard-sub">第 1–2 阶 · 神话能力 / 神话专长</span>
+          </button>
           {paths.map((p) => {
             const r = pathReqs[p.id];
             const bad = r?.verdict === "no";
             const start = pathStartRank(db, p);
+            const sel = build.mythicPath === p.id;
             return (
-              <ListRow
+              <button
                 key={p.id}
-                ico={featureIcon(db, p.id)}
-                glyph={p.name.slice(0, 1)}
-                name={p.name}
-                sub={`第 ${start} 阶起${bad && r.fail.length ? " · 需要 " + r.fail.join("、") : p.nameEn ? " · " + p.nameEn : ""}`}
-                badge={
-                  bad ? (
-                    <span className="badge no">门槛未达</span>
-                  ) : p.higher ? (
-                    <span className="badge">高阶</span>
-                  ) : undefined
-                }
-                sel={build.mythicPath === p.id}
-                title={r?.text || p.nameEn}
+                type="button"
+                className={"mpcard" + (sel ? " sel" : "") + (bad ? " dis" : "")}
+                title={r?.text || p.nameEn || p.name}
                 onClick={() => act.setMythicPath(p.id)}
-              />
+              >
+                <img className="mpcard-art" src={mythicCard(p.key)} alt="" />
+                {sel && <img className="mpcard-arrow" src={ui("UI_Mythic_SelectFrameArrow")} alt="" />}
+                <span className="mpcard-glyph">{p.name.slice(0, 1)}</span>
+                <span className="mpcard-name">{p.name}</span>
+                <span className="mpcard-sub">
+                  第 {start} 阶起
+                  {bad && r?.fail.length ? " · 需要 " + r.fail.join("、") : p.nameEn ? " · " + p.nameEn : ""}
+                </span>
+                {bad ? (
+                  <span className="mpcard-badge badge no">门槛未达</span>
+                ) : p.higher ? (
+                  <span className="mpcard-badge badge">高阶</span>
+                ) : null}
+              </button>
             );
           })}
         </ListPane>
       }
       center={
         <>
+          {/* 进度表上方的横条（游戏里是道途专属的装饰条） */}
+          <div className="mpcap">
+            <img src={mythicCap(cur.isHero ? "MythicStartingClass" : path?.key)} alt="" />
+            <span>{cur.isHero ? "神话英雄" : path?.name || "神话"}</span>
+          </div>
           <MythicGrowth db={db} build={build} sel={cur.rank} onSel={(r) => setSel(r)} />
 
           <DetailHead

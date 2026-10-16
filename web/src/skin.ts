@@ -82,3 +82,50 @@ export function stepUiIcon(stepId: string): string | null {
   const n = STEP_UI_ICON[stepId];
   return n ? ui(n) : null;
 }
+
+/**
+ * 神话道途的立绘卡。游戏里每条道途都有一张 854×227 的横卡（`UI_Mythic_SelectPortrait_*`）、
+ * 一圈描边（`_SelectFrame_*`）和一张大方形边框（`_ProgressionFrame_*`），
+ * 资源名用的是英文小名；蓝图那边的 key 是 `AngelMythicClass` 这种，所以要过一层对照表。
+ * 注意游戏把御衡者写成 `Aion`（次元守护者 = Aeon），虫群行者写成 `Locust`。
+ */
+const MYTHIC_ART: Record<string, string> = {
+  MythicStartingClass: "MythicHero",
+  MythicCompanionClass: "Default",
+  AeonMythicClass: "Aion",
+  AngelMythicClass: "Angel",
+  AzataMythicClass: "Azata",
+  DemonMythicClass: "Demon",
+  LichMythicClass: "Lich",
+  TricksterMythicClass: "Trickster",
+  FakeLegendClass: "Legend",
+  LegendClass: "Legend",
+  DevilMythicClass: "Devil",
+  SwarmThatWalksClass: "Locust",
+  GoldenDragonClass: "Dragon",
+  MythicShardsClass: "Default",
+};
+
+export function mythicArt(key?: string | null): string {
+  return (key && MYTHIC_ART[key]) || "Default";
+}
+
+/** 道途横卡立绘 */
+export function mythicCard(key?: string | null): string {
+  return ui(`UI_Mythic_SelectPortrait_${mythicArt(key)}`);
+}
+
+/** 道途的方形大边框（进度表用） */
+export function mythicFrame(key?: string | null): string {
+  return ui(`UI_Mythic_ProgressionFrame_${mythicArt(key)}`);
+}
+
+/** 道途进度表上方的横条（只有十条道途有专属那条，神话英雄/碎片之力退回通用条） */
+const CAP_ARTS = new Set([
+  "Aion", "Angel", "Azata", "Demon", "Devil", "Dragon", "Dragon_Corrupted", "Lich", "Locust", "Trickster",
+]);
+
+export function mythicCap(key?: string | null): string {
+  const a = mythicArt(key);
+  return CAP_ARTS.has(a) ? ui(`UI_Mythic_ProgressionCap_${a}`) : ui("UI_Mythic_Progression_Active");
+}
