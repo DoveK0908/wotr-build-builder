@@ -7,7 +7,7 @@ import {
   STEPS, allSteps, normalizeStep, stepFilled, stepGlyph, stepNote, stepValue, stepWarn,
 } from "./steps";
 import type { Step } from "./steps";
-import { ART, featureIcon, stepUiIcon, useSkin, toggleSkin } from "./skin";
+import { featureIcon } from "./skin";
 import { Confirm } from "./ui";
 import { Align } from "./views/Align";
 import { Attrs } from "./views/Attrs";
@@ -36,7 +36,6 @@ export function App() {
     return normalizeStep(m ? m[1] : null);
   });
   const build = useBuild();
-  const skin = useSkin();
 
   useEffect(() => {
     loadDb((p) => setPct(Math.round((p.done / p.total) * 100))).then(setDb).catch((e) => setErr(String(e)));
@@ -105,10 +104,10 @@ export function App() {
   const attr = db.rules.attributes;
   /** 牌匾上的小图标：动态步骤用该槽位自己的内容图标，固定步骤用游戏自带的界面图标 */
   const pngOf = (s: Step): string | null =>
-    s.dynamic && s.slotId ? featureIcon(db, s.slotId) : stepUiIcon(s.id);
+    s.dynamic && s.slotId ? featureIcon(db, s.slotId) : null;
 
   return (
-    <div className="app" data-skin={skin}>
+    <div className="app" data-skin="plain">
       {/* 最外层的深色木框：书以外的东西都放在这条细带上 */}
       <div className="topstrip">
         <span className="strip-logo">⚔</span>
@@ -121,11 +120,6 @@ export function App() {
         <span className="muted small">
           {build.name || "未命名"} · {derived.level}/20 · 神话 {derived.rank}/10
         </span>
-        {ART && (
-          <button className="btn sm ghost" type="button" onClick={toggleSkin} title="切换皮肤：游戏素材 / 纯 CSS">
-            {skin === "game" ? "素材皮" : "素色皮"}
-          </button>
-        )}
         <button className="btn sm" type="button" onClick={() => setPresetsOpen(true)}>
           预置构筑
         </button>

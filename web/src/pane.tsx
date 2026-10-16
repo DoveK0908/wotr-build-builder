@@ -5,7 +5,7 @@ import {
   classLevels, featuresAtClassLevel, isNamed, label, mythicHeroPath, pathStartRank,
   universalSlots,
 } from "./rules";
-import { ART, alignArt, featureIcon, ui, useSkin } from "./skin";
+import { ART, featureIcon, ui } from "./skin";
 
 /* ────────────────────────────────────────────────────────────────────────────
    游戏里那套「左列表 + 中详情 + 右预览」三栏骨架，以及配套小件。
@@ -257,8 +257,6 @@ export function AlignWheel(props: {
 }) {
   const centerId = "TrueNeutral";
   const centerLock = props.locks?.[centerId];
-  const skin = useSkin();
-  const game = skin === "game";
   return (
     <svg className="alwheel" viewBox="0 0 240 240" role="img" aria-label="阵营轮盘">
       <circle className="aw-back" cx={120} cy={120} r={W_R + 5} />
@@ -277,20 +275,9 @@ export function AlignWheel(props: {
             <title>{name + (lock ? `　不可选：${lock.join("；")}` : "")}</title>
             <path className="aw-fill" d={wWedge(deg)} />
             <circle className="aw-chip" cx={lx} cy={ly} r={15} />
-            {game ? (
-              <image
-                className="aw-art"
-                href={alignArt(id)}
-                x={lx - 16}
-                y={ly - 16}
-                width={32}
-                height={32}
-              />
-            ) : (
-              <text className="aw-abbr" x={lx} y={ly + 4.5}>
-                {props.abbr(id)}
-              </text>
-            )}
+            <text className="aw-abbr" x={lx} y={ly + 4.5}>
+              {props.abbr(id)}
+            </text>
           </g>
         );
       })}
@@ -301,13 +288,9 @@ export function AlignWheel(props: {
       >
         <title>{(props.labels?.[centerId] || props.abbr(centerId)) + (centerLock ? `　不可避免：${centerLock.join("；")}` : "")}</title>
         <circle className="aw-cback" cx={120} cy={120} r={W_R0 - 4} />
-        {game ? (
-          <image className="aw-art" href={alignArt(centerId)} x={120 - 22} y={120 - 22} width={44} height={44} />
-        ) : (
-          <text className="aw-abbr center" x={120} y={125}>
-            {props.abbr(centerId)}
-          </text>
-        )}
+        <text className="aw-abbr center" x={120} y={125}>
+          {props.abbr(centerId)}
+        </text>
       </g>
     </svg>
   );

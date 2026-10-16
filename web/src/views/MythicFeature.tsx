@@ -1,11 +1,11 @@
-import React, { useMemo, useState } from "react";
+﻿import React, { useMemo, useState } from "react";
 import type { Db } from "../types";
 import { act, MAX_RANK, useBuild } from "../store";
 import { choiceVerdict, derive, label, levelCtxList, mythicRank, mythicSource, rankRootSlots } from "../rules";
 import { Chip } from "../ui";
 import { SlotChain } from "../pick";
 import { DetailHead, ListPane, ListRow, Sect, StatBox, StatRows, ThreePane } from "../pane";
-import { featureIcon, mythicSkillFrame } from "../skin";
+import { featureIcon } from "../skin";
 
 /**
  * 神话子步骤（游戏里升神话阶层时顶部多出来的那些牌匾）：
@@ -98,7 +98,6 @@ export function MythicFeature(props: { db: Db; slotId: string }) {
                   picks={build.ranks[cur.idx].picks}
                   verdict={(fid) => choiceVerdict(db, ctx as never, fid)}
                   onChange={(sid, v) => act.setRankPick(cur.idx, sid, v)}
-                  icoFrame={mythicSkillFrame(db.mythic.paths[build.mythicPath || ""]?.key)}
                 />
               </div>
             </Sect>

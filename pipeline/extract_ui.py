@@ -35,31 +35,16 @@ DEFAULT_DATA = os.path.join(ROOT, "web", "public", "data")
 
 # 带界面贴图的 Unity 资源文件（实测这三个里有 Sprite）
 UI_FILES = ("sharedassets0.assets", "resources.assets", "sharedassets2.assets")
-# Bundles/ui 是界面自己的大 package（约 146 MB，1656 个 Sprite）：牌匾、书页、神话道途立绘卡等都在里面。
-# 全量导出太大，只挑界面会用到的前缀。
+# Bundles/ui 是界面自己的大 package（约 146 MB，1656 个 Sprite）。全量导出太大，只挑还在用的那几样。
+#
+# 说明：界面已经改成只有暗色主题一套皮，羊皮纸那套（牌匾条、书页、按钮、图标框、阵营花体字、
+# 神话能力花纹框…）连同它的贴图一起弃用了。现在只剩下面这些会在暗色底上出现的东西。
 UI_BUNDLE = os.path.join("Bundles", "ui")
-UI_BUNDLE_PREFIXES = (
-    "UI_Mythic_",                 # 道途立绘卡 SelectPortrait / SelectFrame / ProgressionFrame / SkillFrame / Symbol
-    "UI_CardMythic",
-    "UI_DefaultMythicPlaceholder",
-    "UI_Icon_MythicLevelup",
-    "UI_CharGen_",
-    "UI_CharScreen_",
-    "UI_SpellBook_",
-    "UI_FramePortrait",
-    "UI_IconArmor",
-    "UI_IconAttack",
-    "UI_IconCritical",
-    "UI_IconDamage",
-    "UI_IconFlatFooted",
-    "UI_IconFortitude",
-    "UI_IconReflex",
-    "UI_IconWill",
-    "UI_IconTouch",
-    "UI_IconSpeed",
-    "UI_IconMelee",
-    "UI_IconGold",
-    "UI_Weight_Icon",
+UI_KEEP_PREFIXES = (
+    "UI_Mythic_SelectPortrait_",    # 神话道途立绘横卡（13 张，神话步骤左栏）
+    "UI_Mythic_SelectFrameArrow",   # 选中道途时压在卡片上的金色箭头
+    "UI_CharGen_IconLike",          # 候选列表里「已经拥有了」的绿叶子
+    "UI_Search_Icon",               # 列表搜索框右边的放大镜
 )
 # 内容图标都在这个 bundle 里
 ICON_BUNDLE = os.path.join("Bundles", "blueprint.assets")
@@ -273,9 +258,9 @@ def main() -> int:
             per_file[rel] = len(names)
             continue
         names = sprite_names(p)
-        want = set(names) - all_ui_names
-        all_ui_names.update(names)
-        res = save_sprites(p, ui_dir, only=want or None)
+        want = {n for n in names if n.startswith(UI_KEEP_PREFIXES)} - all_ui_names
+        all_ui_names.update(want)
+        res = save_sprites(p, ui_dir, only=want or {"__none__"})
         per_file[rel] = res["written"]
         total_ui += res["written"]
         print(f"  {rel}: sprite {len(names)} 个，写出 {res['written']}（跳过 {res['skipped']}，失败 {res['failed']}）")
@@ -288,7 +273,7 @@ def main() -> int:
     ui_bundle = os.path.join(gd, UI_BUNDLE)
     if os.path.exists(ui_bundle):
         names = sprite_names(ui_bundle)
-        want = {n for n in names if n.startswith(UI_BUNDLE_PREFIXES) and n not in all_ui_names}
+        want = {n for n in names if n.startswith(UI_KEEP_PREFIXES) and n not in all_ui_names}
         res = save_sprites(ui_bundle, ui_dir, only=want or {"__none__"})
         per_file["Bundles/ui"] = res["written"]
         total_ui += res["written"]

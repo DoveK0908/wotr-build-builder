@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+﻿import React, { useMemo, useState } from "react";
 import type { Db } from "../types";
 import { act, useBuild } from "../store";
 import {
@@ -8,7 +8,7 @@ import {
 import { Chip, Collapse } from "../ui";
 import { SlotChain } from "../pick";
 import { DetailHead, ListPane, MythicGrowth, Sect, StatBox, StatRows, ThreePane } from "../pane";
-import { ART, featureIcon, mythicCap, mythicCard, mythicSkillFrame, ui } from "../skin";
+import { ART, featureIcon, mythicCard, ui } from "../skin";
 
 export function Mythic(props: { db: Db }) {
   const { db } = props;
@@ -136,7 +136,6 @@ export function Mythic(props: { db: Db }) {
         <>
           {/* 进度表上方的横条（游戏里是道途专属的装饰条） */}
           <div className="mpcap">
-            {ART && <img src={mythicCap(cur.isHero ? "MythicStartingClass" : path?.key)} alt="" />}
             <span>{cur.isHero ? "神话英雄" : path?.name || "神话"}</span>
           </div>
           <MythicGrowth db={db} build={build} sel={cur.rank} onSel={(r) => setSel(r)} />
@@ -166,7 +165,6 @@ export function Mythic(props: { db: Db }) {
                     picks={curLv.picks}
                     verdict={(fid) => choiceVerdict(db, ctxBase, fid)}
                     onChange={(slotId, v) => act.setRankPick(cur.rank - 1, slotId, v)}
-                    icoFrame={mythicSkillFrame(cur.isHero ? "MythicStartingClass" : path?.key)}
                   />
                 ))}
               </div>

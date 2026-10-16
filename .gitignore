@@ -1,4 +1,4 @@
-# ── 旧 Tkinter 工具：自带独立 git 仓库，作为归档放在这里，不纳入主仓库 ──
+﻿# ── 旧 Tkinter 工具：自带独立 git 仓库，作为归档放在这里，不纳入主仓库 ──
 /archive/
 
 # ── Python ──
@@ -30,5 +30,4 @@ dist/
 .DS_Store
 Thumbs.db
 web/.smoke/
-dist-public/
 web-planner-public.zip

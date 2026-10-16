@@ -3,7 +3,7 @@ import type { Db, FeatureEntry, SpellEntry } from "./types";
 import { label, livePicks, ownedFeatures, prereqForIndex, prereqText } from "./rules";
 import type { Verdict } from "./rules";
 import { Chip, Desc, Modal, VerdictTag } from "./ui";
-import { ART, featureIcon, ui, useSkin } from "./skin";
+import { ART, featureIcon, ui } from "./skin";
 import { useBuild } from "./store";
 
 const V_ORDER: Record<Verdict, number> = { ok: 0, unknown: 1, no: 2 };
@@ -143,11 +143,10 @@ export function PickModal(props: {
   const ico = (id: string) => featureIcon(db, id);
   // 游戏会给自己已经拿过的选项打一个绿色叶子小标（截图里 武器专攻 / 战斗特技 那两行）
   const build = useBuild();
-  const skin = useSkin();
   const owned = useMemo(() => ownedFeatures(db, build).ids, [db, build]);
   const ownedMark = (id: string) =>
     owned.has(id)
-      ? skin === "game" && ART
+      ? ART
         ? <img className="row-mark" src={ui("UI_CharGen_IconLike")} alt="" title="已经拥有了" />
         : <span className="row-mark" title="已经拥有了">✓</span>
       : null;
