@@ -153,6 +153,10 @@ PREREQ_KINDS = {
     "PrerequisiteParametrizedWeaponSubcategory": "paramweapon",
     "ClassLevelsForPrerequisites": "classlevels",
     "ReplaceStatForPrerequisites": "replacestat",
+    # 后三类 2026-10 补：原先被静默丢掉（神话等级门槛、主角/同伴限定、剧情 etude）
+    "PrerequisiteMythicLevel": "mrank",
+    "PrerequisiteMainCharacter": "mainchar",
+    "PrerequisiteEtude": "etude",
 }
 
 
@@ -418,7 +422,15 @@ class Extractor:
                 p["id"] = ref(c.get("m_Feature"))
                 p["sub"] = c.get("WeaponSubCategory")
             elif kind == "weaponcond":
-                p["raw"] = json.dumps(c.get("Condition"), ensure_ascii=False)[:300]
+                cond = c.get("Condition")
+                if cond is not None:
+                    p["raw"] = json.dumps(cond, ensure_ascii=False)[:300]
+            elif kind == "mrank":
+                p["v"] = c.get("Level")
+            elif kind == "mainchar":
+                p["companion"] = bool(c.get("Companion"))
+            elif kind == "etude":
+                p["id"] = ref(c.get("Etude"))
             out.append(p)
         return out
 
@@ -475,6 +487,11 @@ class Extractor:
         pr = self.prereqs(d)
         if pr:
             e["prereq"] = pr
+        # 这个槽位本身不检查候选的前置条件（战士/牧师的额外专长类槽位等，88 个）
+        if d.get("IgnorePrerequisites"):
+            e["ignorePrereq"] = True
+        if t == "BlueprintParametrizedFeature" and d.get("IgnoreParameterFeaturePrerequisites"):
+            e["ignoreParamPrereq"] = True
         if d.get("IsClassFeature"):
             e["classFeature"] = True
         sb = self.stat_bonuses(d)
@@ -987,6 +1004,9 @@ def build(game_dir: str, out_dir: str) -> dict:
                 e["uiGroups"] = ui
         if d.get("m_Spellbook"):
             e["spellbookId"] = ref(d.get("m_Spellbook"))
+        pr = ex.prereqs(d)
+        if pr:
+            e["prereq"] = pr
         mythic[mid] = e
 
     mythic_selections: "OrderedDict[str, dict]" = OrderedDict()

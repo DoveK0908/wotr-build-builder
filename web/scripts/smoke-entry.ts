@@ -21,6 +21,7 @@ import {
   charLevel,
   classLevels,
   derive,
+  evalPrereq,
   evalPrereqs,
   attrBreakdown,
   backgroundRoot,
@@ -524,6 +525,48 @@ export function run(dir: string): void {
   const goodDomain = Object.values(db.features)
     .find((f) => f.path && f.path.includes("Domains/Good/") && alignTokensOf(f.prereq).length > 0);
   ok(!!goodDomain, "善良领域带阵营前置（领域靠特性前置拦人）", goodDomain?.path || "");
+
+  // ── 专长前置：新补的三类组件 + 「不检查前置」的槽位 ──────────────────
+  const ignSlots = Object.values(db.features).filter((f) => f.ignorePrereq);
+  ok(ignSlots.length >= 80, "「不检查前置」的槽位已导出（IgnorePrerequisites）", `实得 ${ignSlots.length}`);
+  const crusaderSlot = Object.values(db.features)
+    .find((f) => (f.path || "").includes("Crusader/CrusaderBonusFeat1.jbp"));
+  ok(!!crusaderSlot?.ignorePrereq, "圣教军的额外专长槽标了 ignorePrereq", crusaderSlot?.path || "");
+  const paramIgn = Object.values(db.features).filter((f) => f.ignoreParamPrereq);
+  ok(paramIgn.length >= 4, "参数化专长的「不检查参数前置」已导出", `实得 ${paramIgn.length}`);
+
+  const pathByKey = (k: string): MythicPathEntry | undefined =>
+    Object.values(db.mythic.paths).find((p) => p.key === k);
+  const golden = pathByKey("GoldenDragonClass");
+  const gdMrank = (golden?.prereq || []).find((p) => p.k === "mrank");
+  ok(!!gdMrank && Number(gdMrank.v) === 7, "金龙道途带「神话阶层 ≥ 7」门槛", JSON.stringify(gdMrank || {}));
+  const mkCtx = (rank: number, ids: string[] = []) => ({
+    atLevel: 20, classLevels: {}, attrs: {}, idSet: new Set<string>(ids),
+    alignment: null, race: null, background: null, mythicPath: null, rank,
+  });
+  eq(evalPrereq(db, mkCtx(6) as never, gdMrank as Prereq), "no", "神话 6 阶时金龙门槛不满足");
+  eq(evalPrereq(db, mkCtx(7) as never, gdMrank as Prereq), "ok", "神话 7 阶时金龙门槛满足");
+
+  const devilEtude = (pathByKey("DevilMythicClass")?.prereq || []).find((p) => p.k === "etude");
+  ok(!!devilEtude, "魔鬼道途带剧情 etude 条件");
+  eq(evalPrereq(db, mkCtx(7) as never, devilEtude as Prereq), "unknown", "剧情 etude 不拦人（unknown）");
+  const heroMain = (pathByKey("MythicStartingClass")?.prereq || []).find((p) => p.k === "mainchar");
+  ok(!!heroMain, "神话英雄带「仅主角」条件");
+  eq(evalPrereq(db, mkCtx(7) as never, heroMain as Prereq), "unknown", "「仅主角」不拦人（unknown）");
+
+  const oneofFeat = Object.values(db.features)
+    .find((f) => (f.prereq || []).some((p) => p.k === "oneof" && Number(p.amount) >= 2));
+  const oneofP = (oneofFeat?.prereq || []).find((p) => p.k === "oneof" && Number(p.amount) >= 2);
+  ok(!!oneofP, "存在需要「N 项中的 2+ 项」的 oneof 前置", oneofFeat?.name || "");
+  eq(evalPrereqs(db, mkCtx(7) as never, [oneofP as Prereq]).verdict, "no", "一项都没拿时不通过");
+  eq(
+    evalPrereqs(db, mkCtx(7, ((oneofP?.ids as string[]) || []).slice(0, 2)) as never, [oneofP as Prereq]).verdict,
+    "ok", "满足 2 项时通过（amount 生效）",
+  );
+
+  const paPower = findByName(db, "猛力攻击");
+  const paStr = (paPower?.prereq || []).find((p) => p.k === "stat" && p.stat === "Strength");
+  ok(!!paStr && Number(paStr.v) === 13, "猛力攻击仍是「力量 ≥ 13」", JSON.stringify(paPower?.prereq || []));
 
   const total = pass + fails.length;
   if (fails.length === 0) {

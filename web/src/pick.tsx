@@ -35,12 +35,16 @@ export function PickSlot(props: {
   const { db, slot, value, verdict, onChange } = props;
   const [open, setOpen] = useState(false);
   const cur = cast(value ? db.features[value] || db.spells[value] : undefined);
-  const v = value ? verdict(value) : "unknown";
+  // 游戏里这类槽位（IgnorePrerequisites）不检查候选的前置条件，所以不标红也不过滤
+  const ignore = !!slot.ignorePrereq;
+  const effVerdict = ignore ? () => "ok" as Verdict : verdict;
+  const v = value ? effVerdict(value) : "unknown";
   const n = (slot.choices || []).length;
   return (
     <div className="slot">
       <div className="slot-head">
         <span className="slot-name">{props.title || label(slot)}</span>
+        {ignore && <span className="chip chip-any" title="游戏里这个槽位不检查前置条件">不检查前置</span>}
         <span className="slot-opt">{n} 选 1</span>
       </div>
       <div className="slot-body">
@@ -67,7 +71,8 @@ export function PickSlot(props: {
           title={props.title || label(slot)}
           ids={slot.choices || []}
           value={value}
-          verdict={verdict}
+          verdict={effVerdict}
+          note={ignore ? "游戏里这个槽位不检查前置条件：下面是候选自身的条件，仅供参考。" : undefined}
           onPick={(id) => { onChange(id); setOpen(false); }}
           onClose={() => setOpen(false)}
         />
@@ -88,6 +93,8 @@ export function PickModal(props: {
   multi?: boolean;
   selected?: Set<string>;
   onToggle?: (id: string) => void;
+  /** 顶部提示（例如「本槽位不检查前置」） */
+  note?: string;
 }) {
   const { db, ids, verdict } = props;
   const [q, setQ] = useState("");
@@ -135,6 +142,7 @@ export function PickModal(props: {
             </label>
           </div>
           <div className="pick-list">
+            {props.note && <div className="muted small pick-note">{props.note}</div>}
             {list.length === 0 && <div className="muted">没有匹配项</div>}
             {list.map(({ id, f }) => {
               const v = verdict(id);

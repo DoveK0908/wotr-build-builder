@@ -2,8 +2,8 @@ import React, { useMemo } from "react";
 import type { Db } from "../types";
 import { act, useBuild } from "../store";
 import {
-  choiceVerdict, derive, label, mythicHeroPath, mythicSource, ownedFeatures, pathStartRank,
-  rankRootSlots,
+  choiceVerdict, derive, evalPrereqs, label, mythicHeroPath, mythicSource, ownedFeatures, pathStartRank,
+  prereqText, rankRootSlots,
 } from "../rules";
 import { Chip, Collapse, Desc, Panel, SearchSelect } from "../ui";
 import { SlotChain } from "../pick";
@@ -16,16 +16,55 @@ export function Mythic(props: { db: Db }) {
   const hero = mythicHeroPath(db);
   const start = pathStartRank(db, path);
 
+  // 判定上下文（含神话阶层）：用于道途门槛（例如金龙/魔鬼/虫群行者要神话阶层 ≥ 7）
+  const ctxBase = useMemo(() => {
+    const o = ownedFeatures(db, build);
+    return {
+      atLevel: 20,
+      classLevels: derived.classLevels,
+      attrs: derived.attrs,
+      idSet: o.ids,
+      alignment: build.alignment,
+      race: build.race,
+      background: build.background,
+      mythicPath: build.mythicPath,
+      archLevels: derived.archLevels,
+      currentArchetypes: Object.values(derived.archSel).flat(),
+      maxSpellLevel: derived.maxSpellLevel,
+      rank: derived.rank,
+    };
+  }, [db, build, derived]);
+
+  // 道途自己的门槛：神话阶层（可判定）＋主角身份 / 剧情 etude（不可判定，不拦人）
+  const pathReqs = useMemo(() => {
+    const out: Record<string, { verdict: string; fail: string[]; text: string }> = {};
+    for (const p of Object.values(db.mythic.paths)) {
+      const list = p.prereq || [];
+      const res = evalPrereqs(db, ctxBase, list);
+      out[p.id] = {
+        verdict: res.verdict,
+        // 只列真正不满足的那几条（剧情/身份类是 unknown，不算不满足）
+        fail: res.details.filter((d) => d.v === "no").map((d) => prereqText(db, d.p)),
+        text: list.filter((x) => !x.hide).map((x) => prereqText(db, x)).join("、"),
+      };
+    }
+    return out;
+  }, [db, ctxBase]);
+
   const pathOpts = useMemo(
     () => Object.values(db.mythic.paths)
       .filter((p) => p.selectable !== false)
-      .map((p) => ({
-        id: p.id,
-        label: p.name,
-        hint: `${p.nameEn || ""} · 第 ${pathStartRank(db, p)} 阶起`,
-        badge: p.higher ? "高阶" : undefined,
-      })),
-    [db],
+      .map((p) => {
+        const r = pathReqs[p.id];
+        const short = r?.verdict === "no";
+        return {
+          id: p.id,
+          label: p.name,
+          hint: `${p.nameEn || ""} · 第 ${pathStartRank(db, p)} 阶起${short && r.fail.length ? " · 需要 " + r.fail.join("、") : ""}`,
+          badge: p.higher ? "高阶" : short ? "门槛未达" : undefined,
+        };
+      }),
+    [db, pathReqs],
   );
 
   // 每个神话等级的来源与槽位：1–2 阶（晚期道途 1–7 阶）都是「神话英雄」
@@ -44,23 +83,6 @@ export function Mythic(props: { db: Db }) {
     }),
     [db, build, hero],
   );
-
-  const ctxBase = useMemo(() => {
-    const o = ownedFeatures(db, build);
-    return {
-      atLevel: 20,
-      classLevels: derived.classLevels,
-      attrs: derived.attrs,
-      idSet: o.ids,
-      alignment: build.alignment,
-      race: build.race,
-      background: build.background,
-      mythicPath: build.mythicPath,
-      archLevels: derived.archLevels,
-      currentArchetypes: Object.values(derived.archSel).flat(),
-      maxSpellLevel: derived.maxSpellLevel,
-    };
-  }, [db, build, derived]);
 
   return (
     <div>
@@ -89,6 +111,9 @@ export function Mythic(props: { db: Db }) {
         </div>
         <div className="row wrap mt8">
           <span className="kv">神话等级 <b>{derived.rank}</b></span>
+          {path && pathReqs[path.id]?.verdict === "no" && (
+            <Chip tone="no">门槛未达：{pathReqs[path.id].fail.join("、") || "神话阶层不足"}</Chip>
+          )}
           {path?.spellbookId && <Chip>有神话法术书</Chip>}
           {rankInfo.some((ri) => ri.slots.some((s) => !build.ranks[ri.rank - 1].picks[s.id])) && (
             <Chip tone="no">有神话槽位没选完</Chip>

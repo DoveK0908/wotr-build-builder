@@ -123,6 +123,9 @@ export interface FeatureEntry {
   skillPointsPerLevel?: number;
   proficiencies?: { armor?: string[]; weapon?: string[] };
   replace?: boolean;
+  /** 这个槽位本身不检查候选的前置条件（战士/牧师的额外专长类槽位等） */
+  ignorePrereq?: boolean;
+  ignoreParamPrereq?: boolean;
 }
 
 export interface SpellEntry {
@@ -198,6 +201,8 @@ export interface MythicPathEntry {
   progression?: LevelEntry[];
   uiGroups?: string[][];
   spellbookId?: string;
+  /** 道途自身的门槛（神话阶层 ≥ 7、剧情 etude、不能已是别的晚期道途等） */
+  prereq?: Prereq[];
 }
 
 export interface MythicSelection {

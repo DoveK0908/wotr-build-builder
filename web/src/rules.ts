@@ -543,6 +543,7 @@ export function levelCtxList(db: Db, build: Build, d: Derived): LevelCtx[] {
       profArmor,
       profWeapon,
       maxSpellLevel: d.maxSpellLevel,
+      rank: mythicRank(trunc),
     });
   }
   return out;
@@ -801,6 +802,8 @@ export interface LevelCtx {
   profWeapon?: string[];
   /** classId -> 能施放的最高法术环位 */
   maxSpellLevel?: Record<string, number>;
+  /** 评估点上的神话阶层（判定 PrerequisiteMythicLevel 用） */
+  rank?: number;
 }
 
 // ── 阵营限制 ────────────────────────────────────────────────────────────────
@@ -984,6 +987,15 @@ export function evalPrereq(db: Db, ctx: LevelCtx, p: Prereq): Verdict {
     case "castertype":
     case "spellbook":
       return "unknown"; // 需要完整的法术书模型才能判定，先不拦
+    case "mrank": {
+      const need = num2(p.v) ?? 1;
+      if (ctx.rank === undefined) return "unknown";
+      return ctx.rank >= need ? "ok" : "no";
+    }
+    case "mainchar":
+    case "etude":
+      // 主角/同伴身份、剧情进度（etude）——规划器不判定，也不拦人
+      return "unknown";
     case "condition":
     case "weaponcond":
     case "replacestat":
@@ -1035,7 +1047,11 @@ export function prereqText(db: Db, p: Prereq): string {
     case "feat": return `需要：${nm(p.id)}`;
     case "hasfeature": return `需要：${nm(p.id)}`;
     case "nofeat": return `不能有：${nm(p.id)}`;
-    case "oneof": return `需要以下之一：${((p.ids as string[]) || []).map(nm).join(" / ")}`;
+    case "oneof": {
+      const need = typeof p.amount === "number" ? p.amount : 1;
+      const names = ((p.ids as string[]) || []).map(nm).join(" / ");
+      return need > 1 ? `需要以下 ${need} 项：${names}` : `需要以下之一：${names}`;
+    }
     case "stat": {
       const s = String(p.stat || "");
       const attr = (ATTRS as string[]).includes(s) ? label(db.rules.attributes.find((a) => a.id === s)) : null;
@@ -1057,6 +1073,9 @@ export function prereqText(db: Db, p: Prereq): string {
     case "pet": return "（宠物专用条件）";
     case "paramfeat": return `需要：${nm(p.id)}（某一种选择）`;
     case "paramweapon": return `需要：${nm(p.id)}`;
+    case "mrank": return `神话阶层 ≥ ${p.v}`;
+    case "mainchar": return p.companion ? "仅同伴角色" : "仅主角";
+    case "etude": return "剧情进度限定（游戏内按剧情解锁）";
     default: return "条件复杂，需在游戏内确认";
   }
 }

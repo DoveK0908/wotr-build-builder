@@ -78,9 +78,9 @@
 `features.json` 里每条特性的 `prereq` 是一个数组，元素形如 `{k, group, hide, ...}`：
 
 - `group`: `All`（全部满足）或 `Any`（满足其一）
-- `k` 的取值与对应字段：`feat{m_Feature}`、`nofeat`、`oneof{ids,amount}`、`stat{stat,value,full}`、`clvl{class,level}`、`nocl`、`alvl{class,arch,level}`、`noarch`、`prof{armor,weapon}`、`notprof`、`align{align}`、`chlvl{level}`、`classspell{class,level}`、`paramfeat`、`castertype`、`condition`、`ispet`/`pet`、`selpossible`、`classlevels`、`replacestat` 等（共 27 种组件）
+- `k` 的取值与对应字段：`feat{m_Feature}`、`nofeat`、`oneof{ids,amount}`、`stat{stat,value,full}`、`clvl{class,level}`、`nocl`、`alvl{class,arch,level}`、`noarch`、`prof{armor,weapon}`、`notprof`、`align{align}`、`chlvl{level}`、`classspell{class,level}`、`paramfeat`、`castertype`、`condition`、`ispet`/`pet`、`selpossible`、`classlevels`、`replacestat`、`mrank{level}`、`mainchar{companion}`、`etude{id}` 等（共 30 种组件）
 
-前端对 `stat`/`clvl`/`alvl`/`feat`/`nofeat`/`oneof`/`align`/`chlvl` 这类可判定的做三态判定（`可用`/`前置不足`/`无法判定`），`condition` 这种逻辑树太复杂的保留原文展示，不拦人。
+前端对 `stat`/`clvl`/`alvl`/`feat`/`nofeat`/`oneof`/`align`/`chlvl`/`mrank` 这类可判定的做三态判定（`可用`/`前置不足`/`无法判定`），`condition` 这种逻辑树太复杂的保留原文展示，不拦人；`mainchar`（仅主角/仅同伴）与 `etude`（剧情进度）恒为 `无法判定`，不拦人。
 
 ## 已知的无害异常
 
@@ -111,3 +111,18 @@
 前端行为：阵营下拉把与已选职业/变体/神祇冲突的阵营标灰并写出原因；神祇下拉把与当前阵营不符的信仰标灰
 （提示 `需要 守序 / 绝对中立`）；职业下拉标注「阵营不符」并禁用该选项；变体 chip 标红并拒绝点选。
 已经排好的构筑出现冲突时，`derive().unfinished` 会带上 `阵营不符：圣武士 需要 守序善良`，角色页与汇总页都会显示。
+
+## 前置条件普查（2026-10-16）
+
+对 `Classes/`、`Feats/`、`Mythic/`、`Traits/`、`Spells/` 等 16712 个蓝图做了一次组件普查，把
+`Prerequisite*` 组件的出现次数与字段名全部核对了一遍，结论与改动：
+
+| 发现 | 说明 | 处置 |
+| --- | --- | --- |
+| 组件共 30 种 | 出现次数最多的是 `PrerequisiteFeature` 1231、`NoFeature` 848、`NoArchetype` 509、`ClassLevel` 444、`StatValue` 286、`FeaturesFromList` 194、`ClassSpellLevel` 188、`ArchetypeLevel` 163、`Condition` 162、`NoClassLevel` 159、`Alignment` 79、`Proficiency` 45、`IsPet` 43 | 全部映射进 `{k, group, hide, ...}` |
+| 原先漏了 3 种 | `PrerequisiteMythicLevel`（3 处：魔鬼 / 金龙 / 虫群行者，`Level: 7`）、`PrerequisiteMainCharacter`（13 处，`Companion` 真假）、`PrerequisiteEtude`（16 处，剧情卷标） | 补成 `mrank{level}` / `mainchar{companion}` / `etude{id}` |
+| `oneof` 有 `amount` | `PrerequisiteFeaturesFromList` 的 `Amount` 分布是 1×176、0×8、2×1、4×1、3×1 —— 有 3 条要求「满足 2 项及以上」 | 前端按 `amount` 计数判定，不再只看「有没有一项」 |
+| **选择表可以「不检查前置」** | `IgnorePrerequisites: true` 共 **88 个 `BlueprintFeatureSelection`**（圣教军额外专长、战士额外专长、武僧额外专长、游荡者天赋…… 游戏里显示为「不检查前置条件」） | `features.json` 里带 `ignorePrereq: true`，槽位与候选不再标「前置不足」而标「不检查前置」 |
+| 道途自带门槛 | 天使/灵使/御衡者/恶魔的升级表带 `etude`；金龙/魔鬼/虫群行者带 `mainchar` + `mrank 7` + `etude` | 神话页对道途做三态判定：`mrank` 可判定（选金龙但只有 3 阶 → 「门槛未达：神话阶层 ≥ 7」），`mainchar`/`etude` 恒 `无法判定`、不拦人 |
+| `m_Prerequisite` / `IgnorePrerequisites` 不在组件里 | 在 `Components[]` 内扫描 `m_Prerequisite`(~131 次) 与 `IgnorePrerequisites`(460 次) 命中均为 **0** —— 它们其实是蓝图**根** `Data` 上的字段，组件层面没有漏读的开发量 | 无需处理（`IgnorePrerequisites` 已按上面的方式读取） |
+
