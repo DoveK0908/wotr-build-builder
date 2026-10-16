@@ -607,16 +607,56 @@ class Extractor:
         short = self.g.text(d.get("m_DescriptionShort"), self.zh)
         if short:
             e["short"] = strip_markup(short)[:300]
-        for k, f in (("school", "School"), ("descriptor", "SpellDescriptor"),
-                     ("range", "Range"), ("duration", "Duration"), ("save", "m_SavingThrowType")):
+
+        # 游戏「法术详情」那一栏的字段：类型/射程/施法时间/持续时间/法术抗力/豁免检定
+        for k, f in (("type", "Type"), ("range", "Range"), ("action", "ActionType")):
             v = d.get(f)
-            if isinstance(v, (str, int)) and v not in (None, "", 0):
+            if isinstance(v, str) and v:
                 e[k] = v
-        comp = d.get("SpellDescriptorComponent")
-        if isinstance(comp, dict) and comp.get("Descriptor"):
-            e["descriptor"] = comp["Descriptor"]
-        if self.g.text(d.get("m_DisplayName"), self.en) or d.get("Components"):
-            e["components"] = len(d.get("Components") or [])
+        if d.get("SpellResistance"):
+            e["sr"] = True
+        if d.get("m_IsFullRoundAction") or d.get("IsFullRound"):
+            e["fullRound"] = True
+        if isinstance(d.get("MaterialComponent"), dict) and (d["MaterialComponent"] or {}).get("Count"):
+            e["material"] = True
+        dur = self.g.text(d.get("LocalizedDuration"), self.zh)
+        if dur:
+            e["duration"] = strip_markup(dur)[:120]
+        sv = self.g.text(d.get("LocalizedSavingThrow"), self.zh)
+        if sv:
+            e["saveText"] = strip_markup(sv)[:120]
+
+        # 目标：能打谁 + 能否指定地点（游戏里显示成「1个敌方生物 近距」）
+        tgt = {}
+        for key, flag in (("enemies", "CanTargetEnemies"), ("friends", "CanTargetFriends"),
+                          ("self", "CanTargetSelf"), ("point", "CanTargetPoint")):
+            if d.get(flag):
+                tgt[key] = True
+        if tgt:
+            e["targets"] = tgt
+
+        # 这些都在 Components[] 里，不是蓝图根字段
+        comps = d.get("Components") or []
+        for c in comps:
+            t = str(c.get("$type", "")).split(",")[-1].strip()
+            if t == "SpellComponent":
+                if c.get("School"):
+                    e["school"] = c["School"]
+            elif t == "SpellDescriptorComponent":
+                val = c.get("Descriptor")
+                if isinstance(val, dict):
+                    val = val.get("m_IntValue")
+                if val:
+                    e["descriptor"] = val
+            elif t == "AbilityTargetsAround":
+                rad = (c.get("m_Radius") or {}).get("m_Value")
+                if rad:
+                    e["radius"] = round(float(rad), 1)
+                if c.get("m_TargetType") and c["m_TargetType"] != "Any":
+                    e["areaTarget"] = c["m_TargetType"]
+            elif t == "AbilityEffectRunAction" and c.get("SavingThrowType"):
+                e["save"] = c["SavingThrowType"]
+        e["components"] = len(comps)
         if d.get("IsMythic"):
             e["mythic"] = True
         return e
