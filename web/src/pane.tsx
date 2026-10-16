@@ -340,18 +340,41 @@ export function GrowthTable(props: {
   const max = props.max || 20;
   const cols = useMemo(() => Array.from({ length: max }, (_, i) => i + 1), [max]);
   const cls = classLevels(build);
+  const sel = props.sel || 1;
 
-  const featCells = cols.map((lvl) => {
-    const lv = build.levels[lvl - 1];
-    const out: string[] = [];
-    for (const s of universalSlots(db, lvl)) {
-      const v = lv?.picks?.[s.id];
-      if (v) out.push(v);
+  /* 通用专长那一组：一行一个槽位（专长 / 选择背景 / 神祇选择），图标落在被填的等级上 */
+  const featRows = (() => {
+    const order: string[] = [];
+    const cells: Record<string, Record<number, string[]>> = {};
+    for (const l of cols) {
+      const lv = build.levels[l - 1];
+      for (const s of universalSlots(db, l)) {
+        if (!cells[s.id]) {
+          cells[s.id] = {};
+          order.push(s.id);
+        }
+        const v = lv?.picks?.[s.id];
+        if (v) (cells[s.id][l] = cells[s.id][l] || []).push(v);
+      }
     }
-    return out;
-  });
+    return order.map((id) => ({ id, cells: cells[id] }));
+  })();
 
   const rows = Object.entries(cls).filter(([, n]) => n > 0);
+
+  /* 每个职业一块：块内一行一个特性轨道（游戏就是这样，同一级给多个特性就多几行，不挤在一格） */
+  const blocks = rows.map(([cid, n]) => {
+    const c = db.classes[cid];
+    const arches = build.classArchetypes[cid] || [];
+    const byLevel: Record<number, string[]> = {};
+    for (let l = 1; l <= n; l++) byLevel[l] = featuresAtClassLevel(db, cid, l, arches).filter((id) => isNamed(db.features[id]));
+    const first = new Map<string, number>();
+    for (let l = 1; l <= n; l++) for (const id of byLevel[l]) if (!first.has(id)) first.set(id, l);
+    const tracks = [...first.entries()]
+      .map(([id, f]) => ({ id, first: f }))
+      .sort((a, b) => a.first - b.first || label(db.features[a.id]).localeCompare(label(db.features[b.id])));
+    return { cid, n, c, arches, byLevel, tracks };
+  });
 
   return (
     <div className="growth">
@@ -369,44 +392,58 @@ export function GrowthTable(props: {
       </div>
 
       {props.showFeats !== false && (
-        <div className="grow-row">
-          <span className="grow-label">专长</span>
-          {cols.map((l) => (
-            <span className={"grow-cell" + (l === (props.sel || 1) ? " on" : "")} key={l}>
-              {featCells[l - 1].map((id) => icoCell(db, id))}
+        <div className="grow-block">
+          <div className="grow-row name">
+            <span className="grow-label">
+              <span className="sect-v" /> 通用专长
             </span>
+          </div>
+          {featRows.map((r) => (
+            <div className="grow-row" key={r.id}>
+              <span className="grow-label track" title={label(db.features[r.id])}>
+                {label(db.features[r.id])}
+              </span>
+              {cols.map((l) => (
+                <span className={"grow-cell" + (l === sel ? " on" : "")} key={l}>
+                  {(r.cells[l] || []).map((id) => icoCell(db, id))}
+                </span>
+              ))}
+            </div>
           ))}
+          {!featRows.length && (
+            <div className="grow-row">
+              <span className="grow-label track muted">还没有通用专长槽位</span>
+            </div>
+          )}
         </div>
       )}
 
-      {rows.map(([cid, n]) => {
-        const c = db.classes[cid];
-        const arches = build.classArchetypes[cid] || [];
-        return (
-          <div className="grow-block" key={cid}>
-            <div className="grow-row name">
-              <span className="grow-label">
-                <span className="sect-v" /> {label(c)}
-                {arches.length ? " " + arches.map((a) => db.archetypes[a]?.name || "").join(" ") : ""} ({n} 级)
+      {blocks.map((b) => (
+        <div className="grow-block" key={b.cid}>
+          <div className="grow-row name">
+            <span className="grow-label">
+              <span className="sect-v" /> {label(b.c)}
+              {b.arches.length ? " " + b.arches.map((a) => db.archetypes[a]?.name || "").join(" ") : ""} ({b.n} 级)
+            </span>
+            <span className="grow-hearts">{b.c?.hitDie ? "♥ " + b.c.hitDie + " / 等级" : ""}</span>
+          </div>
+          {b.tracks.map((t) => (
+            <div className="grow-row" key={t.id}>
+              <span className="grow-label track" title={label(db.features[t.id])}>
+                {label(db.features[t.id])}
               </span>
-              <span className="grow-hearts">{n === 20 ? "♥ " + (c.hitDie || "") : ""}</span>
-            </div>
-            <div className="grow-row">
-              <span className="grow-label" />
               {cols.map((l) => {
-                const ids = (l <= n ? featuresAtClassLevel(db, cid, l, arches) : []).filter((id) => isNamed(db.features[id]));
-                const shown = ids.slice(0, 4);
+                const ids = (b.byLevel[l] || []).filter((id) => id === t.id);
                 return (
-                  <span className={"grow-cell" + (l === (props.sel || 1) ? " on" : "")} key={l}>
-                    {shown.map((id) => icoCell(db, id))}
-                    {ids.length > shown.length && <span className="grow-more">+{ids.length - shown.length}</span>}
+                  <span className={"grow-cell" + (l === sel ? " on" : "")} key={l}>
+                    {ids.map((id) => icoCell(db, id))}
                   </span>
                 );
               })}
             </div>
-          </div>
-        );
-      })}
+          ))}
+        </div>
+      ))}
 
       {rows.length === 0 && <div className="muted small">还没有排职业</div>}
     </div>

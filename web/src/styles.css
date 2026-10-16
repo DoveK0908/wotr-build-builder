@@ -1072,3 +1072,19 @@ img.row-mark { opacity: .95; }
   box-sizing: content-box;
   background: url("/assets/ui/UI_FrameIconSpell_Active.png") center / 100% 100% no-repeat;
 }
+
+/* class growth table: one feature track per row (like the game) */
+.grow-label.track { font-size: 11px; color: var(--muted); padding-right: 8px; }
+.grow-row .grow-cell { position: relative; }
+.grow-row .grow-cell::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  border-top: 1px solid var(--line);
+  opacity: .55;
+}
+.grow-row .grow-cell > * { position: relative; }
+[data-skin="game"] .grow-label.track { color: #6f5c3d; }
+[data-skin="game"] .grow-row .grow-cell::before { border-top-color: #d9cba6; }
