@@ -41,6 +41,7 @@ import {
   pathStartRank,
   pointBuySpent,
   prereqText,
+  prereqForIndex,
   raceRootSlots,
   rankRootSlots,
   traitList,
@@ -626,6 +627,23 @@ export function run(dir: string): void {
   const paPower = findByName(db, "猛力攻击");
   const paStr = (paPower?.prereq || []).find((p) => p.k === "stat" && p.stat === "Strength");
   ok(!!paStr && Number(paStr.v) === 13, "猛力攻击仍是「力量 ≥ 13」", JSON.stringify(paPower?.prereq || []));
+
+  // ── 「前置于」反向索引（游戏详情栏那行「前置于: 额外游荡者天赋」）────────
+  const rev = prereqForIndex(db);
+  const withFeatPrereq = Object.values(db.features)
+    .filter((f) => (f.prereq || []).some((p) => p.k === "feat" && p.id));
+  ok(withFeatPrereq.length > 200, "带「需要某特性」前置的特性很多", `实得 ${withFeatPrereq.length}`);
+  const sample = withFeatPrereq.slice(0, 200);
+  const revHit = sample.filter((f) => {
+    const t = (f.prereq || []).find((p) => p.k === "feat" && p.id)?.id as string;
+    return (rev.get(t) || []).includes(f.id);
+  }).length;
+  eq(revHit, sample.length, "「前置于」反向索引覆盖全部抽样");
+  const extraRogue = Object.values(db.features).find((f) => (f.name || "").includes("额外") && (f.name || "").includes("天赋"));
+  ok(!!extraRogue, "数据里有「额外……天赋」类特性（游戏里显示为前置于）」", extraRogue?.name || "");
+  const poolId = (extraRogue?.prereq || []).find((p) => p.k === "feat" && p.id)?.id as string | undefined;
+  ok(!!poolId && (rev.get(poolId) || []).includes(extraRogue?.id || ""),
+    "「额外游荡者/杀手天赋」的先决条件槽位能反查到它自己", poolId || "");
 
   // ── 建置步骤流 ────────────────────────────────────────────────────────
   eq(

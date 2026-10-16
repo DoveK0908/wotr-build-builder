@@ -1246,6 +1246,31 @@ export function prereqText(db: Db, p: Prereq): string {
   }
 }
 
+// ── 「前置于」反向索引 ─────────────────────────────────────────────────
+// 游戏里挑选取的详情栏会写一行「前置于: 额外游荡者天赋」，列的是**先决条件里引用了这个槽位**
+// 的那些特性（蓝图里的 IsPrerequisiteFor 就是给这个界面用的反向索引，这里直接现算）。
+const PREREQ_FOR_CACHE = new WeakMap<Db, Map<string, string[]>>();
+
+export function prereqForIndex(db: Db): Map<string, string[]> {
+  const hit = PREREQ_FOR_CACHE.get(db);
+  if (hit) return hit;
+  const out = new Map<string, string[]>();
+  const add = (target: unknown, who: string) => {
+    if (typeof target !== "string" || !target) return;
+    const arr = out.get(target);
+    if (!arr) out.set(target, [who]);
+    else if (!arr.includes(who)) arr.push(who);
+  };
+  for (const [id, f] of Object.entries(db.features)) {
+    for (const p of f.prereq || []) {
+      if (p.k === "feat" || p.k === "hasfeature" || p.k === "paramfeat" || p.k === "paramweapon") add(p.id, id);
+      else if (p.k === "oneof") for (const x of (p.ids as string[]) || []) add(x, id);
+    }
+  }
+  PREREQ_FOR_CACHE.set(db, out);
+  return out;
+}
+
 // ── 其它小工具 ─────────────────────────────────────────────────────────
 export function childFeatures(db: Db, f: FeatureEntry): FeatureEntry[] {
   return (f.choices || []).map((c) => db.features[c]).filter(Boolean) as FeatureEntry[];

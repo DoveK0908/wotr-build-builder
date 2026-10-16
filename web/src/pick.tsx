@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import type { Db, FeatureEntry, SpellEntry } from "./types";
-import { label, livePicks, ownedFeatures, prereqText } from "./rules";
+import { label, livePicks, ownedFeatures, prereqForIndex, prereqText } from "./rules";
 import type { Verdict } from "./rules";
 import { Chip, Desc, Modal, VerdictTag } from "./ui";
 import { featureIcon, ui, useSkin } from "./skin";
@@ -71,6 +71,7 @@ export function PickSlot(props: {
         <PickModal
           db={db}
           title={props.title || label(slot)}
+          slotId={slot.id}
           ids={slot.choices || []}
           value={value}
           verdict={effVerdict}
@@ -87,6 +88,8 @@ export function PickSlot(props: {
 export function PickModal(props: {
   db: Db;
   title: string;
+  /** 槽位自己的 id：用来算「前置于」（游戏里详情栏会写「前置于: 额外游荡者天赋」） */
+  slotId?: string;
   ids: string[];
   value: string | null;
   verdict: (fid: string) => Verdict;
@@ -133,6 +136,8 @@ export function PickModal(props: {
         ? <img className="row-mark" src={ui("UI_CharGen_IconLike")} alt="" title="已经拥有了" />
         : <span className="row-mark" title="已经拥有了">✓</span>
       : null;
+  /** 游戏里详情栏会写一行「前置于: 额外游荡者天赋」——谁的先决条件里有这个槽位 */
+  const reqFor = props.slotId ? prereqForIndex(db).get(props.slotId) || [] : [];
 
   return (
     <Modal wide title={`${props.title} — 候选 ${ids.length} 项`} onClose={props.onClose}>
@@ -202,6 +207,20 @@ export function PickModal(props: {
                       </li>
                     ))}
                   </ul>
+                </div>
+              )}
+              {reqFor.length > 0 && (
+                <div className="prereq">
+                  <div className="prereq-title">前置于（{reqFor.length}）</div>
+                  <div className="row wrap">
+                    {reqFor.slice(0, 10).map((id) => (
+                      <span className="chip" key={id}>
+                        {ico(id) && <img className="chip-ico" src={ico(id)!} alt="" />}
+                        {label(db.features[id])}
+                      </span>
+                    ))}
+                    {reqFor.length > 10 && <span className="muted small">…还有 {reqFor.length - 10} 个</span>}
+                  </div>
                 </div>
               )}
               <Desc text={cur.desc} limit={900} />
