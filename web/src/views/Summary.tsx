@@ -328,9 +328,9 @@ export function Summary(props: { db: Db }) {
 
           <Sect title="分享与存档">
             <div className="row wrap">
-              <button type="button" className="btn" onClick={() => setTableOpen(true)}>导出构筑表</button>
-              <button type="button" className="btn" onClick={() => copy(shareUrl(build), "分享链接")}>复制分享链接</button>
-              <button type="button" className="btn" onClick={() => copy(serialize(build), "构筑代码")}>复制构筑代码</button>
+              <button type="button" className="btn ghost" onClick={() => setTableOpen(true)}>导出构筑表</button>
+              <button type="button" className="btn ghost" onClick={() => copy(shareUrl(build), "分享链接")}>复制分享链接</button>
+              <button type="button" className="btn ghost" onClick={() => copy(serialize(build), "构筑代码")}>复制构筑代码</button>
               <button type="button" className="btn ghost" onClick={() => setPasteOpen((x) => !x)}>粘贴代码导入</button>
               <button
                 type="button"
