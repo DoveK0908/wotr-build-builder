@@ -741,3 +741,7 @@ img.row-mark { opacity: .95; }
 /* 成长表里「这个职业实际排到的等级」高亮（与当前选中的列区分开） */
 .grow-cell.taken { background: rgba(122, 61, 143, .12); box-shadow: inset 0 -1px 0 rgba(122, 61, 143, .45); }
 .grow-cell.taken.on { background: rgba(122, 61, 143, .22); }
+
+/* 逐级数值表里的数字 */
+.growth.nums .grow-cell { justify-content: center; }
+.gnum { font-size: 11px; color: var(--fg2); font-variant-numeric: tabular-nums; }

@@ -503,3 +503,76 @@ export function MythicGrowth(props: { db: Db; build: Build; max?: number; sel?: 
     </div>
   );
 }
+
+/** 某个职业的逐级数值（BAB / 豁免 / 法术位），列宽与 GrowthTable 完全对齐 */
+export function LevelNumbers(props: {
+  db: Db;
+  c?: {
+    maxLevel?: number;
+    bab?: number[];
+    fort?: number[];
+    ref?: number[];
+    will?: number[];
+    spellbookId?: string;
+    prestige?: boolean;
+  };
+  sel?: number;
+}) {
+  const { db, c } = props;
+  if (!c) return null;
+  const n = Math.min(c.maxLevel || 20, 20);
+  const cols = Array.from({ length: n }, (_, i) => i + 1);
+  const book = c.spellbookId ? db.spellbooks[c.spellbookId] : null;
+  const spd: number[][] = (book?.spellsPerDay as number[][]) || [];
+  const ringCount = spd.reduce((m, row) => Math.max(m, (row || []).length), 0);
+  const rings: number[] = [];
+  for (let r = 0; r < ringCount; r++) if (spd.some((row) => ((row || [])[r] || 0) > 0)) rings.push(r);
+  const num = (arr: number[] | undefined, l: number) => (arr && typeof arr[l] === "number" ? String(arr[l]) : "—");
+  const rows: { k: string; get: (l: number) => string }[] = [
+    { k: "基础攻击加值", get: (l) => num(c.bab, l) },
+    { k: "强韧", get: (l) => num(c.fort, l) },
+    { k: "反射", get: (l) => num(c.ref, l) },
+    { k: "意志", get: (l) => num(c.will, l) },
+    ...rings.map((r) => ({
+      k: `${r} 环法术位`,
+      get: (l: number) => {
+        const v = (spd[l] || [])[r];
+        return v > 0 ? String(v) : "—";
+      },
+    })),
+  ];
+  return (
+    <div className="growth nums">
+      <div className="grow-head">
+        <span className="grow-label">逐级数值</span>
+        {cols.map((l) => (
+          <span key={l} className={"grow-num" + (l === (props.sel || 1) ? " on" : "")}>
+            {l}
+          </span>
+        ))}
+      </div>
+      {rows.map((r) => (
+        <div className="grow-row" key={r.k}>
+          <span className="grow-label track">{r.k}</span>
+          {cols.map((l) => (
+            <span className="grow-cell" key={l}>
+              <span className="gnum">{r.get(l)}</span>
+            </span>
+          ))}
+        </div>
+      ))}
+      {!rings.length && book && (
+        <div className="grow-row">
+          <span className="grow-label track muted">这个职业的法术书没有环位数据</span>
+        </div>
+      )}
+      {!book && (
+        <div className="grow-row">
+          <span className="grow-label track muted">
+            {c.prestige ? "进阶职业不新增法术书（沿用基础职业的法术位）" : "这个职业不会施法（没有法术位）"}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}

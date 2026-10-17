@@ -3,9 +3,9 @@ import type { ClassEntry, Db } from "../types";
 import { act, useBuild } from "../store";
 import {
   alignAllows, alignNeedText, alignOverrideOf, alignTokensOf, classLevels, classSelectableAt, derive,
-  label,
+  evalPrereqs, label, prereqText,
 } from "../rules";
-import { GrowthTable, ListPane, ListRow, Sect, StatBox, StatRows, ThreePane } from "../pane";
+import { GrowthTable, LevelNumbers, ListPane, ListRow, Sect, StatBox, StatRows, ThreePane } from "../pane";
 
 /** bab / 豁免表的第 0 项是占位，第 N 项才是第 N 级；10 级进阶职业的表只有 11 项，所以一律按职业自己的满级取。 */
 function saveGrade(arr?: number[], maxLevel = 20) {
@@ -97,6 +97,37 @@ export function ClassPlan(props: { db: Db; onPresets?: () => void }) {
   /** 点职业 = 把这一级定成它（不再自动跳下一级） */
   const pickClass = (cid: string) => act.setClass(level - 1, cid);
 
+  /** 进阶职业的前置判定（和神祇页同一套三态：ok / no / unknown） */
+  const preCtx = useMemo(
+    () => ({
+      atLevel: level,
+      classLevels: derived.classLevels,
+      attrs: derived.attrs,
+      idSet: new Set<string>(),
+      alignment: build.alignment,
+      race: build.race,
+      background: build.background,
+      mythicPath: build.mythicPath,
+      archLevels: derived.archLevels,
+      currentArchetypes: Object.values(derived.archSel).flat(),
+      maxSpellLevel: derived.maxSpellLevel,
+      rank: derived.rank,
+    }),
+    [level, derived, build.alignment, build.race, build.background, build.mythicPath],
+  );
+  const preReqs = useMemo(() => {
+    if (!shown?.prereq) return [] as { v: string; text: string; k: string }[];
+    return evalPrereqs(db, preCtx, shown.prereq)
+      .details.filter((d) => !d.p.hide)
+      .map((d) => ({ v: d.v as string, text: prereqText(db, d.p), k: d.p.k }));
+  }, [db, preCtx, shown]);
+  const preText = (c: ClassEntry) => {
+    const list = (c.prereq || []).filter((p) => !p.hide).map((p) => prereqText(db, p));
+    if (!list.length) return "";
+    return list.slice(0, 3).join("、") + (list.length > 3 ? ` 等 ${list.length} 条` : "");
+  };
+  const preFail = preReqs.filter((r) => r.v === "no").length;
+
   const skillNames = (ids?: string[]) =>
     (ids || []).map((k) => db.rules.skills.find((s) => s.id === k)?.name || k);
 
@@ -172,7 +203,13 @@ export function ClassPlan(props: { db: Db; onPresets?: () => void }) {
               <ListRow
                 plain
                 name={o.c.name}
-                sub={o.bad ? o.hint : `${o.c.prestige ? "进阶" : "基础"} · HD ${o.c.hitDie}`}
+                sub={
+                  o.bad
+                    ? o.hint
+                    : o.c.prestige
+                      ? `进阶 · HD ${o.c.hitDie}${preText(o.c) ? " · 需要 " + preText(o.c) : ""}`
+                      : `基础 · HD ${o.c.hitDie}`
+                }
                 badge={o.bad ? <span className="badge no">阵营不符</span> : undefined}
                 dis={o.bad}
                 sel={picked === o.id}
@@ -225,6 +262,8 @@ export function ClassPlan(props: { db: Db; onPresets?: () => void }) {
 
           <GrowthTable db={db} build={build} sel={level} onSel={(l) => setLevel(l)} />
 
+          {shown && <LevelNumbers db={db} c={shown} sel={level} />}
+
           <div className="muted small" style={{ marginTop: 8 }}>
             {picked
               ? `第 ${level} 级已排「${label(shown)}」${archList.length ? " · 变体「" + (db.archetypes[archList[0]]?.name || "") + "」" : ""}（这个职业共 ${used[picked] || 0} 级，块内高亮前 ${used[picked] || 0} 列）。`
@@ -270,6 +309,34 @@ export function ClassPlan(props: { db: Db; onPresets?: () => void }) {
                   </div>
                 )}
               </Sect>
+
+              {shown.prestige && (
+                <Sect title={`进阶前提（${preReqs.filter((r) => r.v === "ok").length}/${preReqs.length}）`}>
+                  {preReqs.length === 0 ? (
+                    <div className="muted small">这个进阶职业没有导出前置条件。</div>
+                  ) : (
+                    <div className="reqlist">
+                      {preReqs.map((r, i) => (
+                        <div className="reqrow" key={i}>
+                          <span
+                            className="pcheck"
+                            data-v={r.v}
+                            title={r.v === "ok" ? "满足" : r.v === "unknown" ? "游戏内判定" : "不满足"}
+                          >
+                            {r.v === "ok" ? "✓" : r.v === "unknown" ? "?" : "✗"}
+                          </span>
+                          <span className="reqtext">{r.text}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {preFail > 0 && (
+                    <div className="muted small" style={{ marginTop: 6 }}>
+                      还有 {preFail} 条没满足 —— 先把这些前置补齐（或改了职业/等级）再选它。
+                    </div>
+                  )}
+                </Sect>
+              )}
 
               <Sect title="职业说明">
                 <div className="desc-body">{shown.short || shown.desc}</div>
