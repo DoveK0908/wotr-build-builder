@@ -119,6 +119,9 @@ export function App() {
         <span className="muted small">
           {build.name || "未命名"} · {derived.level}/{cap} · 神话 {derived.rank}/10
         </span>
+        <span className="muted small" title="构建时间：先对一下它，确认浏览器没有用旧缓存">
+          构建 {typeof __BUILD__ === "string" ? __BUILD__ : "dev"}
+        </span>
         <button className="btn sm" type="button" onClick={() => setPresetsOpen(true)}>
           预置构筑
         </button>
