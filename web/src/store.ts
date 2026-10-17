@@ -40,6 +40,8 @@ export interface Build {
   /** 职业 id -> 该职业选的变体（在选职业时就定） */
   classArchetypes: Record<string, string[]>;
   mythicPath: string | null;
+  /** 第 8 阶起可换的晚期道途（金龙 / 虫群行者 / 魔鬼 / 传奇 / 碎片之力） */
+  mythicLate: string | null;
   ranks: RankPlan[];
   skills: Record<string, number>;
   /** 职业 id -> 已选法术 id */
@@ -82,6 +84,7 @@ export function emptyBuild(): Build {
     levels: Array.from({ length: MAX_LEVEL }, emptyLevel),
     classArchetypes: {},
     mythicPath: null,
+  mythicLate: null,
     ranks: Array.from({ length: MAX_RANK }, emptyRank),
     skills: {},
     spells: {},
@@ -107,6 +110,7 @@ export function migrate(raw: unknown): Build {
     spells: { ...(b.spells || {}) },
     notes: typeof b.notes === "string" ? b.notes : "",
   };
+  out.mythicLate = (b.mythicLate as string | null) ?? null;
   out.levels = Array.from({ length: MAX_LEVEL }, (_, i) => {
     const l = (b.levels || [])[i];
     return l
@@ -276,6 +280,10 @@ export const act = {
   clearArchetype: (classId: string) => buildStore.patch((b) => {
     delete b.classArchetypes[classId];
   }),
+  setMythicLate: (id: string | null) =>
+    buildStore.patch((b) => {
+      b.mythicLate = id;
+    }),
   setMythicPath: (id: string | null) => buildStore.patch((b) => {
     b.mythicPath = id; b.ranks = Array.from({ length: MAX_RANK }, emptyRank);
   }),

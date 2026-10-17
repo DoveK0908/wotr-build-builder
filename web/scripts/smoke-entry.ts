@@ -14,6 +14,7 @@ import {
   mythicSubSteps, normalizeStep, stepFilled, stepGlyph, stepNote, stepValue,
 } from "../src/steps";
 import {
+  MYTHIC_LATE_START,
   alignAllows,
   alignConflicts,
   alignTokensOf,
@@ -924,6 +925,38 @@ export function run(dir: string): void {
         }
       }
     }
+  }
+
+  // ── 神话：前两阶固定神话英雄、第三阶选道途、第八阶可换晚期道途 ─────────
+  {
+    eq(MYTHIC_LATE_START, 8, "晚期道途从第 8 阶起");
+    const paths = Object.values(db.mythic.paths);
+    const mains = paths.filter((p) => pathStartRank(db, p) === 3);
+    const lates = paths.filter((p) => pathStartRank(db, p) >= MYTHIC_LATE_START);
+
+    act.reset();
+    act.setMythicPath("AngelMythicClass" as any);
+    let b = buildStore.get();
+    const angel = Object.values(db.mythic.paths).find((p) => /AngelMythicClass/.test(p.key || ""))!.id;
+    const dragon = Object.values(db.mythic.paths).find((p) => /GoldenDragonClass/.test(p.key || ""))!.id;
+    act.setMythicPath(angel);
+    b = buildStore.get();
+    eq(mythicSource(db, b, 1).owner?.key || "", "MythicStartingClass", "第 1 阶由神话英雄提供");
+    eq(mythicSource(db, b, 2).owner?.key || "", "MythicStartingClass", "第 2 阶仍由神话英雄提供");
+    eq(mythicSource(db, b, 3).owner?.id, angel, "第 3 阶起由主道途提供");
+    eq(mythicSource(db, b, 7).owner?.id, angel, "第 7 阶仍是主道途");
+    eq(mythicSource(db, b, 8).owner?.id, angel, "没换晚期道途时第 8 阶继续主道途");
+
+    act.setMythicLate(dragon);
+    b = buildStore.get();
+    eq(mythicSource(db, b, 3).owner?.id, angel, "换晚期道途后第 3 阶仍归主道途");
+    eq(mythicSource(db, b, 7).owner?.id, angel, "换晚期道途后第 7 阶仍归主道途");
+    eq(mythicSource(db, b, 8).owner?.id, dragon, "第 8 阶由晚期道途接管");
+    eq(mythicSource(db, b, 10).owner?.id, dragon, "第 10 阶仍由晚期道途提供");
+    act.reset();
+    act.setMythicLate(null);
+    ok(mains.length >= 6, `主道途 ${mains.length} 条（第 3 阶起）`);
+    ok(lates.length >= 4, `晚期道途 ${lates.length} 条（第 8 阶起）`);
   }
 
   // ── 图标索引（从本机游戏 blueprint.assets 导出）────────────────────────

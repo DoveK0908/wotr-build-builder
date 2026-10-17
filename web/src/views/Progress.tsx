@@ -16,8 +16,25 @@ import { Mythic } from "./Mythic";
  * 动态子块（职业的「先知诅咒 / 秘示域 …」、神话的「神话能力 / 骷髅战将 …」、
  * 道途法术书的「法术:等级 N」）不再各占一块牌匾，全部收在这里按级/按阶显示。
  */
+type Sub = "feats" | "spells" | "mythic";
+const SUBS: Sub[] = ["feats", "spells", "mythic"];
+
+function initialSub(): Sub {
+  if (typeof location === "undefined") return "feats";
+  const m = /[#&]sub=([a-z]+)/.exec(location.hash || "");
+  const v = m?.[1] as Sub | undefined;
+  return v && SUBS.includes(v) ? v : "feats";
+}
+
 export function Progress(props: { db: Db }) {
-  const [tab, setTab] = useState<"feats" | "spells" | "mythic">("feats");
+  const [tab, setTab] = useState<Sub>(initialSub);
+  const pick = (id: Sub) => {
+    setTab(id);
+    if (typeof history !== "undefined") {
+      const h = (location.hash || "#tab=progress").replace(/[#&]sub=[a-z]+/g, "");
+      history.replaceState(null, "", `${h}&sub=${id}`);
+    }
+  };
   return (
     <div className="progress">
       <div className="subnav">
@@ -32,7 +49,7 @@ export function Progress(props: { db: Db }) {
             key={id}
             type="button"
             className={"subtab" + (tab === id ? " on" : "")}
-            onClick={() => setTab(id)}
+            onClick={() => pick(id)}
           >
             {name}
           </button>

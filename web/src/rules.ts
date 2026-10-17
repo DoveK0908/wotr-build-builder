@@ -213,14 +213,21 @@ export function pathStartRank(db: Db, path?: MythicPathEntry | null): number {
   return 8; // 金龙 / 虫群行者 / 魔鬼 / 传奇 / 碎片之力
 }
 
-/** 第 rank 阶由谁提供内容：神话英雄（还没到道途起点）还是已选道途，以及对应它的第几级 */
+/** 第 8 阶起可以换成晚期道途（金龙 / 虫群行者 / 魔鬼 / 传奇 / 碎片之力） */
+export const MYTHIC_LATE_START = 8;
+
+/** 第 rank 阶由谁提供内容：神话英雄（还没到道途起点）/ 主道途 / 第 8 阶换上的晚期道途 */
 export function mythicSource(
   db: Db,
   build: Build,
   rank: number,
 ): { owner: MythicPathEntry | null; level: number; features: string[] } {
   const hero = mythicHeroPath(db);
-  const path = build.mythicPath ? db.mythic.paths[build.mythicPath] : null;
+  const main = build.mythicPath ? db.mythic.paths[build.mythicPath] : null;
+  const late = build.mythicLate ? db.mythic.paths[build.mythicLate] : null;
+  // 晚期道途只在它自己的起始阶之后接管；之前的阶层仍然由主道途（或神话英雄）提供
+  const lateActive = !!late && rank >= pathStartRank(db, late);
+  const path = lateActive ? late : main;
   const start = pathStartRank(db, path);
   const useHero = !path || rank < start;
   const owner = useHero ? hero || null : path;
