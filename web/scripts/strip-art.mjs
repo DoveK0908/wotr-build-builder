@@ -34,3 +34,11 @@ for (const t of targets) {
 }
 if (!freed) console.log(`没有游戏素材目录可删（${DIST}）`);
 console.log(`公网发布版已就绪：${DIST}（不含游戏贴图与图标）`);
+
+// 浏览器端只用 features-0..3.json 分片，单体的 features.json 只给本地工具用，别塞进产物
+const bigFeatures = join(DIST, "data", "features.json");
+if (existsSync(bigFeatures)) {
+  const mb = statSync(bigFeatures).size / 1048576;
+  rmSync(bigFeatures, { force: true });
+  console.log(`  删掉 data/features.json（${mb.toFixed(1)} MB，浏览器改用 4 个分片）`);
+}

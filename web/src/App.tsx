@@ -78,6 +78,7 @@ export function App() {
       <div className="boot">
         <h1>《开拓者：正义之怒》构筑规划器</h1>
         <p className="muted">正在读取游戏数据… {pct}%</p>
+        {pct < 100 && <p className="muted small">特性库较大（压缩后约 1.4 MB），首次打开会慢几秒；之后走缓存。</p>}
       </div>
     );
   }

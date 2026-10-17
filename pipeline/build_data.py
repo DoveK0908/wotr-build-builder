@@ -1345,6 +1345,14 @@ def build(game_dir: str, out_dir: str) -> dict:
     sizes["classes.json"] = dump("classes.json", classes)
     sizes["archetypes.json"] = dump("archetypes.json", archetypes)
     sizes["features.json"] = dump("features.json", features)
+    # 特性库太大（解压后 8.6 MB / 压缩后约 1.4 MB），浏览器端按 4 片并行下载，
+    # 见 web/src/load.ts；features.json 本身保留，给工具与自检脚本用。
+    ids = list(features.keys())
+    FEATURE_SHARDS = 4
+    per = (len(ids) + FEATURE_SHARDS - 1) // FEATURE_SHARDS
+    for i in range(FEATURE_SHARDS):
+        part = {k: features[k] for k in ids[i * per:(i + 1) * per]}
+        sizes[f"features-{i}.json"] = dump(f"features-{i}.json", part)
     sizes["spells.json"] = dump("spells.json", spells)
     sizes["spellLists.json"] = dump("spellLists.json", granted_lists)
     sizes["spellbooks.json"] = dump("spellbooks.json", spellbook_info)
