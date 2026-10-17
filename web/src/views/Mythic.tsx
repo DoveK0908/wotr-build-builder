@@ -3,7 +3,7 @@ import type { Db } from "../types";
 import { LEGEND_PATH_ID, act, useBuild } from "../store";
 import {
   MYTHIC_LATE_START, choiceVerdict, derive, evalPrereqs, label, mythicHeroPath, mythicSource, ownedFeatures,
-  pathStartRank, prereqText, rankRootSlots,
+  MYTHIC_RANK_LEVELS, levelForRank, pathStartRank, prereqText, rankRootSlots,
 } from "../rules";
 import { Chip, Collapse } from "../ui";
 import { SlotChain } from "../pick";
@@ -202,7 +202,7 @@ export function Mythic(props: { db: Db }) {
             ico={cur.isHero ? null : path ? featureIcon(db, path.id) : null}
             glyph={cur.isHero ? "英" : path ? path.name.slice(0, 1) : "?"}
             title={`神话等级 ${cur.rank}`}
-            en={cur.isHero ? "神话英雄" : `${cur.ownerName} · 第 ${cur.level} 级`}
+            en={`约 ${levelForRank(cur.rank)} 级 · ${cur.isHero ? "神话英雄" : `${cur.ownerName} · 第 ${cur.level} 级`}`}
             big
           />
 
@@ -250,6 +250,8 @@ export function Mythic(props: { db: Db }) {
           )}
 
           <div className="muted small mt8">
+            <b>阶层与等级：</b>游戏里神话阶层按剧情节点给，不是按经验值；玩家通常在
+            {MYTHIC_RANK_LEVELS.join(" / ")} 级左右拿到第 1–10 阶（这张表也用在「逐级」的前置推算里）。<br />
             <b>前两阶没有道途。</b>第 1 阶你成为「神话英雄」：选一项<b>超凡飞升</b>能力 + 一项神话能力；
             第 2 阶一项神话专长。道途要到<b>第 3 阶</b>（第 2 章结尾）才生效 —— 金龙 / 虫群行者 / 魔鬼 / 传奇
             这几条晚期道途更是第 8 阶才换。

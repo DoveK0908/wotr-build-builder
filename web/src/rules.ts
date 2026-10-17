@@ -503,6 +503,26 @@ function increases(build: Build): { level: Record<AttrId, number>[]; rank: Recor
 }
 
 /** 神话阶层：已填过内容的最高那一阶（什么都没填就是 0）。没有道途也能有 1–2 阶神话英雄 */
+/**
+ * 神话阶层与角色等级的对应关系（游戏里其实是按剧情节点给的，等级只是「玩家当时大约几级」）。
+ * 数值取自社区整理的解锁表（GameFAQs 攻略的 Rank/Event/Lvl 表、fextralife 页面下的同一份整理）：
+ * MR1≈6 级、MR2≈8、MR3≈10、MR4≈13、MR5≈15、MR6≈17、MR7≈18、MR8≈18、MR9≈19、MR10≈20。
+ * 规划器用它决定「第 N 级时最多能有几个神话阶层」，不参与剧情模拟。
+ */
+export const MYTHIC_RANK_LEVELS = [6, 8, 10, 13, 15, 17, 18, 18, 19, 20];
+
+/** 角色到达 level 级时，游戏里大约已经拿到几个神话阶层（0..10） */
+export function ranksAtLevel(level: number): number {
+  let n = 0;
+  for (const need of MYTHIC_RANK_LEVELS) if (level >= need) n += 1;
+  return Math.min(n, MAX_RANK);
+}
+
+/** 第 rank 阶大约需要角色到几级 */
+export function levelForRank(rank: number): number {
+  return MYTHIC_RANK_LEVELS[Math.max(0, Math.min(MYTHIC_RANK_LEVELS.length - 1, rank - 1))];
+}
+
 export function mythicRank(build: Build): number {
   let last = 0;
   for (let i = 0; i < build.ranks.length; i += 1) {
@@ -623,7 +643,7 @@ export function levelCtxList(db: Db, build: Build, d: Derived): LevelCtx[] {
     const trunc: Build = {
       ...build,
       levels: build.levels.slice(0, L),
-      ranks: build.ranks.slice(0, Math.max(0, Math.floor(L / 2))),
+      ranks: build.ranks.slice(0, ranksAtLevel(L)),
     };
     const o = ownedFeatures(db, trunc);
     const clv: Record<string, number> = {};

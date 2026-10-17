@@ -3,7 +3,7 @@ import type { AttrId, Db } from "../types";
 import { act, levelCap, useBuild } from "../store";
 import {
   choiceVerdict, derive, evalPrereqs, featuresAtClassLevel, isNamed, label, levelCtxList, levelRootSlots,
-  mythicRank, prereqText, rankRootSlots,
+  levelForRank, mythicRank, prereqText, rankRootSlots, ranksAtLevel,
 } from "../rules";
 import { Chip, Collapse, SearchSelect } from "../ui";
 import { SlotChain } from "../pick";
@@ -144,7 +144,7 @@ export function Feats(props: { db: Db }) {
 
           {/* 并行的神话阶层：角色等级 N 与神话第 ceil(N/2) 阶同时推进 */}
           {(() => {
-            const mr = Math.min(10, Math.max(1, Math.ceil(cur.level / 2)));
+            const mr = Math.max(1, ranksAtLevel(cur.level) || (cur.level >= 6 ? 1 : 0));
             const rank = build.ranks[mr - 1] || { picks: {}, params: {}, ability: null };
             const slots = rankRootSlots(db, build, mr);
             const reached = mythicRank(build) >= mr;

@@ -17,6 +17,9 @@ import {
 } from "../src/steps";
 import {
   MYTHIC_LATE_START,
+  MYTHIC_RANK_LEVELS,
+  levelForRank,
+  ranksAtLevel,
   alignAllows,
   alignConflicts,
   alignTokensOf,
@@ -1073,6 +1076,30 @@ export function run(dir: string): void {
         ok(evalPrereq(db, cw, ct.p) === "ok", "有奥术施法职业时「奥术施法者」前置通过");
         ok(evalPrereq(db, c0, ct.p) === "unknown", "没有职业时不误判成失败");
       }
+    }
+  }
+
+  // 神话阶层与等级的对应（游戏按剧情给，等级是近似值）
+  ok(MYTHIC_RANK_LEVELS.length === 10, "神话阶层的等级表 10 阶齐全");
+  ok(ranksAtLevel(1) === 0, "1 级还没有神话阶层");
+  ok(ranksAtLevel(5) === 0, "5 级还没到第 1 阶（第 1 阶约 6 级）");
+  ok(ranksAtLevel(6) === 1, "6 级拿到第 1 阶");
+  ok(ranksAtLevel(10) === 3, "10 级拿到第 3 阶");
+  ok(ranksAtLevel(20) === 10, "20 级满 10 阶");
+  ok(levelForRank(1) === 6 && levelForRank(3) === 10 && levelForRank(10) === 20, "按阶层反查等级");
+  {
+    const b6 = emptyBuild();
+    const fighter = Object.values(db.classes).find((c) => c.name === "战士");
+    if (fighter) {
+      for (let i = 0; i < 6; i += 1) b6.levels[i] = { ...emptyLevel(), classId: fighter.id };
+      const ctx6 = levelCtxList(db, b6, derive(db, b6))[5];
+      const ctx5 = levelCtxList(db, b6, derive(db, b6))[4];
+      ok(ctx5.rank === 0 && ctx6.rank === 0, "没填任何阶层时 rank=0");
+      // 填了第 1 阶之后：第 5 级还看不到（第 1 阶约 6 级），第 6 级才纳入
+      const bm = { ...b6, ranks: b6.ranks.map((r, i) => (i === 0 ? { ...r, picks: { any_slot: "x" } } : r)) };
+      const cs = levelCtxList(db, bm, derive(db, bm));
+      ok(cs[4].rank === 0, "5 级时第 1 阶还不算（第 1 阶约 6 级）");
+      ok(cs[5].rank === 1, "6 级时第 1 阶纳入上下文");
     }
   }
 
