@@ -792,3 +792,12 @@ img.row-mark { opacity: .95; }
   align-items: center;
   justify-content: center;
 }
+
+/* 顶部细带：品牌在左，统计/状态/按钮全部靠右 */
+.topstrip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px 4px;
+  flex: none;
+}

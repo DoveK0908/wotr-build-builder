@@ -114,11 +114,11 @@ export function App() {
       <div className="topstrip">
         <span className="strip-logo">⚔</span>
         <span className="strip-title">《开拓者：正义之怒》构筑规划器</span>
+        <span className="spacer" />
         <span className="muted small">
           {meta.counts.classes} 职业 / {meta.counts.archetypes} 变体 / {meta.counts.features} 特性 /{" "}
           {meta.counts.spells} 法术
         </span>
-        <span className="spacer" />
         <span className="muted small">
           {build.name || "未命名"} · {derived.level}/20 · 神话 {derived.rank}/10
         </span>
@@ -254,7 +254,7 @@ export function App() {
               ) : (
                 <>
                   {step === "class" && (
-        <ClassPlan key={"cp" + viewEpoch} db={db} onPresets={() => setPresetsOpen(true)} />
+        <ClassPlan key={"cp" + viewEpoch} db={db}  />
       )}
                   {step === "race" && <Race db={db} />}
                   {step === "background" && <Background db={db} />}

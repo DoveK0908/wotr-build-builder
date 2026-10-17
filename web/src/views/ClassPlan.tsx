@@ -43,7 +43,7 @@ function castKind(db: Db, c?: ClassEntry) {
  * 点职业只是把这一级定下来，中间栏那块可展开/收起的成长表里就是该职业完整的 20 级信息
  * （排到的等级会高亮），变体则在左栏职业本体下面展开。
  */
-export function ClassPlan(props: { db: Db; onPresets?: () => void }) {
+export function ClassPlan(props: { db: Db }) {
   const { db } = props;
   const build = useBuild();
   const derived = useMemo(() => derive(db, build), [db, build]);
@@ -264,14 +264,6 @@ export function ClassPlan(props: { db: Db; onPresets?: () => void }) {
             )}
           </div>
 
-          {props.onPresets && (
-            <div className="row">
-              <button type="button" className="btn wide" onClick={props.onPresets}>
-                使用推荐模板
-              </button>
-              <span className="muted small">从中文 BD 合集导入的 24 套现成构筑，选了会替换当前编排</span>
-            </div>
-          )}
 
           <GrowthTable
             db={db}
