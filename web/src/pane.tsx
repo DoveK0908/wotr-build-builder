@@ -433,20 +433,10 @@ export function GrowthTable(props: {
             <span className="grow-label">
               {fold(b.cid)} {label(b.c)}
               {b.arches.length ? " " + b.arches.map((a) => db.archetypes[a]?.name || "").join(" ") : ""} ({b.n} / {b.cap} 级)
-              <button
-                type="button"
-                className="btn xs ghost grow-detail"
-                title="看这个职业逐级的基础攻击加值 / 豁免 / 法术位"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  props.onDetail?.(b.cid);
-                }}
-              >
-                详情
-              </button>
             </span>
             <span className="grow-hearts">{b.c?.hitDie ? "♥ " + b.c.hitDie + " / 等级" : ""}</span>
           </div>
+          {!closed[b.cid] && <ClassNumbers db={db} c={b.c} level={b.n || 1} />}
           {!closed[b.cid] && b.tracks.map((t) => (
             <div className="grow-row" key={t.id}>
               <span className="grow-label track" title={label(db.features[t.id])}>
