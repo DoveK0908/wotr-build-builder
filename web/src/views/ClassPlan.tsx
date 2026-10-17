@@ -61,7 +61,7 @@ export function ClassPlan(props: { db: Db }) {
   const [nums, setNums] = useState<{ cid: string; level: number; kind: "bab" | "spells" } | null>(null);
 
   const firstEmpty = build.levels.findIndex((l) => !l.classId);
-  const level = levelState ?? (firstEmpty < 0 ? 20 : firstEmpty + 1); // 1 基
+  const level = levelState ?? (firstEmpty < 0 ? cap : firstEmpty + 1); // 1 基：默认落在第一个空级
   const lv = build.levels[level - 1];
 
   const used = classLevels(build);
@@ -111,6 +111,8 @@ export function ClassPlan(props: { db: Db }) {
   const pickClass = (cid: string) => {
     const before = classLevels(build)[cid] || 0;
     act.setClass(level - 1, cid);
+    // 点完职业**钉住当前这一级**：否则「第一个空级」会往下滑，看起来像是自动跳了级
+    setLevel(level);
     const c = db.classes[cid];
     if (c?.prestige && before === 0) setPreInfo(cid);
   };
