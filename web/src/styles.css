@@ -733,3 +733,11 @@ img.row-mark { opacity: .95; }
 .grow-row.name.clickable:hover { background: rgba(122, 61, 143, .08); }
 .sect-v.fold { cursor: pointer; transition: transform .12s ease; transform-origin: 50% 40%; }
 .sect-v.fold.closed { transform: rotate(-90deg); }
+
+/* 左栏里职业下面展开的变体行（用户 2026-10-17：变体在左栏本体下面展开） */
+.lrow-sub { padding-left: 16px; border-left: 1px solid var(--line2); margin-left: 8px; }
+.lrow-sub .lrow { padding-top: 3px; padding-bottom: 3px; }
+.lrow-sub .lrow .name { font-size: 12.5px; }
+/* 成长表里「这个职业实际排到的等级」高亮（与当前选中的列区分开） */
+.grow-cell.taken { background: rgba(122, 61, 143, .12); box-shadow: inset 0 -1px 0 rgba(122, 61, 143, .45); }
+.grow-cell.taken.on { background: rgba(122, 61, 143, .22); }

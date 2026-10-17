@@ -364,6 +364,11 @@ export function GrowthTable(props: {
   const blocks = rows.map(([cid, n]) => {
     const c = db.classes[cid];
     const arches = build.classArchetypes[cid] || [];
+    /* 这个职业在构筑里实际排到的等级 —— 块内这些列高亮 */
+    const taken = new Set<number>();
+    build.levels.forEach((lv, i) => {
+      if (lv.classId === cid) taken.add(i + 1);
+    });
     const byLevel: Record<number, string[]> = {};
     for (let l = 1; l <= n; l++) byLevel[l] = featuresAtClassLevel(db, cid, l, arches).filter((id) => isNamed(db.features[id]));
     const first = new Map<string, number>();
@@ -371,7 +376,7 @@ export function GrowthTable(props: {
     const tracks = [...first.entries()]
       .map(([id, f]) => ({ id, first: f }))
       .sort((a, b) => a.first - b.first || label(db.features[a.id]).localeCompare(label(db.features[b.id])));
-    return { cid, n, c, arches, byLevel, tracks };
+    return { cid, n, c, arches, byLevel, tracks, taken };
   });
 
   return (
@@ -433,7 +438,10 @@ export function GrowthTable(props: {
               {cols.map((l) => {
                 const ids = (b.byLevel[l] || []).filter((id) => id === t.id);
                 return (
-                  <span className={"grow-cell" + (l === sel ? " on" : "")} key={l}>
+                  <span
+                    className={"grow-cell" + (l === sel ? " on" : "") + (b.taken.has(l) ? " taken" : "")}
+                    key={l}
+                  >
                     {ids.map((id) => icoCell(db, id))}
                   </span>
                 );
