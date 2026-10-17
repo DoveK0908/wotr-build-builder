@@ -18,6 +18,7 @@ const FILES = [
   "features.json", // 约 8 MB，最大的一个，放最后
   "presets.json",
   "proficiencies.json",
+  "upgrades.json",
   "meta.json",
 ] as const;
 
@@ -36,6 +37,7 @@ const KEYS: Record<string, keyof Db> = {
   "features.json": "features",
   "presets.json": "presets",
   "proficiencies.json": "proficiencies",
+  "upgrades.json": "upgrades",
   "meta.json": "meta",
 };
 

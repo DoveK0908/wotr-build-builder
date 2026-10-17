@@ -334,6 +334,8 @@ export interface Db {
   icons?: IconIndex;
   /** 擅长 token → 中文名（由 pipeline/make_prof_cn.py 生成） */
   proficiencies?: ProficiencyNames;
+  /** 特性 id → 「重复获得时升级成」的特性 id（pipeline/make_upgrades.py 生成） */
+  upgrades?: Record<string, string>;
 }
 
 export interface ProficiencyNames {

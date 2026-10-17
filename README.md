@@ -94,6 +94,9 @@ python pipeline\extract_ui.py
 # 4) 武器 / 护甲擅长的中文名（约 6 秒 → web\public\data\proficiencies.json）
 python pipeline\make_prof_cn.py
 
+# 4b) 「重复获得就升级」的特性对照表（约 3 秒 → web\public\data\upgrades.json）
+python pipeline\make_upgrades.py
+
 # 5) 可选：重新生成预置构筑（需要 BD 合集，见 docs\presets-source.md）
 python pipeline\import_presets.py
 ```
@@ -140,6 +143,7 @@ CI 上跑不了数据管线（要读本机游戏安装），所以 `web/public/d
 │   ├── check_data.py        管线产物自检
 │   ├── extract_ui.py        游戏素材 → web/public/assets/（需要 UnityPy）
 │   ├── make_prof_cn.py      武器/护甲 token → 中文名 → proficiencies.json
+│   ├── make_upgrades.py     扫「阶层条件 AddFact」→ upgrades.json
 │   └── import_presets.py    中文 BD 合集 → presets.json
 ├── web/                     前端（Vite + React + TypeScript）
 │   ├── public/data/         管线产物（13 个 JSON，约 9.7 MB）
