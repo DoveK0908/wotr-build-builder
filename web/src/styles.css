@@ -754,3 +754,27 @@ img.row-mark { opacity: .95; }
 .classnum .cnv > span { color: var(--gold2); font-variant-numeric: tabular-nums; }
 .grow-detail { margin-left: 8px; padding: 1px 8px; font-size: 11px; }
 .growth.nums { display: none; }
+
+/* 职业块里「基础攻击加值 · 豁免」「法术位」两行的小图标按钮（点开该级的数值弹窗） */
+.grow-cell .numico {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  margin: 0 auto;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+}
+.grow-cell .numico img {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+  opacity: .8;
+  filter: grayscale(.3) brightness(1.15);
+}
+.grow-cell .numico:hover { background: rgba(122, 61, 143, .3); }
+.grow-cell .numico:hover img { opacity: 1; filter: none; }

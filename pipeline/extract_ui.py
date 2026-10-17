@@ -45,6 +45,9 @@ UI_KEEP_PREFIXES = (
     "UI_Mythic_SelectFrameArrow",   # 选中道途时压在卡片上的金色箭头
     "UI_CharGen_IconLike",          # 候选列表里「已经拥有了」的绿叶子
     "UI_Search_Icon",               # 列表搜索框右边的放大镜
+    "UI_Icon",                      # 攻击 / 强韧 / 反射 / 意志 / 生命 等数值小图标
+    "UI_CharScreen_SpellBook",      # 法术位那一行的小图标
+    "UI_spellbook_v3_2_export_Icon_",  # 法术书图标（备用）
 )
 # 内容图标都在这个 bundle 里
 ICON_BUNDLE = os.path.join("Bundles", "blueprint.assets")

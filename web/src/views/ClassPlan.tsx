@@ -5,7 +5,7 @@ import {
   alignAllows, alignNeedText, alignOverrideOf, alignTokensOf, classLevels, classSelectableAt, derive,
   evalPrereqs, label, prereqText,
 } from "../rules";
-import { GrowthTable, ListPane, ListRow, Sect, StatBox, StatRows, ThreePane } from "../pane";
+import { ClassNumbers, GrowthTable, ListPane, ListRow, Sect, StatBox, StatRows, ThreePane } from "../pane";
 import { Modal } from "../ui";
 
 /** bab / 豁免表的第 0 项是占位，第 N 项才是第 N 级；10 级进阶职业的表只有 11 项，所以一律按职业自己的满级取。 */
@@ -57,6 +57,7 @@ export function ClassPlan(props: { db: Db; onPresets?: () => void }) {
 
   /* 「职业详情」小弹窗（BAB / 豁免 / 法术位）与「第一次选进阶职业」的前置弹窗 */
   const [preInfo, setPreInfo] = useState<string | null>(null);
+  const [nums, setNums] = useState<{ cid: string; level: number } | null>(null);
 
   const firstEmpty = build.levels.findIndex((l) => !l.classId);
   const level = levelState ?? (firstEmpty < 0 ? 20 : firstEmpty + 1); // 1 基
@@ -276,6 +277,7 @@ export function ClassPlan(props: { db: Db; onPresets?: () => void }) {
             db={db}
             build={build}
             sel={level}
+            onNum={(cid, lv) => setNums({ cid, level: lv })}
             onSel={(l) => setLevel(l)}
           />
 
@@ -381,6 +383,15 @@ export function ClassPlan(props: { db: Db; onPresets?: () => void }) {
         </>
       }
       />
+
+      {nums && db.classes[nums.cid] && (
+        <Modal
+          title={`${label(db.classes[nums.cid])} · 第 ${nums.level} 级`}
+          onClose={() => setNums(null)}
+        >
+          <ClassNumbers db={db} c={db.classes[nums.cid]} level={nums.level} />
+        </Modal>
+      )}
 
       {preInfo && db.classes[preInfo] && (
         <Modal title={`${label(db.classes[preInfo])}：进阶职业`} onClose={() => setPreInfo(null)}>

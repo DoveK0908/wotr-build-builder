@@ -319,6 +319,8 @@ export function GrowthTable(props: {
   sel?: number;
   onSel?: (level: number) => void;
   onDetail?: (cid: string) => void;
+  /** 点某职业某级的小图标 → 弹该级的 BAB/豁免/法术位 */
+  onNum?: (cid: string, level: number) => void;
 }) {
   const { db, build } = props;
   const max = props.max || 20;
@@ -436,7 +438,37 @@ export function GrowthTable(props: {
             </span>
             <span className="grow-hearts">{b.c?.hitDie ? "♥ " + b.c.hitDie + " / 等级" : ""}</span>
           </div>
-          {!closed[b.cid] && <ClassNumbers db={db} c={b.c} level={b.n || 1} />}
+          {!closed[b.cid] && (
+            <>
+              {[
+                { key: "bab", label: "基础攻击加值 · 豁免", ico: "UI_IconAttack" },
+                { key: "spells", label: "法术位", ico: "UI_CharScreen_SpellBook" },
+              ].map((row) => (
+                <div className="grow-row" key={row.key}>
+                  <span className="grow-label track" title={`点每一级下面这个小图标，看那一级的${row.label}`}>
+                    {row.label}
+                  </span>
+                  {cols.map((l) => (
+                    <span className={"grow-cell" + (l === b.focus ? " on" : "")} key={l}>
+                      {l <= b.cap && props.onNum ? (
+                        <button
+                          type="button"
+                          className="numico"
+                          title={`${label(b.c)} 第 ${l} 级：${row.label}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            props.onNum!(b.cid, l);
+                          }}
+                        >
+                          <img src={ui(row.ico)} alt="" />
+                        </button>
+                      ) : null}
+                    </span>
+                  ))}
+                </div>
+              ))}
+            </>
+          )}
           {!closed[b.cid] && b.tracks.map((t) => (
             <div className="grow-row" key={t.id}>
               <span className="grow-label track" title={label(db.features[t.id])}>
