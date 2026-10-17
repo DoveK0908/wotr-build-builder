@@ -7,14 +7,41 @@ import { reachable } from "../pick";
 import { DetailHead, IconGrid, ListPane, ListRow, Sect, StatRows, ThreePane } from "../pane";
 import { featureIcon } from "../skin";
 
-const DEPTH_TAG = ["大类", "具体背景", "再选一项", "再选一项"];
+/** 游戏里背景的显示顺序（照实机 1704xx / 1705xx 那组截图抄的，不是数据顺序） */
+const GROUP_ORDER = ["修士", "出身地区", "学者", "工匠", "无", "武者", "流浪者", "街巷流浪儿", "贵族"];
+const CHILD_ORDER: Record<string, string[]> = {
+  修士: ["习武者", "侍祭", "医师"],
+  出身地区: [
+    "乌斯塔拉夫农民", "切利亚克斯魔鬼学者", "卡蒂拉游民", "奈克斯学术家", "奥肯斯塔炼金师",
+    "安多安外交官", "欧西里昂历史学家", "河域诸国亡命徒", "瓦里西亚探索者", "盖布死灵师",
+    "莽迹猎人", "蒙蒂维孤儿", "蛇龙王之地勇士", "镣铐群岛海盗", "阿尔多瑞剑客",
+  ],
+  学者: ["奥法学者", "神圣学者", "自然学者"],
+  自然学者: ["光亮术", "恩赐", "提升抗力", "神导术", "闪光术"],
+  工匠: ["伐木工", "农民", "矿工", "铁匠"],
+  武者: ["卫兵", "角斗士", "赏金猎人", "佣兵"],
+  流浪者: ["游民", "猎人", "隐士"],
+  街巷流浪儿: ["劫匪", "扒手", "杂耍艺人"],
+  贵族: ["侍臣", "特使", "领袖"],
+};
 
-/** 第 ③ 步：背景（大类 → 具体背景 → 有些背景还要再选一项） */
+const orderOf = (key: string, names: string[]): string[] => {
+  const want = CHILD_ORDER[key] || (key === "" ? GROUP_ORDER : []);
+  const idx = (n: string) => {
+    const i = want.indexOf(n);
+    return i < 0 ? 999 : i;
+  };
+  return [...names].sort((a, b) => idx(a) - idx(b));
+};
+
+/** 第 ③ 步：背景（大类 → 具体背景 → 有些背景还要再选一项），左栏做成可展开/收起的折叠列表 */
 export function Background(props: { db: Db }) {
   const { db } = props;
   const build = useBuild();
   const [hover, setHover] = useState<string | null>(null);
   const [q, setQ] = useState("");
+  const [open1, setOpen1] = useState<string | null>(null); // 展开的大类
+  const [open2, setOpen2] = useState<string | null>(null); // 展开的二级选择表（如自然学者）
 
   const bgRootSlot = backgroundRoot(db);
   const bgPicks = build.bgPicks || {};
@@ -24,102 +51,177 @@ export function Background(props: { db: Db }) {
     return s;
   }, [db]);
 
-  /** 从头顺着已选项往下走，得到「已经走过的层级 + 当前待选层」 */
-  const levels = useMemo(() => {
-    const out: { slot: string; options: string[] }[] = [];
+  const isGroup = (id: string): boolean => {
+    const f = db.features[id];
+    return !!(f && f.choices && f.choices.length);
+  };
+  const kidsOf = (id: string | null): string[] => {
+    if (!id) {
+      const slot = bgRootSlot;
+      if (!slot) return [];
+      return (slot.choices || []).filter((x) => !companionOnly.has(x) && !!db.features[x]);
+    }
+    if (!isGroup(id)) return [];
+    return (db.features[id].choices || []).filter((x) => !!db.features[x]);
+  };
+
+  const rootOptions = useMemo(() => {
+    const ids = kidsOf(null);
+    return orderOf("", ids.map((id) => label(db.features[id])))
+      .map((name) => ids.find((id) => label(db.features[id]) === name))
+      .filter((x): x is string => !!x);
+  }, [db, bgRootSlot, companionOnly]);
+
+  /** 当前选择路径：[大类, 具体背景, 子选择] */
+  const path = useMemo(() => {
+    const out: string[] = [];
     let slot: FeatureEntry | undefined = bgRootSlot;
-    for (let depth = 0; slot && depth < 4; depth += 1) {
-      out.push({
-        slot: slot.id,
-        options: (slot.choices || []).filter((id) => !companionOnly.has(id) && !!db.features[id]),
-      });
+    for (let d = 0; slot && d < 4; d += 1) {
       const chosen = bgPicks[slot.id];
       if (!chosen) break;
+      out.push(chosen);
       const f = db.features[chosen];
       slot = f && f.choices && f.choices.length ? f : undefined;
     }
     return out;
-  }, [db, bgRootSlot, bgPicks, companionOnly]);
+  }, [db, bgRootSlot, bgPicks]);
 
-  const active = levels[levels.length - 1];
-  const activeDepth = levels.length - 1;
-  const forced = active ? bgPicks[active.slot] : null;
+  const picked = path.length ? path[path.length - 1] : null;
+  const pickedGroup = path[0] || null;
 
-  const onBgPick = (slot: string, v: string | null) => {
-    const next: Record<string, string> = { ...bgPicks };
-    if (v) next[slot] = v;
-    else delete next[slot];
+  const pick = (ids: string[]) => {
+    const next: Record<string, string> = {};
+    let slot: FeatureEntry | undefined = bgRootSlot;
+    for (const id of ids) {
+      if (!slot) break;
+      next[slot.id] = id;
+      const f = db.features[id];
+      slot = f && f.choices && f.choices.length ? f : undefined;
+    }
     const roots: FeatureEntry[] = bgRootSlot ? [bgRootSlot] : [];
     for (const key of Object.keys(next)) if (!reachable(db, roots, next, key)) delete next[key];
-    let deepest: string | null = null;
-    let node: FeatureEntry | undefined = bgRootSlot;
-    while (node) {
-      const c = next[node.id];
-      if (!c) break;
-      deepest = c;
-      const f = db.features[c];
-      node = f && f.choices && f.choices.length ? f : undefined;
-    }
-    act.setBgPicks(next, deepest);
+    act.setBgPicks(next, ids.length ? ids[ids.length - 1] : null);
   };
 
-  const list = useMemo(() => {
-    if (!active) return [];
-    const kw = q.trim().toLowerCase();
-    return active.options.filter((id) => {
-      if (!kw) return true;
-      const f = db.features[id];
-      return (label(f) + " " + (f?.nameEn || "")).toLowerCase().includes(kw);
-    });
-  }, [active, db, q]);
+  const toggleGroup = (id: string) => {
+    if (!isGroup(id)) {
+      pick([id]); // 「无」这类直接就是叶子
+      setOpen1(null);
+      setOpen2(null);
+      return;
+    }
+    setOpen1((cur) => (cur === id ? null : id));
+    setOpen2(null);
+  };
 
-  const focusId = hover || forced || list[0] || null;
+  const kw = q.trim().toLowerCase();
+  const hit = (id: string): boolean => {
+    const f = db.features[id];
+    const self = (label(f) + " " + (f?.nameEn || "")).toLowerCase().includes(kw);
+    if (self) return true;
+    return kidsOf(id).some((k) => {
+      const c = db.features[k];
+      return (label(c) + " " + (c?.nameEn || "")).toLowerCase().includes(kw);
+    });
+  };
+
+  const focusId = hover || picked || rootOptions[0] || null;
   const focus = focusId ? db.features[focusId] : null;
   const focusChildren = focus ? childFeatures(db, focus) : [];
+
+  const row = (id: string, depth: number, onOpen?: () => void) => {
+    const f = db.features[id];
+    const group = isGroup(id);
+    const expanded = (depth === 1 && open1 === id) || (depth === 2 && open2 === id);
+    return (
+      <ListRow
+        key={id}
+        ico={featureIcon(db, id)}
+        glyph={label(f).slice(0, 1)}
+        name={label(f)}
+        sub={depth === 1 ? f?.nameEn : undefined}
+        arrow={group ? expanded : undefined}
+        sel={group ? expanded : picked === id}
+        onClick={onOpen || (() => pick(depth === 1 ? [id] : [pickedGroup || "", id]))}
+        onHover={() => setHover(id)}
+      />
+    );
+  };
 
   return (
     <ThreePane
       left={
         <ListPane
-          title={
-            <span>
-              <span className="muted small">{DEPTH_TAG[activeDepth]}　</span>
-              选择背景
-            </span>
-          }
+          title={<span>选择背景</span>}
           search={q}
           onSearch={setQ}
           foot={
-            levels.length > 1 ? (
-              <span>
-                已选：
-                {levels
-                  .slice(0, activeDepth)
-                  .map((l, i) => bgPicks[l.slot])
-                  .filter(Boolean)
-                  .map((id) => label(db.features[id]))
-                  .join(" › ")}
-              </span>
-            ) : undefined
+            path.length ? (
+              <span>已选：{path.map((id) => label(db.features[id])).join(" › ")}</span>
+            ) : (
+              <span>点大类展开，再点具体背景；点已展开的大类可收起。</span>
+            )
           }
         >
-          {list.map((id) => {
-            const f = db.features[id];
-            return (
-              <ListRow
-                key={id}
-                ico={featureIcon(db, id)}
-                glyph={label(f).slice(0, 1)}
-                name={label(f)}
-                sub={f?.nameEn}
-                arrow={!!(f?.choices && f.choices.length)}
-                sel={forced === id}
-                onHover={() => setHover(id)}
-                onClick={() => onBgPick(active!.slot, forced === id ? null : id)}
-              />
-            );
-          })}
-          {list.length === 0 && <div className="muted small" style={{ padding: "8px 10px" }}>没有匹配项</div>}
+          {rootOptions
+            .filter((id) => !kw || hit(id))
+            .map((gid) => {
+              const gname = label(db.features[gid]);
+              const kids = kidsOf(gid);
+              const expanded = open1 === gid;
+              return (
+                <React.Fragment key={gid}>
+                  {row(gid, 1, () => toggleGroup(gid))}
+                  {expanded && (
+                    <div className="lrow-sub">
+                      {orderOf(gname, kids.map((k) => label(db.features[k])))
+                        .map((nm) => kids.find((k) => label(db.features[k]) === nm))
+                        .filter((x): x is string => !!x)
+                        .map((kid) => {
+                          const kidGroup = isGroup(kid);
+                          const kidName = label(db.features[kid]);
+                          const grand = kidsOf(kid);
+                          return (
+                            <React.Fragment key={kid}>
+                              <ListRow
+                                ico={featureIcon(db, kid)}
+                                glyph={kidName.slice(0, 1)}
+                                name={kidName}
+                                arrow={kidGroup ? open2 === kid : undefined}
+                                sel={kidGroup ? open2 === kid : picked === kid}
+                                onClick={() =>
+                                  kidGroup
+                                    ? setOpen2((cur) => (cur === kid ? null : kid))
+                                    : pick([gid, kid])
+                                }
+                                onHover={() => setHover(kid)}
+                              />
+                              {kidGroup && open2 === kid && (
+                                <div className="lrow-sub">
+                                  {orderOf(kidName, grand.map((k) => label(db.features[k])))
+                                    .map((nm) => grand.find((k) => label(db.features[k]) === nm))
+                                    .filter((x): x is string => !!x)
+                                    .map((leaf) => (
+                                      <ListRow
+                                        key={leaf}
+                                        ico={featureIcon(db, leaf)}
+                                        glyph={label(db.features[leaf]).slice(0, 1)}
+                                        name={label(db.features[leaf])}
+                                        sel={picked === leaf}
+                                        onClick={() => pick([gid, kid, leaf])}
+                                        onHover={() => setHover(leaf)}
+                                      />
+                                    ))}
+                                </div>
+                              )}
+                            </React.Fragment>
+                          );
+                        })}
+                    </div>
+                  )}
+                </React.Fragment>
+              );
+            })}
         </ListPane>
       }
       center={
@@ -182,28 +284,29 @@ export function Background(props: { db: Db }) {
       right={
         <>
           <Sect title="已选背景">
-            {forced && activeDepth < 0 ? null : null}
             <StatRows
-              items={
-                levels
-                  .slice(0, activeDepth)
-                  .filter((l) => bgPicks[l.slot])
-                  .map((l, i) => [DEPTH_TAG[i], label(db.features[bgPicks[l.slot]])])
-              }
+              items={path.map((id, i) => [["大类", "具体背景", "再选一项"][i] || "附加", label(db.features[id])])}
               dense
             />
-            {activeDepth === 0 && !forced && <div className="muted small">还没选。背景会给本职技能、技能加值或一项额外专长。</div>}
+            {!path.length && (
+              <div className="muted small">还没选。背景会给本职技能、技能加值或一项额外专长。</div>
+            )}
           </Sect>
 
-          {forced && db.backgrounds[forced] && (
+          {picked && db.backgrounds[picked] && (
             <Sect title="最终背景">
               <StatRows
                 items={[
-                  ["名称", db.backgrounds[forced].name],
-                  ["英文", db.backgrounds[forced].nameEn || "—"],
+                  ["名称", db.backgrounds[picked].name],
+                  ["英文", db.backgrounds[picked].nameEn || "—"],
                 ]}
               />
             </Sect>
+          )}
+          {path.length === 1 && (
+            <div className="muted small" style={{ marginTop: 6 }}>
+              还差一步：在左边展开后选一个具体背景（有的还要再选一项）。
+            </div>
           )}
         </>
       }
