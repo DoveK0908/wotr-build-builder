@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import type { ClassEntry, Db } from "../types";
-import { act, levelCap, useBuild } from "../store";
+import { BASE_LEVEL, act, levelCap, useBuild } from "../store";
 import {
   alignAllows, alignNeedText, alignOverrideOf, alignTokensOf, classLevels, classSelectableAt, derive,
   evalPrereqs, label, prereqText,
@@ -64,6 +64,9 @@ export function ClassPlan(props: { db: Db }) {
   const level = levelState ?? (firstEmpty < 0 ? 20 : firstEmpty + 1); // 1 基
   const lv = build.levels[level - 1];
 
+  const used = classLevels(build);
+  const picked = lv?.classId || null; // 当前这一级排的职业
+
   const classOpts = useMemo(() => {
     /* 顺序＝游戏角色创建界面的顺序：基础职业在前、进阶在后，两段内部都按中文名的字符编码序
        （不是拼音：实测游戏就是 先知→化形师→吟游诗人→…→骑将→魔战士；进阶段是 冬巫→决斗家→…→龙脉术士） */
@@ -73,12 +76,17 @@ export function ClassPlan(props: { db: Db }) {
       .sort((a, b) => (a.prestige === b.prestige ? cmp(a.name, b.name) : a.prestige ? 1 : -1))
       .map((c) => {
         const sel = classSelectableAt(db, c.id, build.alignment);
+        // 单职业上限 20 级（传奇把角色等级抬到 40，但每个职业仍然最多 20 级）
+        const spill = (used[c.id] || 0) >= BASE_LEVEL && c.id !== picked;
         const bad = !sel.ok;
         return {
           id: c.id,
           c,
-          bad,
-          hint: bad
+          bad: bad || spill,
+          full: spill,
+          hint: spill
+            ? `已经排了 ${used[c.id]} 级（单职业最多 ${BASE_LEVEL} 级）`
+            : bad
             ? `需要 ${sel.reason}`
             : sel.viaArchetype
               ? `需要 ${alignNeedText(db, alignTokensOf(c.prereq))}，或选「${sel.viaArchetype}」则改为它的阵营要求`
@@ -87,10 +95,8 @@ export function ClassPlan(props: { db: Db }) {
       });
     const kw = q.trim().toLowerCase();
     return kw ? all.filter((o) => (o.c.name + " " + (o.c.nameEn || "")).toLowerCase().includes(kw)) : all;
-  }, [db, build.alignment, q]);
+  }, [db, build.alignment, q, used, picked]);
 
-  const used = classLevels(build);
-  const picked = lv?.classId || null; // 当前这一级排的职业
   const shown = picked ? db.classes[picked] : null;
   const archList = (picked && build.classArchetypes[picked]) || [];
   const archChoices = (shown?.archetypes || []).map((id) => db.archetypes[id]).filter(Boolean);
@@ -358,7 +364,7 @@ export function ClassPlan(props: { db: Db }) {
           <Sect title="累计">
             <StatRows
               items={[
-                ["等级", `${derived.level} / 20`],
+                ["等级", `${derived.level} / ${cap}`],
                 ["BAB", derived.bab],
                 ["强韧 / 反射 / 意志", `${derived.fort} / ${derived.ref} / ${derived.will}`],
                 ["生命值", derived.hp],

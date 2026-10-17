@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import type { Db } from "./types";
 import { loadDb } from "./load";
-import { act, deserialize, shareUrl, useBuild } from "./store";
+import { act, deserialize, levelCap, shareUrl, useBuild } from "./store";
 import { attrMod, derive, mythicSpellbook } from "./rules";
 import {
   STEPS, allSteps, normalizeStep, stepFilled, stepGlyph, stepNote, stepValue, stepWarn,
@@ -100,6 +100,7 @@ export function App() {
     );
   };
   const attr = db.rules.attributes;
+  const cap = levelCap(build);
   /** 牌匾上的小图标：动态步骤用该槽位自己的内容图标，固定步骤用游戏自带的界面图标 */
   const pngOf = (s: Step): string | null =>
     s.dynamic && s.slotId ? featureIcon(db, s.slotId) : null;
@@ -116,7 +117,7 @@ export function App() {
           {meta.counts.spells} 法术
         </span>
         <span className="muted small">
-          {build.name || "未命名"} · {derived.level}/20 · 神话 {derived.rank}/10
+          {build.name || "未命名"} · {derived.level}/{cap} · 神话 {derived.rank}/10
         </span>
         <button className="btn sm" type="button" onClick={() => setPresetsOpen(true)}>
           预置构筑
@@ -145,7 +146,7 @@ export function App() {
                 title={
                   isMythicStep
                     ? `神话阶层 ${derived.rank} / ${db.rules.mythicRankRange?.[1] || 10}`
-                    : `角色等级 ${derived.level} / ${db.rules.levelRange?.[1] || 20}`
+                    : `角色等级 ${derived.level} / ${cap}`
                 }
               >
                 <span className="pqc-nums">
@@ -158,7 +159,7 @@ export function App() {
                     <>
                       <b>{derived.level}</b>
                       <i>/</i>
-                      <b>{db.rules.levelRange?.[1] || 20}</b>
+                      <b>{cap}</b>
                     </>
                   )}
                 </span>

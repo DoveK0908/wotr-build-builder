@@ -169,7 +169,7 @@ export function Summary(props: { db: Db }) {
                 ["阵营", alignName],
                 ["职业", Object.entries(d.classLevels).map(([cid, n]) => `${label(db.classes[cid])} ${n}`).join(" / ") || "—"],
                 ["神话", build.mythicPath ? `${label(db.mythic.paths[build.mythicPath])} ${d.rank} 阶` : `神话英雄 ${d.rank} 阶`],
-                ["总等级", `${d.level} / 20`],
+                ["总等级", `${d.level} / ${cap}`],
               ]}
             />
           </Sect>

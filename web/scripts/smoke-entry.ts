@@ -973,11 +973,27 @@ export function run(dir: string): void {
     const legend = Object.values(db.mythic.paths).find((p) => p.id === LEGEND_PATH_ID)!;
     eq(legend.maxLevel, 1, "传奇道途只有 1 级（第 8 阶）");
     eq(mythicSource(db, buildStore.get(), 8).owner?.id, LEGEND_PATH_ID, "第 8 阶由传奇接管");
-    eq(rankRootSlots(db, buildStore.get(), 8).length, 1, "传奇第 8 阶只有一个槽位（神话专长）");
+    eq(rankRootSlots(db, buildStore.get(), 8).length, 0, "传奇第 8 阶没有要选的（数据里 10 个特性、0 个选择表）");
     eq(rankRootSlots(db, buildStore.get(), 9).length, 0, "传奇没有第 9 阶的内容");
     eq(rankRootSlots(db, buildStore.get(), 10).length, 0, "传奇没有第 10 阶的内容");
     act.setMythicLate(null);
     eq(levelCap(buildStore.get()), 20, "取消传奇后等级上限回到 20");
+    act.reset();
+  }
+
+  // ── 传奇：角色等级 40，但单职业仍然最多 20 级 ───────────────────────
+  {
+    act.reset();
+    act.setMythicLate(LEGEND_PATH_ID);
+    const paladin = Object.values(db.classes).find((c) => /PaladinClass/.test(c.key || ""))!.id;
+    for (let i = 0; i < 25; i += 1) act.setClass(i, paladin);
+    const d = derive(db, buildStore.get());
+    eq(classLevels(buildStore.get())[paladin], 25, "允许把同一职业排到 25 级（数据层不拦）");
+    ok(
+      d.unfinished.some((t) => t.includes(`单职业最多 ${BASE_LEVEL} 级`)),
+      "未完成清单会指出单职业超 20 级",
+      d.unfinished.filter((t) => t.includes("单职业")).join(" / "),
+    );
     act.reset();
   }
 

@@ -9,7 +9,7 @@ import type {
   AttrId, BackgroundEntry, ClassEntry, Db, FeatureEntry, MythicPathEntry, Prereq,
   RaceEntry, SpellEntry, SpellbookEntry,
 } from "./types";
-import { ATTRS, LEGEND_PATH_ID, MAX_LEVEL, MAX_RANK, levelCap, type Build } from "./store";
+import { ATTRS, BASE_LEVEL, LEGEND_PATH_ID, MAX_LEVEL, MAX_RANK, levelCap, type Build } from "./store";
 
 export type Verdict = "ok" | "no" | "unknown";
 
@@ -238,9 +238,12 @@ export function mythicSource(
 
 /** 某个神话等级要玩家做选择的槽位（英雄/道途自家的内容优先，没有就走通用神话能力/专长） */
 export function rankRootSlots(db: Db, build: Build, rank: number): FeatureEntry[] {
-  // 传奇只有第 8 阶这一级：换了传奇就没有第 9–10 阶的神话内容
+  // 换传奇既没有第 9–10 阶；传奇自己那一阶（第 8 阶）也不给选择 ——
+  // 数据里传奇 L1 是 10 个固定特性、0 个选择表（见 docs/data-format.md「传奇」）
   if (build.mythicLate === LEGEND_PATH_ID && rank > 8) return [];
-  const ids = mythicSource(db, build, rank).features;
+  const src = mythicSource(db, build, rank);
+  if (src.level > 0 && src.owner && src.owner.id === LEGEND_PATH_ID) return [];
+  const ids = src.features;
   const slots = ids.map((id) => db.features[id]).filter((f): f is FeatureEntry => !!f && !!f.choices && f.choices.length > 0);
   if (slots.length) return slots;
   // 奇数等级给神话能力、偶数等级给神话专长
@@ -870,9 +873,16 @@ export function derive(db: Db, build: Build): Derived {
   if (remainingPointBuy < 0) unfinished.push(`购点超支 ${-remainingPointBuy} 点`);
   if (skillSpent > total) unfinished.push(`技能点超支 ${skillSpent - total} 点`);
   for (const w of alignConflicts(db, build)) unfinished.push(`阵营不符：${w}`);
+  const perClass: Record<string, number> = {};
   for (let i = 0; i < levelCap(build); i += 1) {
     const lv = build.levels[i];
     if (!lv.classId) unfinished.push(`第 ${i + 1} 级未选职业`);
+    else perClass[lv.classId] = (perClass[lv.classId] || 0) + 1;
+  }
+  for (const [cid, n] of Object.entries(perClass)) {
+    if (n > BASE_LEVEL) {
+      unfinished.push(`${db.classes[cid] ? label(db.classes[cid]) : cid} 排了 ${n} 级（单职业最多 ${BASE_LEVEL} 级）`);
+    }
   }
 
   /* 已经选了的专长/特性：按它所在的那一级重新判前置（改任何一步都会立刻影响这里） */
