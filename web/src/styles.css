@@ -778,3 +778,17 @@ img.row-mark { opacity: .95; }
 }
 .grow-cell .numico:hover { background: rgba(122, 61, 143, .3); }
 .grow-cell .numico:hover img { opacity: 1; filter: none; }
+
+/* 通用专长槽位的空位标记（这一级有这个槽位但还没选） */
+.grow-cell .grow-slot {
+  width: 16px;
+  height: 16px;
+  line-height: 14px;
+  border: 1px dashed rgba(160, 140, 200, .6);
+  border-radius: 50%;
+  color: rgba(180, 160, 215, .85);
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}

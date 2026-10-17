@@ -354,8 +354,8 @@ export function GrowthTable(props: {
           cells[s.id] = {};
           order.push(s.id);
         }
-        const v = lv?.picks?.[s.id];
-        if (v) (cells[s.id][l] = cells[s.id][l] || []).push(v);
+        /* 位置本身也要标出来：没选就是空串，渲染成一个小空槽 */
+        (cells[s.id][l] = cells[s.id][l] || []).push(lv?.picks?.[s.id] || "");
       }
     }
     return order.map((id) => ({ id, cells: cells[id] }));
@@ -416,7 +416,15 @@ export function GrowthTable(props: {
               </span>
               {cols.map((l) => (
                 <span className={"grow-cell" + (l === sel ? " on" : "")} key={l}>
-                  {(r.cells[l] || []).map((id) => icoCell(db, id))}
+                  {(r.cells[l] || []).map((id, i) =>
+                    id ? (
+                      icoCell(db, id)
+                    ) : (
+                      <span className="grow-slot" key={"s" + i} title="这一级有一个通用专长槽位，还没选">
+                        +
+                      </span>
+                    )
+                  )}
                 </span>
               ))}
             </div>
