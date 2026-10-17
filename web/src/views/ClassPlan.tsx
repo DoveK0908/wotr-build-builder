@@ -59,9 +59,9 @@ export function ClassPlan(props: { db: Db; onPresets?: () => void }) {
   const lv = build.levels[level - 1];
 
   const classOpts = useMemo(() => {
+    /* 顺序沿用游戏的角色创建名单：classes.json 的键顺序 = BlueprintRoot.Progression.m_CharacterClasses */
     const all = Object.values(db.classes)
       .filter((c) => !c.mythic)
-      .sort((a, b) => (a.prestige === b.prestige ? a.name.localeCompare(b.name, "zh") : a.prestige ? 1 : -1))
       .map((c) => {
         const sel = classSelectableAt(db, c.id, build.alignment);
         const bad = !sel.ok;
@@ -199,6 +199,16 @@ export function ClassPlan(props: { db: Db; onPresets?: () => void }) {
                 清空第 {level} 级
               </button>
             )}
+            {lv?.classId && level < 20 && (
+              <button
+                type="button"
+                className="btn sm"
+                title="确认这一级，然后手动去下一级"
+                onClick={() => setLevel(level + 1)}
+              >
+                确认，去第 {level + 1} 级 →
+              </button>
+            )}
           </div>
 
           {props.onPresets && (
@@ -214,7 +224,7 @@ export function ClassPlan(props: { db: Db; onPresets?: () => void }) {
 
           <div className="muted small" style={{ marginTop: 8 }}>
             {picked
-              ? `第 ${level} 级已排「${label(shown)}」${archList.length ? " · 变体「" + (db.archetypes[archList[0]]?.name || "") + "」" : ""}；成长表里这个职业排到的等级会高亮，点表头的等级号可以切到那一级。`
+              ? `第 ${level} 级已排「${label(shown)}」${archList.length ? " · 变体「" + (db.archetypes[archList[0]]?.name || "") + "」" : ""}（这个职业共 ${used[picked] || 0} 级，块内高亮前 ${used[picked] || 0} 列）。`
               : `第 ${level} 级还没排职业 —— 在左边点一个职业即可（点表头的等级号可以跳到那一级）。`}
           </div>
           {archList.length > 0 && override && (

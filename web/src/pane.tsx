@@ -364,11 +364,15 @@ export function GrowthTable(props: {
   const blocks = rows.map(([cid, n]) => {
     const c = db.classes[cid];
     const arches = build.classArchetypes[cid] || [];
-    /* 这个职业在构筑里实际排到的等级 —— 块内这些列高亮 */
-    const taken = new Set<number>();
-    build.levels.forEach((lv, i) => {
-      if (lv.classId === cid) taken.add(i + 1);
-    });
+    /* 这个职业在这个构筑里选了几级 → 块内就高亮前几列（列 = 该职业自己的等级，不是角色等级） */
+    const filled = new Set<number>();
+    for (let l = 1; l <= n; l++) filled.add(l);
+    /* 当前正在编辑的是这个职业的第几级（编辑别的职业时为 0） */
+    const cur = props.sel || 1;
+    let focus = 0;
+    if (build.levels[cur - 1]?.classId === cid) {
+      for (let i = 0; i < cur; i++) if (build.levels[i]?.classId === cid) focus++;
+    }
     const byLevel: Record<number, string[]> = {};
     for (let l = 1; l <= n; l++) byLevel[l] = featuresAtClassLevel(db, cid, l, arches).filter((id) => isNamed(db.features[id]));
     const first = new Map<string, number>();
@@ -376,7 +380,7 @@ export function GrowthTable(props: {
     const tracks = [...first.entries()]
       .map(([id, f]) => ({ id, first: f }))
       .sort((a, b) => a.first - b.first || label(db.features[a.id]).localeCompare(label(db.features[b.id])));
-    return { cid, n, c, arches, byLevel, tracks, taken };
+    return { cid, n, c, arches, byLevel, tracks, filled, focus };
   });
 
   return (
@@ -439,7 +443,7 @@ export function GrowthTable(props: {
                 const ids = (b.byLevel[l] || []).filter((id) => id === t.id);
                 return (
                   <span
-                    className={"grow-cell" + (l === sel ? " on" : "") + (b.taken.has(l) ? " taken" : "")}
+                    className={"grow-cell" + (l === b.focus ? " on" : "") + (b.filled.has(l) ? " taken" : "")}
                     key={l}
                   >
                     {ids.map((id) => icoCell(db, id))}
