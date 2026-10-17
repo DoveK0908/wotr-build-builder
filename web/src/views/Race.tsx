@@ -21,7 +21,13 @@ export function Race(props: { db: Db }) {
   const attrs = rules.attributes;
 
   const list = useMemo(() => {
-    const all = Object.values(db.races).sort((a, b) => (a.name || "").localeCompare(b.name || "", "zh"));
+    /* 顺序按游戏角色创建名单（人类→精灵→…→狐妖），不是拼音序 */
+  const rOrder = db.rules.raceOrder || [];
+  const rank = (id: string) => {
+    const i = rOrder.indexOf(id);
+    return i < 0 ? 999 : i;
+  };
+  const all = Object.values(db.races).sort((a, b) => rank(a.id) - rank(b.id) || (a.name || "").localeCompare(b.name || "", "zh"));
     const kw = q.trim().toLowerCase();
     return kw ? all.filter((r) => (r.name + " " + (r.nameEn || "")).toLowerCase().includes(kw)) : all;
   }, [db, q]);

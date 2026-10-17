@@ -26,6 +26,8 @@ export interface Rules {
   basicFeatSelection?: string;
   deitySelection?: string;
   backgroundSelection?: string;
+  /** 游戏角色创建名单里的种族顺序 */
+  raceOrder?: string[];
 }
 
 export interface LevelEntry { level: number; features: string[] }

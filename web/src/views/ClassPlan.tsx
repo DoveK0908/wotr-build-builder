@@ -59,9 +59,12 @@ export function ClassPlan(props: { db: Db; onPresets?: () => void }) {
   const lv = build.levels[level - 1];
 
   const classOpts = useMemo(() => {
-    /* 顺序沿用游戏的角色创建名单：classes.json 的键顺序 = BlueprintRoot.Progression.m_CharacterClasses */
+    /* 顺序＝游戏角色创建界面的顺序：基础职业在前、进阶在后，两段内部都按中文名的字符编码序
+       （不是拼音：实测游戏就是 先知→化形师→吟游诗人→…→骑将→魔战士；进阶段是 冬巫→决斗家→…→龙脉术士） */
+    const cmp = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
     const all = Object.values(db.classes)
       .filter((c) => !c.mythic)
+      .sort((a, b) => (a.prestige === b.prestige ? cmp(a.name, b.name) : a.prestige ? 1 : -1))
       .map((c) => {
         const sel = classSelectableAt(db, c.id, build.alignment);
         const bad = !sel.ok;

@@ -1280,6 +1280,8 @@ def build(game_dir: str, out_dir: str) -> dict:
         "basicFeatSelection": basic_feat_sel,
         "deitySelection": deity_sel,
         "backgroundSelection": bg_root,
+        # 游戏角色创建名单里的种族顺序（人类优先，不是拼音序）
+        "raceOrder": race_ids,
     }
     sizes = {}
     sizes["rules.json"] = dump("rules.json", rules)
