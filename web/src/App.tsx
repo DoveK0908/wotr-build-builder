@@ -31,6 +31,8 @@ export function App() {
   const [presetsOpen, setPresetsOpen] = useState(() => /[#&]presets=1/.test(location.hash));
   const [doneMsg, setDoneMsg] = useState("");
   const [askReset, setAskReset] = useState(false);
+  /* 重置后给职业页换一个 key，让它重新挂载、自动回到第 1 级 */
+  const [viewEpoch, setViewEpoch] = useState(0);
   const [step, setStep] = useState(() => {
     const m = /[#&]tab=([A-Za-z0-9:_-]+)/.exec(location.hash);
     return normalizeStep(m ? m[1] : null);
@@ -251,7 +253,9 @@ export function App() {
                 )
               ) : (
                 <>
-                  {step === "class" && <ClassPlan db={db} onPresets={() => setPresetsOpen(true)} />}
+                  {step === "class" && (
+        <ClassPlan key={"cp" + viewEpoch} db={db} onPresets={() => setPresetsOpen(true)} />
+      )}
                   {step === "race" && <Race db={db} />}
                   {step === "background" && <Background db={db} />}
                   {step === "attrs" && <Attrs db={db} />}
@@ -334,6 +338,14 @@ export function App() {
             act.reset();
             setAskReset(false);
             setStep("class");
+            /* 分享链接里可能带 lv=N，重置时一并去掉，否则职业页会按 hash 回到那一级 */
+            try {
+              const h = location.hash.replace(/[&?]?lv=\d{1,2}/, "");
+              history.replaceState(null, "", h && h !== "#" ? h : "#tab=class");
+            } catch {
+              /* 文件协议下无所谓 */
+            }
+            setViewEpoch((e) => e + 1);
             setDoneMsg("已清空，可以重新开始规划");
           }}
         />
