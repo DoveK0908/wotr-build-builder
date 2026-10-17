@@ -17,6 +17,7 @@ const FILES = [
   "icons.json", // 蓝图 id → 图标文件名（覆盖率有限，缺图标的回退成首字徽记）
   "features.json", // 约 8 MB，最大的一个，放最后
   "presets.json",
+  "proficiencies.json",
   "meta.json",
 ] as const;
 
@@ -34,6 +35,7 @@ const KEYS: Record<string, keyof Db> = {
   "icons.json": "icons",
   "features.json": "features",
   "presets.json": "presets",
+  "proficiencies.json": "proficiencies",
   "meta.json": "meta",
 };
 

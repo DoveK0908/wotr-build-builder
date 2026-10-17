@@ -9,6 +9,13 @@ import { alignAbbr as abbrOf } from "../steps";
 import { featureIcon } from "../skin";
 
 /** 第 ⑪ 步：按游戏「角色卡」排的三栏总结 */
+/** 擅长 token → 中文名；查不到就退回 token 本身 */
+function cnList(map: Record<string, string> | undefined, tokens?: string[] | null): string {
+  const list = tokens || [];
+  if (!list.length) return "无";
+  return list.map((t) => map?.[t] || t).join("、");
+}
+
 export function Summary(props: { db: Db }) {
   const { db } = props;
   const build = useBuild();
@@ -297,8 +304,8 @@ export function Summary(props: { db: Db }) {
             <StatRows
               dense
               items={[
-                ["护甲擅长", (d.proficiencies.armor || []).join("、") || "无"],
-                ["武器擅长", (d.proficiencies.weapon || []).join("、") || "无"],
+                ["护甲擅长", cnList(db.proficiencies?.armor, d.proficiencies.armor)],
+                ["武器擅长", cnList(db.proficiencies?.weapon, d.proficiencies.weapon)],
               ]}
             />
           </Sect>

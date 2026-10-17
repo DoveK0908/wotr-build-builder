@@ -332,4 +332,11 @@ export interface Db {
   mythic: MythicData;
   presets: PresetData;
   icons?: IconIndex;
+  /** 擅长 token → 中文名（由 pipeline/make_prof_cn.py 生成） */
+  proficiencies?: ProficiencyNames;
+}
+
+export interface ProficiencyNames {
+  weapon: Record<string, string>;
+  armor: Record<string, string>;
 }

@@ -185,3 +185,19 @@
 | 道途自带门槛 | 天使/灵使/御衡者/恶魔的升级表带 `etude`；金龙/魔鬼/虫群行者带 `mainchar` + `mrank 7` + `etude` | 神话页对道途做三态判定：`mrank` 可判定（选金龙但只有 3 阶 → 「门槛未达：神话阶层 ≥ 7」），`mainchar`/`etude` 恒 `无法判定`、不拦人 |
 | `m_Prerequisite` / `IgnorePrerequisites` 不在组件里 | 在 `Components[]` 内扫描 `m_Prerequisite`(~131 次) 与 `IgnorePrerequisites`(460 次) 命中均为 **0** —— 它们其实是蓝图**根** `Data` 上的字段，组件层面没有漏读的开发量 | 无需处理（`IgnorePrerequisites` 已按上面的方式读取） |
 
+
+## proficiencies.json
+
+武器 / 护甲的「擅长」在数据里是内部 token（`Light`、`Dagger`、`HeavyShield`…），
+玩家看到的是中文名。这个文件由 `pipeline/make_prof_cn.py` 生成：
+
+```json
+{ "weapon": { "Dagger": "匕首", "Longsword": "长剑" },
+  "armor":  { "Light": "轻甲", "TowerShield": "塔盾" } }
+```
+
+- 护甲 / 盾牌 / 天生武器没有「武器类型蓝图」，用固定叫法（脚本里两张小表）。
+- 普通武器按**物品名反推**：武器类型蓝图自己没有本地化名字，但「精制品匕首 / 寒铁巨剑 /
+  +1炽焰细剑」这类物品名带着基名，剥掉词缀后取最常见的那个。
+- 覆盖：游戏里出现的 71 种玩家向武器 token **全部有中文名**；剩下 59 种是怪物天生攻击
+  （`BiteDragonType` 之类），规划器用不到。
