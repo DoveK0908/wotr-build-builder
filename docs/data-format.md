@@ -115,6 +115,10 @@
   「这个构筑里选了几遍」，不能只看集合里有没有（`LevelCtx.factCount`）。
 - `weaponcond`（`PrerequisiteConditionForWeaponCategory`）只是「有某武器擅长时才附带一条额外条件」的**展示项**，
   真正的门槛由同一蓝图上的 `PrerequisiteProficiency` 表达；它的文案是空串，明细里会被滤掉，不参与判定。
+- **暂不拦人的三类口径调整**（2026-10-17 用户确认「先按不拦人处理」）：
+  `ReplaceStatForPrerequisites`（算前置时改用另一个属性）、`PrerequisiteSelectionPossible`（只影响「还能不能选」的提示）、
+  `ClassLevelsForPrerequisites`（算前置时按另一个职业的等级算，变体常用）。它们改的是「怎么算」，不是门槛本身；
+  目前 `evalPrereq` 对这三类返回 `unknown`，既不判失败也不判通过 —— **别当成 bug 去「修」**。
 - 文案：`factrank` → 「已有 N 层：X」、`fact` → 「已有：X」、树 → 用「且 / 或」连接，`Not` 包一层「非（…）」。
 
 ## 已知的无害异常
