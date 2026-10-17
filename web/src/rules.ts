@@ -389,6 +389,21 @@ export interface Owned {
   auto: Set<string>;
 }
 
+/**
+ * 重复获得就升级的职业能力（游戏里的真实行为）。
+ *
+ * 「直觉闪避」：如果角色已经从别的职业拿到过，则这一级改为自动获得「精通直觉闪避」
+ * （游戏里是靠 UncannyDodgeChecker 的阶层条件实现的，这里按同样的语义记账）。
+ */
+const UD_IDS = new Set([
+  "3c08d842e802c3e4eb19d15496145709", // 游荡者 直觉闪避
+  "5996d09bae1d4e7eb75cdd4d8bd164fb", // 野蛮人 直觉闪避
+  "8f800ed6ce8c42e8a01fd8f3e990c459", // 游荡者 UncannyDodgeChecker
+  "ca5274d057152fa45b7527cad0927840", // 游荡者天赋版
+  "3fc0c0a94c634c66b4d3e92c173f05d5", // 屠魔游侠（模仿者）版
+]);
+const UD_IMPROVED = "485a18c05792521459c7d06c63128c79"; // 精通直觉闪避
+
 export function ownedFeatures(db: Db, build: Build): Owned {
   const ids = new Set<string>();
   const picks: Record<string, string> = {};
@@ -396,7 +411,17 @@ export function ownedFeatures(db: Db, build: Build): Owned {
   const auto = new Set<string>();
   const sel = archSel(db, build);
 
+  let udSeen = false;
   const addAuto = (id: string) => {
+    // 直觉闪避：第二次拿到就换成精通直觉闪避
+    if (UD_IDS.has(id)) {
+      if (udSeen) {
+        auto.add(UD_IMPROVED);
+        ids.add(UD_IMPROVED);
+        for (const x of expandFeature(db, UD_IMPROVED)) ids.add(x);
+      }
+      udSeen = true;
+    }
     auto.add(id);
     for (const x of expandFeature(db, id)) ids.add(x);
     for (const x of factProficiencies(db, id)) ids.add(x);
