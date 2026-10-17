@@ -3,11 +3,12 @@ import type { Db } from "../types";
 import type { Build } from "../store";
 import { act, deserialize, levelCap, serialize, shareUrl, useBuild } from "../store";
 import { attrBreakdown, attrMod, alignmentLocks, derive, label, ownedFeatures } from "../rules";
-import { Chip, Collapse, Confirm } from "../ui";
+import { Chip, Collapse, Confirm, Modal } from "../ui";
 import { AlignWheel, GrowthTable, IconGrid, Sect, StatBox, StatRows, ThreePane } from "../pane";
 import { openDetail } from "../detail";
 import { alignAbbr as abbrOf } from "../steps";
 import { featureIcon } from "../skin";
+import { buildTable, tableFilename, toCsv, toTsv } from "../exportTable";
 
 /** 第 ⑪ 步：按游戏「角色卡」排的三栏总结 */
 /** 擅长 token → 中文名；查不到就退回 token 本身 */
@@ -26,6 +27,7 @@ export function Summary(props: { db: Db }) {
   const [askReset, setAskReset] = useState(false);
   const [pasteOpen, setPasteOpen] = useState(false);
   const [pasteText, setPasteText] = useState("");
+  const [tableOpen, setTableOpen] = useState(false);
 
   const race = build.race ? db.races[build.race] : null;
   const bg = build.background ? db.backgrounds[build.background] : null;
@@ -72,6 +74,18 @@ export function Summary(props: { db: Db }) {
   const strMod = attrMod(d.attrs.Strength || 10);
   const dexMod = attrMod(d.attrs.Dexterity || 10);
   const touch = 10 + dexMod;
+
+  const table = useMemo(() => buildTable(db, build), [db, build]);
+  const downloadTable = () => {
+    const blob = new Blob([toCsv(table)], { type: "text/csv;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = tableFilename(table);
+    a.click();
+    URL.revokeObjectURL(a.href);
+    setMsg(`已导出 ${tableFilename(table)}`);
+  };
+  const copyTable = () => copy(toTsv(table), "构筑表（可直接粘进 Excel）");
 
   const copy = (t: string, what: string) => {
     navigator.clipboard?.writeText(t).then(
@@ -314,6 +328,7 @@ export function Summary(props: { db: Db }) {
 
           <Sect title="分享与存档">
             <div className="row wrap">
+              <button type="button" className="btn" onClick={() => setTableOpen(true)}>导出构筑表</button>
               <button type="button" className="btn" onClick={() => copy(shareUrl(build), "分享链接")}>复制分享链接</button>
               <button type="button" className="btn" onClick={() => copy(serialize(build), "构筑代码")}>复制构筑代码</button>
               <button type="button" className="btn ghost" onClick={() => setPasteOpen((x) => !x)}>粘贴代码导入</button>
@@ -386,7 +401,44 @@ export function Summary(props: { db: Db }) {
         onConfirm={() => { act.reset(); setAskReset(false); setMsg("已清空"); }}
       />
     )}
-  </>);
+      {tableOpen && (
+        <Modal title={`构筑表 · ${table.title}`} onClose={() => setTableOpen(false)}>
+          <div className="row wrap" style={{ marginBottom: 8 }}>
+            <button type="button" className="btn" onClick={downloadTable}>下载 CSV</button>
+            <button type="button" className="btn ghost" onClick={copyTable}>复制表格（粘进 Excel）</button>
+          </div>
+          <p className="muted small" style={{ margin: "0 0 8px" }}>
+            上面是开卡信息（购点 / 种族 / 背景 / 技能 / 神祇 / 阵营 / 职业 / 神话道途），下面是逐级表。
+          </p>
+          <div className="xscroll">
+            <table className="xtable">
+              <tbody>
+                {table.meta.map(([k, v]) => (
+                  <tr key={k}>
+                    <th style={{ whiteSpace: "nowrap" }}>{k}</th>
+                    <td>{v || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <table className="xtable" style={{ marginTop: 10 }}>
+              <thead>
+                <tr>{table.head.map((h) => <th key={h}>{h}</th>)}</tr>
+              </thead>
+              <tbody>
+                {table.rows.map((r) => (
+                  <tr key={r[0]}>
+                    {r.map((c, i) => (
+                      <td key={i} className={i === 0 ? "num" : undefined}>{c || "—"}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Modal>
+      )}
+    </>);
 }
 
 function groupByLevel(db: Db, ids: string[]): Record<string, string[]> {

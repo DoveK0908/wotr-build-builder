@@ -1,3 +1,6 @@
+import { buildTable, tableFilename, toCsv, toTsv } from "../src/exportTable";
+
+
 /**
  * 规则引擎无头自检：直接拿 public/data 里的真实数据跑一遍
  * derive / 购点 / 属性 / 前置校验 / 存档往返，
@@ -1101,6 +1104,20 @@ export function run(dir: string): void {
       ok(cs[4].rank === 0, "5 级时第 1 阶还不算（第 1 阶约 6 级）");
       ok(cs[5].rank === 1, "6 级时第 1 阶纳入上下文");
     }
+  }
+
+  /* ── 导出构筑表（表格数据）── */
+  {
+    const be = emptyBuild();
+    be.name = "导出测试";
+    const t = buildTable(db, be);
+    ok(t.head.length === 7, "导出表头 7 列");
+    ok(t.rows.length === levelCap(be), "导出逐级行数 = 等级上限");
+    ok(t.meta.some(([k]) => k === "购点") && t.meta.some(([k]) => k === "种族"), "导出信息块含购点/种族");
+    const csv = toCsv(t);
+    ok(csv.startsWith("\ufeff") && csv.includes("导出测试"), "CSV 带 BOM 且含标题");
+    const tsv = toTsv(t);
+    ok(tsv.split("\n").some((l) => l.split("\t").length === 7), "TSV 用制表符分列");
   }
 
   const total = pass + fails.length;
