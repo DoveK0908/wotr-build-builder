@@ -30,7 +30,8 @@ export function Feats(props: { db: Db }) {
   const [sel, setSel] = useState<number | null>(null);
 
   const running: Record<string, number> = {};
-  const info = build.levels.map((lv, idx) => {
+  // 没选传奇时角色等级上限是 20（`levelCap`）；传奇才铺到 40 级
+  const info = build.levels.slice(0, cap).map((lv, idx) => {
     const level = idx + 1;
     if (lv.classId) running[lv.classId] = (running[lv.classId] || 0) + 1;
     const classLvl = lv.classId ? running[lv.classId] : 0;

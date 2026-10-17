@@ -50,7 +50,7 @@ export function Summary(props: { db: Db }) {
 
   const perLevel = useMemo(() => {
     const running: Record<string, number> = {};
-    return build.levels.map((lv, i) => {
+    return build.levels.slice(0, cap).map((lv, i) => {
       if (lv.classId) running[lv.classId] = (running[lv.classId] || 0) + 1;
       const picks = Object.entries(lv.picks || {}).map(([sid, cid]) => ({
         slot: label(db.features[sid]),
