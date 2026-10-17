@@ -57,7 +57,7 @@ export function ClassPlan(props: { db: Db; onPresets?: () => void }) {
 
   /* 「职业详情」小弹窗（BAB / 豁免 / 法术位）与「第一次选进阶职业」的前置弹窗 */
   const [preInfo, setPreInfo] = useState<string | null>(null);
-  const [nums, setNums] = useState<{ cid: string; level: number } | null>(null);
+  const [nums, setNums] = useState<{ cid: string; level: number; kind: "bab" | "spells" } | null>(null);
 
   const firstEmpty = build.levels.findIndex((l) => !l.classId);
   const level = levelState ?? (firstEmpty < 0 ? 20 : firstEmpty + 1); // 1 基
@@ -277,7 +277,7 @@ export function ClassPlan(props: { db: Db; onPresets?: () => void }) {
             db={db}
             build={build}
             sel={level}
-            onNum={(cid, lv) => setNums({ cid, level: lv })}
+            onNum={(cid, lv, kind) => setNums({ cid, level: lv, kind })}
             onSel={(l) => setLevel(l)}
           />
 
@@ -386,10 +386,10 @@ export function ClassPlan(props: { db: Db; onPresets?: () => void }) {
 
       {nums && db.classes[nums.cid] && (
         <Modal
-          title={`${label(db.classes[nums.cid])} · 第 ${nums.level} 级`}
+          title={`${label(db.classes[nums.cid])} · 第 ${nums.level} 级 · ${nums.kind === "bab" ? "基础攻击加值与豁免" : "法术位"}`}
           onClose={() => setNums(null)}
         >
-          <ClassNumbers db={db} c={db.classes[nums.cid]} level={nums.level} />
+          <ClassNumbers db={db} c={db.classes[nums.cid]} level={nums.level} only={nums.kind} />
         </Modal>
       )}
 

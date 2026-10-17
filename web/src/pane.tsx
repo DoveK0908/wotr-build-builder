@@ -320,7 +320,7 @@ export function GrowthTable(props: {
   onSel?: (level: number) => void;
   onDetail?: (cid: string) => void;
   /** 点某职业某级的小图标 → 弹该级的 BAB/豁免/法术位 */
-  onNum?: (cid: string, level: number) => void;
+  onNum?: (cid: string, level: number, kind: "bab" | "spells") => void;
 }) {
   const { db, build } = props;
   const max = props.max || 20;
@@ -457,7 +457,7 @@ export function GrowthTable(props: {
                           title={`${label(b.c)} 第 ${l} 级：${row.label}`}
                           onClick={(e) => {
                             e.stopPropagation();
-                            props.onNum!(b.cid, l);
+                            props.onNum!(b.cid, l, row.key as "bab" | "spells");
                           }}
                         >
                           <img src={ui(row.ico)} alt="" />
@@ -552,6 +552,8 @@ export function ClassNumbers(props: {
     prestige?: boolean;
   };
   level: number;
+  /** bab = 只看基础攻击加值/豁免；spells = 只看法术位；不传则两行都给 */
+  only?: "bab" | "spells";
 }) {
   const { db, c } = props;
   if (!c) return null;
@@ -563,6 +565,7 @@ export function ClassNumbers(props: {
   const rings = ring.map((v, i) => ({ v, i })).filter((x) => x.v > 0);
   return (
     <div className="classnum">
+      {props.only !== "spells" && (
       <div className="cnrow">
         <span className="cnk">基础攻击加值</span>
         <span className="cnv">{iter.length ? iter.map((v) => "+" + v).join(" ") : "—"}</span>
@@ -571,6 +574,8 @@ export function ClassNumbers(props: {
           强韧 {c.fort?.[l] ?? "—"} · 反射 {c.ref?.[l] ?? "—"} · 意志 {c.will?.[l] ?? "—"}
         </span>
       </div>
+      )}
+      {props.only !== "bab" && (
       <div className="cnrow">
         <span className="cnk">法术位</span>
         <span className="cnv">
@@ -592,6 +597,7 @@ export function ClassNumbers(props: {
           )}
         </span>
       </div>
+      )}
     </div>
   );
 }
