@@ -259,7 +259,7 @@ export function PickModal(props: {
 }
 
 /** 只管展示的「自动获得」列表 */
-export function AutoList(props: { db: Db; ids: string[]; empty?: string }) {
+export function AutoList(props: { db: Db; ids: string[]; empty?: string; onDetail?: (id: string) => void }) {
   const { db, ids } = props;
   if (!ids.length) return <div className="muted small">{props.empty || "（本级没有自动获得的特性）"}</div>;
   return (
@@ -268,7 +268,12 @@ export function AutoList(props: { db: Db; ids: string[]; empty?: string }) {
         const f = db.features[id];
         if (!f) return <div key={id} className="auto-row"><span className="muted">{id}</span></div>;
         return (
-          <div key={id} className="auto-row" title={f.desc || ""}>
+          <div
+      key={id}
+      className={"auto-row" + (props.onDetail ? " clickable" : "")}
+      title={props.onDetail ? "点击看详情" : f.desc || ""}
+      onClick={props.onDetail ? () => props.onDetail!(id) : undefined}
+    >
             {featureIcon(db, id) && <img className="row-ico sm" src={featureIcon(db, id)!} alt="" />}
             <span className="auto-name">{label(f)}</span>
             {f.nameEn && <span className="pick-en">{f.nameEn}</span>}

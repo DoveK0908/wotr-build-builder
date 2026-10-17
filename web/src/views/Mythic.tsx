@@ -6,7 +6,8 @@ import {
   MYTHIC_RANK_LEVELS, levelForRank, pathStartRank, prereqText, rankRootSlots,
 } from "../rules";
 import { Chip, Collapse } from "../ui";
-import { SlotChain } from "../pick";
+import { AutoList, SlotChain } from "../pick";
+import { openDetail } from "../detail";
 import { DetailHead, ListPane, MythicGrowth, Sect, StatBox, StatRows, ThreePane } from "../pane";
 import { ART, featureIcon, mythicCard, ui } from "../skin";
 
@@ -233,13 +234,7 @@ export function Mythic(props: { db: Db }) {
 
           {cur.features.length > 0 && (
             <Collapse title={`${cur.isHero ? "神话英雄" : "道途"}特性（${cur.features.length}）`}>
-              <div className="autolist">
-                {cur.features.map((id) => (
-                  <div className="auto-row" key={id} title={db.features[id]?.desc || ""}>
-                    <span className="auto-name">{label(db.features[id])}</span>
-                  </div>
-                ))}
-              </div>
+              <AutoList db={db} ids={cur.features} onDetail={openDetail} />
             </Collapse>
           )}
 

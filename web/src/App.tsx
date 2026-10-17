@@ -8,6 +8,7 @@ import {
 } from "./steps";
 import type { Step } from "./steps";
 import { featureIcon } from "./skin";
+import { DetailHost } from "./detail";
 import { Confirm } from "./ui";
 import { Align } from "./views/Align";
 import { Attrs } from "./views/Attrs";
@@ -329,6 +330,7 @@ export function App() {
           }}
         />
       )}
+      <DetailHost db={db} />
     </div>
   );
 }

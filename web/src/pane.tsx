@@ -6,6 +6,7 @@ import {
   universalSlots,
 } from "./rules";
 import { ART, featureIcon, ui } from "./skin";
+import { openDetail } from "./detail";
 
 /* ────────────────────────────────────────────────────────────────────────────
    游戏里那套「左列表 + 中详情 + 右预览」三栏骨架，以及配套小件。
@@ -161,15 +162,24 @@ export function IconGrid(props: {
   cols?: number;
   sel?: string;
   onPick?: (id: string) => void;
+  /** 点一下弹详情（不传就没有这个行为） */
+  onDetail?: (id: string) => void;
 }) {
   return (
     <div className="igrid" style={{ gridTemplateColumns: `repeat(${props.cols || 3}, minmax(0, 1fr))` }}>
       {props.items.map((it) => (
         <div
           key={it.id}
-          className={"ig" + (props.sel === it.id ? " sel" : "") + (props.onPick ? "" : " static")}
-          title={it.title || it.name}
-          onClick={props.onPick ? () => props.onPick!(it.id) : undefined}
+          className={"ig" + (props.sel === it.id ? " sel" : "") + (props.onPick ? "" : " static")
+            + (props.onDetail && !props.onPick ? " clickable" : "")}
+          title={(it.title || it.name) + (props.onDetail ? "（点击看详情）" : "")}
+          onClick={
+            props.onPick
+              ? () => props.onPick!(it.id)
+              : props.onDetail
+                ? () => props.onDetail!(it.id)
+                : undefined
+          }
         >
           {it.ico ? (
             <img className="row-ico" src={it.ico} alt="" />
@@ -301,10 +311,11 @@ export function AlignWheel(props: {
 function icoCell(db: Db, id: string) {
   const ico = featureIcon(db, id);
   const nm = label(db.features[id]);
+  const open = () => openDetail(id);
   return ico ? (
-    <img key={id} className="grow-ico" src={ico} alt="" title={nm} />
+    <img key={id} className="grow-ico clickable" src={ico} alt="" title={`${nm}（点击看详情）`} onClick={open} />
   ) : (
-    <span key={id} className="grow-glyph" title={nm}>
+    <span key={id} className="grow-glyph clickable" title={`${nm}（点击看详情）`} onClick={open}>
       {nm.slice(0, 1)}
     </span>
   );

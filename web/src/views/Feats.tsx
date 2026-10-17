@@ -6,7 +6,8 @@ import {
   levelForRank, mythicRank, prereqText, rankRootSlots, ranksAtLevel,
 } from "../rules";
 import { Chip, Collapse, SearchSelect } from "../ui";
-import { SlotChain } from "../pick";
+import { AutoList, SlotChain } from "../pick";
+import { openDetail } from "../detail";
 import { DetailHead, ListPane, ListRow, Sect, StatBox, StatRows, ThreePane } from "../pane";
 import { featureIcon } from "../skin";
 import { stepGlyph } from "../steps";
@@ -221,17 +222,7 @@ export function Feats(props: { db: Db }) {
 
           {autoIds.length > 0 && (
             <Collapse title={`本级自动获得（${autoIds.length}）`}>
-              <div className="autolist">
-                {autoIds.map((id) => {
-                  const f = db.features[id];
-                  return (
-                    <div className="auto-row" key={id} title={f?.desc || ""}>
-                      <span className="auto-name">{label(f)}</span>
-                      {f?.nameEn && <span className="pick-en">{f.nameEn}</span>}
-                    </div>
-                  );
-                })}
-              </div>
+              <AutoList db={db} ids={autoIds} onDetail={openDetail} />
             </Collapse>
           )}
 

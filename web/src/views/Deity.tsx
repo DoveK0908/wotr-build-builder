@@ -4,6 +4,7 @@ import { act, useBuild } from "../store";
 import { alignAllows, alignConflicts, alignNeedText, alignTokensOf, childFeatures, derive, evalPrereqs, label, ownedFeatures, prereqText } from "../rules";
 import { Chip, Desc } from "../ui";
 import { DetailHead, IconGrid, ListPane, ListRow, Sect, StatRows, ThreePane } from "../pane";
+import { openDetail } from "../detail";
 import { featureIcon } from "../skin";
 
 /** 第 ⑧ 步：神祇（会限制阵营，牧师/战斗祭司等还需要它才能开领域） */

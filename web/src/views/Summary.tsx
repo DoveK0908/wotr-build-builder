@@ -5,6 +5,7 @@ import { act, deserialize, levelCap, serialize, shareUrl, useBuild } from "../st
 import { attrBreakdown, attrMod, alignmentLocks, derive, label, ownedFeatures } from "../rules";
 import { Chip, Collapse, Confirm } from "../ui";
 import { AlignWheel, GrowthTable, IconGrid, Sect, StatBox, StatRows, ThreePane } from "../pane";
+import { openDetail } from "../detail";
 import { alignAbbr as abbrOf } from "../steps";
 import { featureIcon } from "../skin";
 
@@ -183,19 +184,19 @@ export function Summary(props: { db: Db }) {
 
           {groups.traits.length > 0 && (
             <Sect title={`种族与背景特性（${groups.traits.length}）`}>
-              <IconGrid items={grid(groups.traits)} cols={3} />
+              <IconGrid items={grid(groups.traits)} cols={3} onDetail={openDetail} />
             </Sect>
           )}
 
           {groups.abilities.length > 0 && (
             <Sect title={`特殊能力（${groups.abilities.length}）`}>
-              <IconGrid items={grid(groups.abilities)} cols={3} />
+              <IconGrid items={grid(groups.abilities)} cols={3} onDetail={openDetail} />
             </Sect>
           )}
 
           {groups.feats.length > 0 && (
             <Sect title={`专长（${groups.feats.length}）`}>
-              <IconGrid items={grid(groups.feats)} cols={3} />
+              <IconGrid items={grid(groups.feats)} cols={3} onDetail={openDetail} />
             </Sect>
           )}
 
@@ -225,6 +226,7 @@ export function Summary(props: { db: Db }) {
                     <div style={{ marginTop: 6 }}>
                       <IconGrid
                         cols={4}
+                        onDetail={openDetail}
                         items={sp.chosen.map((id) => ({
                           id,
                           name: db.spells[id]?.name || id,

@@ -815,3 +815,10 @@ img.row-mark { opacity: .95; }
 }
 .progress .progress-body { flex: 1 1 auto; min-height: 0; display: flex; }
 .progress .progress-body > * { flex: 1 1 auto; min-width: 0; min-height: 0; }
+
+/* 可点开详情的条目 */
+.ig.clickable { cursor: pointer; }
+.ig.clickable:hover { background: rgba(122, 61, 143, .18); }
+.auto-row.clickable { cursor: pointer; }
+.auto-row.clickable:hover { background: rgba(122, 61, 143, .18); }
+.entity .desc { margin-top: 8px; }

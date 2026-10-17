@@ -5,6 +5,7 @@ import { attrMod, derive, label, raceRootSlots, traitList } from "../rules";
 import { Chip, Collapse, Desc } from "../ui";
 import { SlotChain, reachable } from "../pick";
 import { DetailHead, IconGrid, ListPane, ListRow, Sect, StatRows, ThreePane } from "../pane";
+import { openDetail } from "../detail";
 import { featureIcon } from "../skin";
 
 /** 第 ② 步：种族、种族加值、任选 +2、种族传承 */
@@ -136,6 +137,7 @@ export function Race(props: { db: Db }) {
               <Sect title={`种族特性（${traits.length}）`}>
                 <IconGrid
                   cols={3}
+                  onDetail={openDetail}
                   items={traits.map((t) => ({
                     id: t.id,
                     name: label(t),
