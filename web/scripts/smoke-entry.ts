@@ -689,8 +689,8 @@ export function run(dir: string): void {
   // ── 建置步骤流 ────────────────────────────────────────────────────────
   eq(
     STEP_IDS.join(">"),
-    "class>race>background>attrs>skills>feats>spells>deity>align>mythic>summary",
-    "建置步骤顺序：职业→种族→背景→购点→技能→专长→法术→神祇→阵营→神话→总结",
+    "class>race>background>attrs>skills>progress>deity>align>summary",
+    "建置步骤顺序：职业→种族→背景→购点→技能→逐级→神祇→阵营→总结",
   );
   eq(normalizeStep("char"), "race", "老链接 #tab=char 映射到种族");
   eq(normalizeStep("levels"), "class", "老链接 #tab=levels 映射到职业");
@@ -773,13 +773,10 @@ export function run(dir: string): void {
         eq(s.classId, oracle.id, `子步骤「${s.name}」归属先知`);
       }
       const all = allSteps(db, b);
-      eq(all.length, STEP_IDS.length + subs.length, "allSteps = 基础 11 步 + 动态子步骤");
-      const fi = all.findIndex((s) => s.id === "feats");
-      ok(
-        all.slice(fi + 1, fi + 1 + subs.length).every((s) => s.dynamic),
-        "动态子步骤插在「专长」之后",
-      );
-      ok(normalizeStep(subs[0].id) === subs[0].id, "normalizeStep 放行动态步骤 id");
+      eq(all.length, STEP_IDS.length, "allSteps = 基础 9 步（子步骤已并入「逐级」）");
+  ok(subs.length >= 3, `先知带出 ${subs.length} 个职业子步骤（并入逐级页）`, subs.map((x) => x.name).join("/"));
+  ok(all.every((x) => !x.dynamic), "顶层步骤里没有动态子步骤");
+      eq(normalizeStep(subs[0].id), "progress", "旧链接的 cls: 子步骤归一到「逐级」");
       // 牌匾上的「已选值」
       eq(stepValue(db, b, derive(db, b), "class"), "先知", "职业牌匾显示职业名");
       ok(stepFilled(db, b, derive(db, b), "class"), "选了职业就算已配置");
@@ -822,11 +819,8 @@ export function run(dir: string): void {
       }
       const mall = allSteps(db, mb);
       const mi = mall.findIndex((s) => s.id === "mythic");
-      ok(
-        mall.slice(mi + 1, mi + 1 + my.length).every((s) => s.dynamic),
-        "神话子步骤插在「神话」之后",
-      );
-      ok(normalizeStep(my[0].id) === my[0].id, "normalizeStep 放行神话子步骤 id");
+      ok(mall.every((s) => !s.dynamic), "神话子步骤不再占顶层步骤位置");
+      eq(normalizeStep(my[0].id), "progress", "旧链接的 my: 子步骤归一到「逐级」");
       ok(stepValue(db, mb, derive(db, mb), my[0].id) !== "", "神话子步骤牌匾显示已选值");
       eq(stepGlyph(my[0].id, my[0].name), my[0].name.slice(0, 1), "神话子步骤用名字首字当徽记");
       act.reset();
@@ -910,7 +904,7 @@ export function run(dir: string): void {
           ok(zSteps.length >= 1, `灵使带出 ${zSteps.length} 个「法术:等级 N」子步骤`, zSteps.map((s) => s.name).join("/"));
           if (zSteps.length) {
             const sid = zSteps[0].id;
-            ok(normalizeStep(sid) === sid, "normalizeStep 放行道途法术子步骤 id");
+            eq(normalizeStep(sid), "progress", "旧链接的 mysp: 子步骤归一到「逐级」");
             eq(stepGlyph(sid), "法", "道途法术子步骤用「法」当徽记");
             eq(stepValue(db, zb, derive(db, zb), sid), "", "没选法术时牌匾为空");
             const L = Number(sid.slice(DYN_MYTHIC_SPELL_PREFIX.length));
@@ -926,10 +920,7 @@ export function run(dir: string): void {
           const zall = allSteps(db, zb);
           const zi = zall.findIndex((s) => s.id === "mythic");
           const zsubs = mythicSubSteps(db, zb);
-          ok(
-            zall.slice(zi + 1, zi + 1 + zsubs.length).map((s) => s.id).join(",") === zsubs.map((s) => s.id).join(","),
-            "神话子步骤（含道途法术）按顺序插在「神话」之后",
-          );
+          ok(zall.every((s) => !s.dynamic), "神话子步骤（含道途法术）不再占顶层步骤位置");
         }
       }
     }

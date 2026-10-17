@@ -12,15 +12,11 @@ import { Confirm } from "./ui";
 import { Align } from "./views/Align";
 import { Attrs } from "./views/Attrs";
 import { Background } from "./views/Background";
-import { ClassFeature } from "./views/ClassFeature";
-import { MythicFeature } from "./views/MythicFeature";
 import { ClassPlan } from "./views/ClassPlan";
 import { Deity } from "./views/Deity";
-import { Feats } from "./views/Feats";
-import { Mythic } from "./views/Mythic";
+import { Progress } from "./views/Progress";
 import { Race } from "./views/Race";
 import { Skills } from "./views/Skills";
-import { Spells } from "./views/Spells";
 import { Summary } from "./views/Summary";
 import { PresetPicker } from "./views/Presets";
 
@@ -238,36 +234,15 @@ export function App() {
                 )}
               </div>
 
-              {cur.id.startsWith("mysp:") ? (
-                <Spells
-                  key={cur.id}
-                  db={db}
-                  focusBook={mythicSpellbook(db, build)?.spellbookId}
-                  focusLevel={Number(cur.id.slice("mysp:".length))}
-                />
-              ) : cur.dynamic && cur.slotId ? (
-                cur.id.startsWith("my:") ? (
-                  <MythicFeature db={db} slotId={cur.slotId} />
-                ) : (
-                  <ClassFeature db={db} slotId={cur.slotId} classId={cur.classId || ""} />
-                )
-              ) : (
-                <>
-                  {step === "class" && (
-        <ClassPlan key={"cp" + viewEpoch} db={db}  />
-      )}
-                  {step === "race" && <Race db={db} />}
-                  {step === "background" && <Background db={db} />}
-                  {step === "attrs" && <Attrs db={db} />}
-                  {step === "skills" && <Skills db={db} />}
-                  {step === "feats" && <Feats db={db} />}
-                  {step === "spells" && <Spells db={db} />}
-                  {step === "deity" && <Deity db={db} />}
-                  {step === "align" && <Align db={db} />}
-                  {step === "mythic" && <Mythic db={db} />}
-                  {step === "summary" && <Summary db={db} />}
-                </>
-              )}
+              {step === "class" && <ClassPlan key={"cp" + viewEpoch} db={db} />}
+              {step === "race" && <Race db={db} />}
+              {step === "background" && <Background db={db} />}
+              {step === "attrs" && <Attrs db={db} />}
+              {step === "skills" && <Skills db={db} />}
+              {step === "progress" && <Progress db={db} />}
+              {step === "deity" && <Deity db={db} />}
+              {step === "align" && <Align db={db} />}
+              {step === "summary" && <Summary db={db} />}
             </main>
           </div>
 

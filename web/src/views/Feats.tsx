@@ -2,7 +2,8 @@ import React, { useMemo, useState } from "react";
 import type { AttrId, Db } from "../types";
 import { act, useBuild } from "../store";
 import {
-  choiceVerdict, derive, featuresAtClassLevel, isNamed, label, levelCtxList, levelRootSlots,
+  choiceVerdict, derive, evalPrereqs, featuresAtClassLevel, isNamed, label, levelCtxList, levelRootSlots,
+  mythicRank, prereqText, rankRootSlots,
 } from "../rules";
 import { Chip, Collapse, SearchSelect } from "../ui";
 import { SlotChain } from "../pick";
@@ -133,6 +134,65 @@ export function Feats(props: { db: Db }) {
               这一级没有要做的选择{cls ? "" : "（先在「职业」步骤排这一级的职业）"}。
             </div>
           )}
+
+          {/* 并行的神话阶层：角色等级 N 与神话第 ceil(N/2) 阶同时推进 */}
+          {(() => {
+            const mr = Math.min(10, Math.max(1, Math.ceil(cur.level / 2)));
+            const rank = build.ranks[mr - 1] || { picks: {}, params: {}, ability: null };
+            const slots = rankRootSlots(db, build, mr);
+            const reached = mythicRank(build) >= mr;
+            return (
+              <Sect title={`同一步：神话第 ${mr} 阶${reached ? "" : "（还没排到这一阶）"}`}>
+                {!reached ? (
+                  <div className="muted small">
+                    先把神话阶层排到第 {mr} 阶（「神话阶层」子页签），这里才能填它的选择。
+                  </div>
+                ) : slots.length === 0 ? (
+                  <div className="muted small">这一阶没有要选的。</div>
+                ) : (
+                  <div className="slots">
+                    {slots.map((sl) => (
+                      <SlotChain
+                        key={sl.id}
+                        db={db}
+                        root={sl}
+                        picks={rank.picks}
+                        verdict={(fid) => choiceVerdict(db, ctxs[Math.min(ctxs.length - 1, mr * 2 - 1)] || ctx, fid)}
+                        onChange={(sid, v) => act.setRankPick(mr - 1, sid, v)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </Sect>
+            );
+          })()}
+
+          {/* 已选项的实时前置检查：改任何一步都会立刻重新判 */}
+          {(() => {
+            const bad: string[] = [];
+            for (const cid of Object.values(cur.lv.picks)) {
+              if (!cid) continue;
+              const f = db.features[cid];
+              const pr = f?.prereq || [];
+              if (!pr.length) continue;
+              const res = evalPrereqs(db, ctx, pr);
+              if (res.verdict !== "no") continue;
+              const why = (res.details || [])
+                .filter((d) => d.v === "no")
+                .map((d) => prereqText(db, d.p))
+                .join("、");
+              bad.push(`${label(f)}：${why || "前置不满足"}`);
+            }
+            return bad.length ? (
+              <div className="row" style={{ marginTop: 8, flexWrap: "wrap" }}>
+                {bad.map((t) => (
+                  <Chip key={t} tone="no">
+                    前置不满足 · {t}
+                  </Chip>
+                ))}
+              </div>
+            ) : null;
+          })()}
 
           {Object.entries(cur.lv.picks).map(([sid, cid]) => {
             const f = db.features[cid];

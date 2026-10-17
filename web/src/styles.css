@@ -801,3 +801,17 @@ img.row-mark { opacity: .95; }
   padding: 6px 12px 4px;
   flex: none;
 }
+
+/* 「逐级」大步：内部子页签（专长 / 法术 / 神话阶层） */
+.progress { display: flex; flex-direction: column; min-height: 0; height: 100%; }
+.progress .subnav { display: flex; gap: 6px; padding: 2px 0 8px; flex: none; }
+.progress .subtab {
+  font: inherit; font-size: 13px; cursor: pointer; padding: 5px 14px; border-radius: 999px;
+  border: 1px solid var(--line2); background: transparent; color: var(--fg2);
+}
+.progress .subtab:hover { border-color: var(--gold); color: var(--fg); }
+.progress .subtab.on {
+  background: linear-gradient(180deg, #5b2a52, #7b3a6e); color: #fbf5e4; border-color: #b8944a;
+}
+.progress .progress-body { flex: 1 1 auto; min-height: 0; display: flex; }
+.progress .progress-body > * { flex: 1 1 auto; min-width: 0; min-height: 0; }

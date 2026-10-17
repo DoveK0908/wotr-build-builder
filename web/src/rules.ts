@@ -866,6 +866,28 @@ export function derive(db: Db, build: Build): Derived {
     if (!lv.classId) unfinished.push(`第 ${i + 1} 级未选职业`);
   }
 
+  /* 已经选了的专长/特性：按它所在的那一级重新判前置（改任何一步都会立刻影响这里） */
+  for (let i = 0; i < MAX_LEVEL; i += 1) {
+    const lv = build.levels[i];
+    const ctx = levelCtxList(db, build, {
+      level, rank, classLevels: cl, archLevels: archLevels(db, build), archSel: sel,
+      attrs, owned, bab, fort, ref, will, hp, skillPointsTotal: total, skills,
+      skillSpent, ac: 0, savesMisc, maxSpellLevel, spells,
+      proficiencies: { armor: [], weapon: [] }, unfinished: [],
+    } as any)[i];
+    if (!ctx) continue;
+    for (const cid of Object.values(lv.picks)) {
+      if (!cid) continue;
+      const f = db.features[cid];
+      const pr = f?.prereq || [];
+      if (!pr.length) continue;
+      const res = evalPrereqs(db, ctx, pr);
+      if (res.verdict !== "no") continue;
+      const why = (res.details || []).filter((d) => d.v === "no").map((d) => prereqText(db, d.p)).join("、");
+      unfinished.push(`第 ${i + 1} 级「${label(f)}」前置不满足${why ? "：" + why : ""}`);
+    }
+  }
+
   return {
     level, rank, classLevels: cl, archLevels: archLevels(db, build), archSel: sel,
     attrs, owned, bab, fort: fort + savesMisc.fort, ref: ref + savesMisc.ref,

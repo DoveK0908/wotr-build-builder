@@ -31,12 +31,15 @@ export const STEPS: Step[] = [
   { id: "background", name: "背景", num: "③", hint: "按层级选：大类 → 具体背景 → 有些还要再选一项" },
   { id: "attrs", name: "购点", num: "④", hint: "购点、升级提升、装备等外部加值" },
   { id: "skills", name: "技能", num: "⑤", hint: "把每级的技能点投出去" },
-  { id: "feats", name: "专长", num: "⑥", hint: "逐级填专长 / 职业选择，含参数（武器、法术学派…）" },
-  { id: "spells", name: "法术", num: "⑦", hint: "每个施法职业的已知法术与额外领域法术" },
-  { id: "deity", name: "神祇", num: "⑧", hint: "信仰（牧师/战斗祭司等必需），并会限制阵营与领域" },
-  { id: "align", name: "阵营", num: "⑨", hint: "阵营与已选职业 / 变体 / 神祇是否相容" },
-  { id: "mythic", name: "神话", num: "⑩", hint: "神话道途：前两阶是神话英雄，第 3 阶才出道途" },
-  { id: "summary", name: "总结", num: "⑪", hint: "全构筑一览、未完成清单与分享" },
+  {
+    id: "progress",
+    name: "逐级",
+    num: "⑥",
+    hint: "逐级填：专长 / 职业选择 / 法术 / 神话阶层（职业与神话并行）",
+  },
+  { id: "deity", name: "神祇", num: "⑦", hint: "信仰（牧师/战斗祭司等必需），并会限制阵营与领域" },
+  { id: "align", name: "阵营", num: "⑧", hint: "阵营与已选职业 / 变体 / 神祇是否相容" },
+  { id: "summary", name: "总结", num: "⑨", hint: "全构筑一览、未完成清单与分享" },
 ];
 
 export const STEP_IDS: string[] = STEPS.map((s) => s.id);
@@ -45,12 +48,15 @@ export const STEP_IDS: string[] = STEPS.map((s) => s.id);
 const ALIASES: Record<string, string> = {
   char: "race",
   levels: "class",
+  feats: "progress",
+  spells: "progress",
+  mythic: "progress",
 };
 
 export function normalizeStep(id: string | null | undefined): string {
   if (!id) return STEPS[0].id;
   if (id.startsWith(DYN_PREFIX) || id.startsWith(DYN_MYTHIC_PREFIX) || id.startsWith(DYN_MYTHIC_SPELL_PREFIX)) {
-    return id; // 动态步骤
+    return "progress";
   }
   const v = ALIASES[id] || id;
   return STEP_IDS.includes(v) ? v : STEPS[0].id;
@@ -123,20 +129,15 @@ export function classSubSteps(db: Db, build: Build): Step[] {
   return out;
 }
 
-/** 基础 11 步 + 职业动态子步骤（插在 ⑥ 专长 之后）+ 神话动态子步骤（插在 ⑩ 神话 之后） */
-export function allSteps(db: Db, build: Build): Step[] {
-  const cls = classSubSteps(db, build);
-  const my = mythicSubSteps(db, build);
-  let out = STEPS;
-  if (cls.length) {
-    const i = out.findIndex((s) => s.id === "feats");
-    out = [...out.slice(0, i + 1), ...cls, ...out.slice(i + 1)];
-  }
-  if (my.length) {
-    const i = out.findIndex((s) => s.id === "mythic");
-    out = [...out.slice(0, i + 1), ...my, ...out.slice(i + 1)];
-  }
-  return out;
+/**
+ * 牌匾条上的步骤。
+ *
+ * 职业/神话的动态子块（`classSubSteps` / `mythicSubSteps`）**不再单列成牌匾**：
+ * 按用户的要求，⑥ 之后到神祇之前的内容（逐级专长、职业特性槽、法术、神话阶层）合并成
+ * 一个「逐级」大步，这些子块在该步骤页内部按级/按阶展示。
+ */
+export function allSteps(_db: Db, _build: Build): Step[] {
+  return STEPS;
 }
 
 /**
@@ -258,22 +259,28 @@ export function stepValue(db: Db, build: Build, d: Derived, id: string): string 
     }
     case "skills":
       return d.skillSpent ? `已投 ${d.skillSpent}` : "";
-    case "feats": {
+    case "progress": {
       let done = 0;
       let total = 0;
-      for (let i = 0; i < build.levels.length; i += 1) {
-        if (!build.levels[i].classId) continue;
-        for (const s of levelRootSlots(db, build, i + 1)) {
+      let myDone = 0;
+      let myTotal = 0;
+      for (const lv of build.levels) {
+        for (const sl of levelRootSlots(db, build, build.levels.indexOf(lv) + 1)) {
           total += 1;
-          if (build.levels[i].picks[s.id]) done += 1;
+          if (lv.picks[sl.id]) done += 1;
         }
       }
-      return total ? `${done} / ${total}` : "";
-    }
-    case "spells": {
-      // `d.maxSpellLevel` 是「每本法术书 → 最高环位」的表，牌匾上要的是最大的那个环位
-      const mx = Math.max(0, ...Object.values(d.maxSpellLevel || {}));
-      return mx ? `${mx} 环` : "";
+      for (let r = 1; r <= Math.max(1, mythicRank(build)); r += 1) {
+        for (const sl of rankRootSlots(db, build, r)) {
+          myTotal += 1;
+          if (build.ranks[r - 1]?.picks[sl.id]) myDone += 1;
+        }
+      }
+      const sp = (d.spells || []).reduce((a, b) => a + (b.chosen?.length || 0), 0);
+      const parts = [`专长 ${done}/${total}`];
+      if (sp) parts.push(`法术 ${sp}`);
+      if (myTotal) parts.push(`神话 ${myDone}/${myTotal}`);
+      return parts.join(" · ");
     }
     case "deity":
       return build.deity ? label(db.features[build.deity]) : "";

@@ -17,7 +17,7 @@ if (-not (Test-Path $exe)) {
 # reused profile would silently re-apply the previous run's build ("empty" run was not
 # empty). Fresh profile = the page really starts from an empty build.
 $prof = Join-Path $env:TEMP ("wotr-chrome-" + [guid]::NewGuid().ToString("N").Substring(0, 10))
-$tabs = @("class", "race", "background", "attrs", "skills", "feats", "spells", "deity", "align", "mythic", "summary")
+$tabs = @("class", "race", "background", "attrs", "skills", "progress", "deity", "align", "summary")
 $bad = 0
 "profile: $prof"
 
