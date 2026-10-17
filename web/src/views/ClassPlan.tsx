@@ -99,11 +99,13 @@ export function ClassPlan(props: { db: Db; onPresets?: () => void }) {
   const archSlotLevel = picked ? firstLvlOf(picked) : 0;
   const canPickArch = !!picked && archChoices.length > 0 && archSlotLevel === level;
 
-  /** 点职业 = 把这一级定成它（不再自动跳下一级）；第一次选进阶职业时弹出前置条件窗口 */
+  /** 点职业 = 把这一级定成它（不再自动跳下一级）；
+      进阶职业只在「给它排第一级」时弹一次前置条件窗口，之后加它的第 2、3 级不再弹 */
   const pickClass = (cid: string) => {
+    const before = classLevels(build)[cid] || 0;
     act.setClass(level - 1, cid);
     const c = db.classes[cid];
-    if (c?.prestige) setPreInfo(cid);
+    if (c?.prestige && before === 0) setPreInfo(cid);
   };
 
   /** 某个职业的「第几级」（当前正在编辑的那一级对应它的第几级，没排到就是 1） */
@@ -138,11 +140,6 @@ export function ClassPlan(props: { db: Db; onPresets?: () => void }) {
       .map((d) => ({ v: d.v as string, text: prereqText(db, d.p), k: d.p.k }));
   };
   const preReqs = useMemo(() => reqsOf(shown), [db, preCtx, shown]);
-  const preText = (c: ClassEntry) => {
-    const list = (c.prereq || []).filter((p) => !p.hide).map((p) => prereqText(db, p));
-    if (!list.length) return "";
-    return list.slice(0, 3).join("、") + (list.length > 3 ? ` 等 ${list.length} 条` : "");
-  };
   const preFail = preReqs.filter((r) => r.v === "no").length;
 
   const skillNames = (ids?: string[]) =>
@@ -224,9 +221,7 @@ export function ClassPlan(props: { db: Db; onPresets?: () => void }) {
                 sub={
                   o.bad
                     ? o.hint
-                    : o.c.prestige
-                      ? `进阶 · HD ${o.c.hitDie}${preText(o.c) ? " · 需要 " + preText(o.c) : ""}`
-                      : `基础 · HD ${o.c.hitDie}`
+                    : `${o.c.prestige ? "进阶" : "基础"} · HD ${o.c.hitDie}`
                 }
                 badge={o.bad ? <span className="badge no">阵营不符</span> : undefined}
                 dis={o.bad}
