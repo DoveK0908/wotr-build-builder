@@ -745,3 +745,12 @@ img.row-mark { opacity: .95; }
 /* 逐级数值表里的数字 */
 .growth.nums .grow-cell { justify-content: center; }
 .gnum { font-size: 11px; color: var(--fg2); font-variant-numeric: tabular-nums; }
+
+/* 职业详情小弹窗（BAB / 豁免 / 法术位，两行） */
+.classnum { display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
+.classnum .cnrow { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.classnum .cnk { color: var(--muted); font-size: 12px; min-width: 84px; }
+.classnum .cnv { color: var(--fg); display: inline-flex; gap: 6px; align-items: baseline; }
+.classnum .cnv > span { color: var(--gold2); font-variant-numeric: tabular-nums; }
+.grow-detail { margin-left: 8px; padding: 1px 8px; font-size: 11px; }
+.growth.nums { display: none; }

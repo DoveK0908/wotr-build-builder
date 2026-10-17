@@ -318,6 +318,7 @@ export function GrowthTable(props: {
   showFeats?: boolean;
   sel?: number;
   onSel?: (level: number) => void;
+  onDetail?: (cid: string) => void;
 }) {
   const { db, build } = props;
   const max = props.max || 20;
@@ -373,14 +374,15 @@ export function GrowthTable(props: {
     if (build.levels[cur - 1]?.classId === cid) {
       for (let i = 0; i < cur; i++) if (build.levels[i]?.classId === cid) focus++;
     }
+    const cap = Math.min(c?.maxLevel || 20, 20);
     const byLevel: Record<number, string[]> = {};
-    for (let l = 1; l <= n; l++) byLevel[l] = featuresAtClassLevel(db, cid, l, arches).filter((id) => isNamed(db.features[id]));
+    for (let l = 1; l <= cap; l++) byLevel[l] = featuresAtClassLevel(db, cid, l, arches).filter((id) => isNamed(db.features[id]));
     const first = new Map<string, number>();
-    for (let l = 1; l <= n; l++) for (const id of byLevel[l]) if (!first.has(id)) first.set(id, l);
+    for (let l = 1; l <= cap; l++) for (const id of byLevel[l]) if (!first.has(id)) first.set(id, l);
     const tracks = [...first.entries()]
       .map(([id, f]) => ({ id, first: f }))
       .sort((a, b) => a.first - b.first || label(db.features[a.id]).localeCompare(label(db.features[b.id])));
-    return { cid, n, c, arches, byLevel, tracks, filled, focus };
+    return { cid, n, c, arches, byLevel, tracks, filled, focus, cap };
   });
 
   return (
@@ -430,7 +432,18 @@ export function GrowthTable(props: {
           <div className="grow-row name clickable" onClick={() => toggle(b.cid)} title="点一下展开 / 收起">
             <span className="grow-label">
               {fold(b.cid)} {label(b.c)}
-              {b.arches.length ? " " + b.arches.map((a) => db.archetypes[a]?.name || "").join(" ") : ""} ({b.n} 级)
+              {b.arches.length ? " " + b.arches.map((a) => db.archetypes[a]?.name || "").join(" ") : ""} ({b.n} / {b.cap} 级)
+              <button
+                type="button"
+                className="btn xs ghost grow-detail"
+                title="看这个职业逐级的基础攻击加值 / 豁免 / 法术位"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  props.onDetail?.(b.cid);
+                }}
+              >
+                详情
+              </button>
             </span>
             <span className="grow-hearts">{b.c?.hitDie ? "♥ " + b.c.hitDie + " / 等级" : ""}</span>
           </div>
@@ -504,8 +517,8 @@ export function MythicGrowth(props: { db: Db; build: Build; max?: number; sel?: 
   );
 }
 
-/** 某个职业的逐级数值（BAB / 豁免 / 法术位），列宽与 GrowthTable 完全对齐 */
-export function LevelNumbers(props: {
+/** 游戏那个「职业详情」小弹窗的内容：两行 —— ① 基础攻击加值与豁免 ② 逐环法术位 */
+export function ClassNumbers(props: {
   db: Db;
   c?: {
     maxLevel?: number;
@@ -516,63 +529,47 @@ export function LevelNumbers(props: {
     spellbookId?: string;
     prestige?: boolean;
   };
-  sel?: number;
+  level: number;
 }) {
   const { db, c } = props;
   if (!c) return null;
-  const n = Math.min(c.maxLevel || 20, 20);
-  const cols = Array.from({ length: n }, (_, i) => i + 1);
+  const l = Math.max(1, Math.min(props.level || 1, Math.min(c.maxLevel || 20, 20)));
+  const bab = c.bab?.[l];
+  const iter = typeof bab === "number" ? [bab, bab - 5, bab - 10].filter((v) => v >= 0) : [];
   const book = c.spellbookId ? db.spellbooks[c.spellbookId] : null;
-  const spd: number[][] = (book?.spellsPerDay as number[][]) || [];
-  const ringCount = spd.reduce((m, row) => Math.max(m, (row || []).length), 0);
-  const rings: number[] = [];
-  for (let r = 0; r < ringCount; r++) if (spd.some((row) => ((row || [])[r] || 0) > 0)) rings.push(r);
-  const num = (arr: number[] | undefined, l: number) => (arr && typeof arr[l] === "number" ? String(arr[l]) : "—");
-  const rows: { k: string; get: (l: number) => string }[] = [
-    { k: "基础攻击加值", get: (l) => num(c.bab, l) },
-    { k: "强韧", get: (l) => num(c.fort, l) },
-    { k: "反射", get: (l) => num(c.ref, l) },
-    { k: "意志", get: (l) => num(c.will, l) },
-    ...rings.map((r) => ({
-      k: `${r} 环法术位`,
-      get: (l: number) => {
-        const v = (spd[l] || [])[r];
-        return v > 0 ? String(v) : "—";
-      },
-    })),
-  ];
+  const ring = book ? book.spellsPerDay?.[l] || [] : [];
+  const rings = ring.map((v, i) => ({ v, i })).filter((x) => x.v > 0);
   return (
-    <div className="growth nums">
-      <div className="grow-head">
-        <span className="grow-label">逐级数值</span>
-        {cols.map((l) => (
-          <span key={l} className={"grow-num" + (l === (props.sel || 1) ? " on" : "")}>
-            {l}
-          </span>
-        ))}
+    <div className="classnum">
+      <div className="cnrow">
+        <span className="cnk">基础攻击加值</span>
+        <span className="cnv">{iter.length ? iter.map((v) => "+" + v).join(" ") : "—"}</span>
+        <span className="cnk">豁免检定</span>
+        <span className="cnv">
+          强韧 {c.fort?.[l] ?? "—"} · 反射 {c.ref?.[l] ?? "—"} · 意志 {c.will?.[l] ?? "—"}
+        </span>
       </div>
-      {rows.map((r) => (
-        <div className="grow-row" key={r.k}>
-          <span className="grow-label track">{r.k}</span>
-          {cols.map((l) => (
-            <span className="grow-cell" key={l}>
-              <span className="gnum">{r.get(l)}</span>
-            </span>
-          ))}
-        </div>
-      ))}
-      {!rings.length && book && (
-        <div className="grow-row">
-          <span className="grow-label track muted">这个职业的法术书没有环位数据</span>
-        </div>
-      )}
-      {!book && (
-        <div className="grow-row">
-          <span className="grow-label track muted">
-            {c.prestige ? "进阶职业不新增法术书（沿用基础职业的法术位）" : "这个职业不会施法（没有法术位）"}
-          </span>
-        </div>
-      )}
+      <div className="cnrow">
+        <span className="cnk">法术位</span>
+        <span className="cnv">
+          {rings.length ? (
+            <>
+              <span title="戏法（无限）">∞</span>
+              {rings.map((r) => (
+                <span key={r.i} title={`${r.i} 环`}>
+                  {r.v}
+                </span>
+              ))}
+            </>
+          ) : book ? (
+            "这个等级还没有法术位"
+          ) : c.prestige ? (
+            "进阶职业沿用基础职业的法术位"
+          ) : (
+            "这个职业不会施法"
+          )}
+        </span>
+      </div>
     </div>
   );
 }

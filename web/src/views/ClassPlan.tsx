@@ -5,7 +5,8 @@ import {
   alignAllows, alignNeedText, alignOverrideOf, alignTokensOf, classLevels, classSelectableAt, derive,
   evalPrereqs, label, prereqText,
 } from "../rules";
-import { GrowthTable, LevelNumbers, ListPane, ListRow, Sect, StatBox, StatRows, ThreePane } from "../pane";
+import { ClassNumbers, GrowthTable, ListPane, ListRow, Sect, StatBox, StatRows, ThreePane } from "../pane";
+import { Modal } from "../ui";
 
 /** bab / 豁免表的第 0 项是占位，第 N 项才是第 N 级；10 级进阶职业的表只有 11 项，所以一律按职业自己的满级取。 */
 function saveGrade(arr?: number[], maxLevel = 20) {
@@ -54,6 +55,10 @@ export function ClassPlan(props: { db: Db; onPresets?: () => void }) {
     return n >= 1 && n <= 20 ? n : null;
   });
 
+  /* 「职业详情」小弹窗（BAB / 豁免 / 法术位）与「第一次选进阶职业」的前置弹窗 */
+  const [detail, setDetail] = useState<{ cid: string; level: number } | null>(null);
+  const [preInfo, setPreInfo] = useState<string | null>(null);
+
   const firstEmpty = build.levels.findIndex((l) => !l.classId);
   const level = levelState ?? (firstEmpty < 0 ? 20 : firstEmpty + 1); // 1 基
   const lv = build.levels[level - 1];
@@ -94,8 +99,19 @@ export function ClassPlan(props: { db: Db; onPresets?: () => void }) {
   const archSlotLevel = picked ? firstLvlOf(picked) : 0;
   const canPickArch = !!picked && archChoices.length > 0 && archSlotLevel === level;
 
-  /** 点职业 = 把这一级定成它（不再自动跳下一级） */
-  const pickClass = (cid: string) => act.setClass(level - 1, cid);
+  /** 点职业 = 把这一级定成它（不再自动跳下一级）；第一次选进阶职业时弹出前置条件窗口 */
+  const pickClass = (cid: string) => {
+    act.setClass(level - 1, cid);
+    const c = db.classes[cid];
+    if (c?.prestige) setPreInfo(cid);
+  };
+
+  /** 某个职业的「第几级」（当前正在编辑的那一级对应它的第几级，没排到就是 1） */
+  const classLevelOf = (cid: string) => {
+    let k = 0;
+    for (let i = 0; i < level; i++) if (build.levels[i]?.classId === cid) k++;
+    return k || 1;
+  };
 
   /** 进阶职业的前置判定（和神祇页同一套三态：ok / no / unknown） */
   const preCtx = useMemo(
@@ -115,12 +131,13 @@ export function ClassPlan(props: { db: Db; onPresets?: () => void }) {
     }),
     [level, derived, build.alignment, build.race, build.background, build.mythicPath],
   );
-  const preReqs = useMemo(() => {
-    if (!shown?.prereq) return [] as { v: string; text: string; k: string }[];
-    return evalPrereqs(db, preCtx, shown.prereq)
+  const reqsOf = (c?: ClassEntry) => {
+    if (!c?.prereq) return [] as { v: string; text: string; k: string }[];
+    return evalPrereqs(db, preCtx, c.prereq)
       .details.filter((d) => !d.p.hide)
       .map((d) => ({ v: d.v as string, text: prereqText(db, d.p), k: d.p.k }));
-  }, [db, preCtx, shown]);
+  };
+  const preReqs = useMemo(() => reqsOf(shown), [db, preCtx, shown]);
   const preText = (c: ClassEntry) => {
     const list = (c.prereq || []).filter((p) => !p.hide).map((p) => prereqText(db, p));
     if (!list.length) return "";
@@ -190,7 +207,8 @@ export function ClassPlan(props: { db: Db; onPresets?: () => void }) {
   };
 
   return (
-    <ThreePane
+    <>
+      <ThreePane
       left={
         <ListPane
           title={`第 ${level} 级选择职业`}
@@ -260,9 +278,13 @@ export function ClassPlan(props: { db: Db; onPresets?: () => void }) {
             </div>
           )}
 
-          <GrowthTable db={db} build={build} sel={level} onSel={(l) => setLevel(l)} />
-
-          {shown && <LevelNumbers db={db} c={shown} sel={level} />}
+          <GrowthTable
+            db={db}
+            build={build}
+            sel={level}
+            onSel={(l) => setLevel(l)}
+            onDetail={(cid) => setDetail({ cid, level: used[cid] || 1 })}
+          />
 
           <div className="muted small" style={{ marginTop: 8 }}>
             {picked
@@ -365,6 +387,39 @@ export function ClassPlan(props: { db: Db; onPresets?: () => void }) {
           </Sect>
         </>
       }
-    />
+      />
+
+      {detail && db.classes[detail.cid] && (
+        <Modal
+          title={`${label(db.classes[detail.cid])} · 第 ${detail.level} 级`}
+          onClose={() => setDetail(null)}
+        >
+          <ClassNumbers db={db} c={db.classes[detail.cid]} level={detail.level} />
+        </Modal>
+      )}
+
+      {preInfo && db.classes[preInfo] && (
+        <Modal title={`${label(db.classes[preInfo])}：进阶职业`} onClose={() => setPreInfo(null)}>
+          <div className="muted small">
+            进阶职业只有 {db.classes[preInfo].maxLevel} 级，选中前必须满足下面这些前置条件：
+          </div>
+          <div className="reqlist">
+            {reqsOf(db.classes[preInfo]).map((r, i) => (
+              <div className="reqrow" key={i}>
+                <span className="pcheck" data-v={r.v} title={r.v === "ok" ? "满足" : r.v === "unknown" ? "游戏内判定" : "不满足"}>
+                  {r.v === "ok" ? "✓" : r.v === "unknown" ? "?" : "✗"}
+                </span>
+                <span className="reqtext">{r.text}</span>
+              </div>
+            ))}
+          </div>
+          <div className="confirm-foot">
+            <button type="button" className="btn" onClick={() => setPreInfo(null)}>
+              知道了
+            </button>
+          </div>
+        </Modal>
+      )}
+    </>
   );
 }
