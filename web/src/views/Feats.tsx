@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import type { AttrId, Db } from "../types";
-import { act, useBuild } from "../store";
+import { act, levelCap, useBuild } from "../store";
 import {
   choiceVerdict, derive, evalPrereqs, featuresAtClassLevel, isNamed, label, levelCtxList, levelRootSlots,
   mythicRank, prereqText, rankRootSlots,
@@ -11,12 +11,18 @@ import { DetailHead, ListPane, ListRow, Sect, StatBox, StatRows, ThreePane } fro
 import { featureIcon } from "../skin";
 import { stepGlyph } from "../steps";
 
-const ATTR_LEVELS = [4, 8, 12, 16, 20];
+/** 属性提升：每 4 级一次，传奇（40 级）继续给到 40 */
+function attrLevels(cap: number) {
+  const out: number[] = [];
+  for (let l = 4; l <= cap; l += 4) out.push(l);
+  return out;
+}
 
 /** 第 ⑥ 步：逐级把专长 / 职业选择填满（选择里面还可能有选择；参数化专长要选参数） */
 export function Feats(props: { db: Db }) {
   const { db } = props;
   const build = useBuild();
+  const cap = levelCap(build);
   const derived = useMemo(() => derive(db, build), [db, build]);
   const ctxs = useMemo(() => levelCtxList(db, build, derived), [db, build, derived]);
   const [onlyUnfinished, setOnlyUnfinished] = useState(false);
@@ -97,8 +103,8 @@ export function Feats(props: { db: Db }) {
             big
           />
 
-          {ATTR_LEVELS.includes(cur.level) && (
-            <Sect title="属性提升 +1（4 / 8 / 12 / 16 / 20 级）">
+          {attrLevels(cap).includes(cur.level) && (
+            <Sect title={`属性提升 +1（每 4 级一次，当前上限 ${cap} 级）`}>
               <div className="row">
                 <SearchSelect
                   value={cur.lv.ability || null}

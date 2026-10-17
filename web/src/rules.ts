@@ -9,7 +9,7 @@ import type {
   AttrId, BackgroundEntry, ClassEntry, Db, FeatureEntry, MythicPathEntry, Prereq,
   RaceEntry, SpellEntry, SpellbookEntry,
 } from "./types";
-import { ATTRS, MAX_LEVEL, MAX_RANK, type Build } from "./store";
+import { ATTRS, LEGEND_PATH_ID, MAX_LEVEL, MAX_RANK, levelCap, type Build } from "./store";
 
 export type Verdict = "ok" | "no" | "unknown";
 
@@ -238,6 +238,8 @@ export function mythicSource(
 
 /** 某个神话等级要玩家做选择的槽位（英雄/道途自家的内容优先，没有就走通用神话能力/专长） */
 export function rankRootSlots(db: Db, build: Build, rank: number): FeatureEntry[] {
+  // 传奇只有第 8 阶这一级：换了传奇就没有第 9–10 阶的神话内容
+  if (build.mythicLate === LEGEND_PATH_ID && rank > 8) return [];
   const ids = mythicSource(db, build, rank).features;
   const slots = ids.map((id) => db.features[id]).filter((f): f is FeatureEntry => !!f && !!f.choices && f.choices.length > 0);
   if (slots.length) return slots;
@@ -593,7 +595,7 @@ export function levelCtxList(db: Db, build: Build, d: Derived): LevelCtx[] {
     for (const w of p.weapon || []) profWeapon.push(w);
   }
   const out: LevelCtx[] = [];
-  for (let L = 1; L <= MAX_LEVEL; L += 1) {
+  for (let L = 1; L <= levelCap(build); L += 1) {
     const trunc: Build = {
       ...build,
       levels: build.levels.slice(0, L),
@@ -868,13 +870,13 @@ export function derive(db: Db, build: Build): Derived {
   if (remainingPointBuy < 0) unfinished.push(`购点超支 ${-remainingPointBuy} 点`);
   if (skillSpent > total) unfinished.push(`技能点超支 ${skillSpent - total} 点`);
   for (const w of alignConflicts(db, build)) unfinished.push(`阵营不符：${w}`);
-  for (let i = 0; i < MAX_LEVEL; i += 1) {
+  for (let i = 0; i < levelCap(build); i += 1) {
     const lv = build.levels[i];
     if (!lv.classId) unfinished.push(`第 ${i + 1} 级未选职业`);
   }
 
   /* 已经选了的专长/特性：按它所在的那一级重新判前置（改任何一步都会立刻影响这里） */
-  for (let i = 0; i < MAX_LEVEL; i += 1) {
+  for (let i = 0; i < levelCap(build); i += 1) {
     const lv = build.levels[i];
     const ctx = levelCtxList(db, build, {
       level, rank, classLevels: cl, archLevels: archLevels(db, build), archSel: sel,

@@ -54,7 +54,17 @@ export const ATTRS: AttrId[] = [
   "Intelligence", "Wisdom", "Charisma",
 ];
 
-export const MAX_LEVEL = 20;
+/** 存储容量：传奇（Legend）能把角色等级提到 40 级，所以数组按 40 格存 */
+export const MAX_LEVEL = 40;
+/** 普通角色的等级上限 */
+export const BASE_LEVEL = 20;
+/** 传奇道途（LegendClass）的 id：选了它就解锁 21–40 级（每个职业仍最多 20 级） */
+export const LEGEND_PATH_ID = "3d420403f3e7340499931324640efe96";
+
+/** 当前构筑的角色等级上限：传奇 = 40，其余 = 20 */
+export function levelCap(build: Build): number {
+  return build.mythicLate === LEGEND_PATH_ID || build.mythicPath === LEGEND_PATH_ID ? MAX_LEVEL : BASE_LEVEL;
+}
 export const MAX_RANK = 10;
 
 export function emptyLevel(): LevelPlan {

@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import type { Db } from "../types";
 import type { Build } from "../store";
-import { act, deserialize, serialize, shareUrl, useBuild } from "../store";
+import { act, deserialize, levelCap, serialize, shareUrl, useBuild } from "../store";
 import { attrBreakdown, attrMod, alignmentLocks, derive, label, ownedFeatures } from "../rules";
 import { Chip, Collapse, Confirm } from "../ui";
 import { AlignWheel, GrowthTable, IconGrid, Sect, StatBox, StatRows, ThreePane } from "../pane";
@@ -12,6 +12,7 @@ import { featureIcon } from "../skin";
 export function Summary(props: { db: Db }) {
   const { db } = props;
   const build = useBuild();
+  const cap = levelCap(build);
   const d = useMemo(() => derive(db, build), [db, build]);
   const [msg, setMsg] = useState("");
   const [askReset, setAskReset] = useState(false);
@@ -231,8 +232,8 @@ export function Summary(props: { db: Db }) {
             })}
           </Sect>
 
-          <Sect title="成长表（1–20 级）" right={<span className="muted small">每级给了什么特性</span>}>
-            <GrowthTable db={db} build={build} max={20} />
+          <Sect title={`成长表（1–${cap} 级）`} right={<span className="muted small">每级给了什么特性</span>}>
+            <GrowthTable db={db} build={build} max={cap} />
           </Sect>
 
           <Collapse title="升级记录（逐级选了什么）">

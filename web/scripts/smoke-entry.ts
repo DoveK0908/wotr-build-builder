@@ -6,7 +6,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { Db, FeatureEntry, MythicPathEntry, Preset, Prereq } from "../src/types";
-import { act, buildStore, emptyBuild, migrate, serialize, deserialize } from "../src/store";
+import {
+  BASE_LEVEL, LEGEND_PATH_ID, MAX_LEVEL, act, buildStore, emptyBuild, levelCap, migrate, serialize, deserialize,
+} from "../src/store";
 import { applyPreset } from "../src/presets";
 import type { Build } from "../src/store";
 import {
@@ -719,7 +721,7 @@ export function run(dir: string): void {
     eq(buildStore.get().levels[3].ability, "Strength", "setAbility(3) 落在第 4 级");
     eq(buildStore.get().levels[4].ability, null, "setAbility(3) 不碰第 5 级");
     act.setClass(20, fighter ? fighter.id : null);
-    eq(buildStore.get().levels.length, 20, "越界的 setClass(20) 被忽略");
+    eq(buildStore.get().levels.length, MAX_LEVEL, `越界的 setClass(${MAX_LEVEL}) 被忽略`);
     act.reset();
   }
 
@@ -957,6 +959,26 @@ export function run(dir: string): void {
     act.setMythicLate(null);
     ok(mains.length >= 6, `主道途 ${mains.length} 条（第 3 阶起）`);
     ok(lates.length >= 4, `晚期道途 ${lates.length} 条（第 8 阶起）`);
+  }
+
+  // ── 传奇（Legend）：单独处理 —— 等级上限 40，神话只到第 8 阶 ──────────
+  {
+    act.reset();
+    eq(levelCap(buildStore.get()), 20, "普通构筑等级上限 20");
+    eq(buildStore.get().levels.length, 40, "存档按 40 格准备（传奇要用到 21–40）");
+    act.setMythicLate(LEGEND_PATH_ID);
+    eq(levelCap(buildStore.get()), 40, "选了传奇，等级上限变 40");
+    const d = derive(db, buildStore.get());
+    ok(d.unfinished.includes("第 40 级未选职业"), "传奇的未完成清单排到第 40 级");
+    const legend = Object.values(db.mythic.paths).find((p) => p.id === LEGEND_PATH_ID)!;
+    eq(legend.maxLevel, 1, "传奇道途只有 1 级（第 8 阶）");
+    eq(mythicSource(db, buildStore.get(), 8).owner?.id, LEGEND_PATH_ID, "第 8 阶由传奇接管");
+    eq(rankRootSlots(db, buildStore.get(), 8).length, 1, "传奇第 8 阶只有一个槽位（神话专长）");
+    eq(rankRootSlots(db, buildStore.get(), 9).length, 0, "传奇没有第 9 阶的内容");
+    eq(rankRootSlots(db, buildStore.get(), 10).length, 0, "传奇没有第 10 阶的内容");
+    act.setMythicLate(null);
+    eq(levelCap(buildStore.get()), 20, "取消传奇后等级上限回到 20");
+    act.reset();
   }
 
   // ── 图标索引（从本机游戏 blueprint.assets 导出）────────────────────────

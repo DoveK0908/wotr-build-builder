@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import type { ClassEntry, Db } from "../types";
-import { act, useBuild } from "../store";
+import { act, levelCap, useBuild } from "../store";
 import {
   alignAllows, alignNeedText, alignOverrideOf, alignTokensOf, classLevels, classSelectableAt, derive,
   evalPrereqs, label, prereqText,
@@ -46,13 +46,14 @@ function castKind(db: Db, c?: ClassEntry) {
 export function ClassPlan(props: { db: Db }) {
   const { db } = props;
   const build = useBuild();
+  const cap = levelCap(build);
   const derived = useMemo(() => derive(db, build), [db, build]);
   const [q, setQ] = useState("");
   /* 可以用 #tab=class&lv=7 直接跳到某一级（分享链接时有用） */
   const [levelState, setLevel] = useState<number | null>(() => {
     const m = /[#&]lv=(\d{1,2})/.exec(location.hash);
     const n = m ? Number(m[1]) : 0;
-    return n >= 1 && n <= 20 ? n : null;
+    return n >= 1 && n <= levelCap(build) ? n : null;
   });
 
   /* 「职业详情」小弹窗（BAB / 豁免 / 法术位）与「第一次选进阶职业」的前置弹窗 */
@@ -211,7 +212,7 @@ export function ClassPlan(props: { db: Db }) {
           title={`第 ${level} 级选择职业`}
           search={q}
           onSearch={setQ}
-          foot={<span>已排 {derived.level} / 20 级　·　点职业只定这一级，不自动跳级</span>}
+          foot={<span>已排 {derived.level} / {cap} 级　·　点职业只定这一级，不自动跳级</span>}
         >
           {classOpts.map((o) => (
             <React.Fragment key={o.id}>
@@ -252,7 +253,7 @@ export function ClassPlan(props: { db: Db }) {
                 清空第 {level} 级
               </button>
             )}
-            {lv?.classId && level < 20 && (
+            {lv?.classId && level < cap && (
               <button
                 type="button"
                 className="btn sm"
@@ -268,6 +269,7 @@ export function ClassPlan(props: { db: Db }) {
           <GrowthTable
             db={db}
             build={build}
+            max={cap}
             sel={level}
             onNum={(cid, lv, kind) => setNums({ cid, level: lv, kind })}
             onSel={(l) => setLevel(l)}

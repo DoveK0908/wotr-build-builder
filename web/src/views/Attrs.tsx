@@ -1,11 +1,15 @@
 import React, { useMemo, useState } from "react";
 import type { AttrId, Db } from "../types";
-import { act, useBuild } from "../store";
+import { act, levelCap, useBuild } from "../store";
 import { attrBreakdown, attrMod, attrsAtLevel, pointBuySpent } from "../rules";
 import { Chip, Meter, NumBox, SearchSelect } from "../ui";
 import { DetailHead, ListPane, ListRow, Sect, StatBox, StatRows, ThreePane } from "../pane";
 
-const ATTR_LEVELS = [4, 8, 12, 16, 20];
+function attrLevels(cap: number) {
+  const out: number[] = [];
+  for (let l = 4; l <= cap; l += 4) out.push(l);
+  return out;
+}
 
 /** 每项属性影响什么（游戏里点在属性上时中间那栏会写的说明） */
 const EFFECTS: Record<string, string[]> = {
@@ -21,6 +25,7 @@ const EFFECTS: Record<string, string[]> = {
 export function Attrs(props: { db: Db }) {
   const { db } = props;
   const build = useBuild();
+  const cap = levelCap(build);
   const rules = db.rules;
   const [sel, setSel] = useState<string>(rules.attributes[0]?.id || "Strength");
 
@@ -113,7 +118,7 @@ export function Attrs(props: { db: Db }) {
               items={[
                 ["基础（购点）", cur.base],
                 ["种族 / 血脉", (cur.race > 0 ? "+" : "") + cur.race],
-                ["升级提升（4/8/12/16/20 级）", (cur.level > 0 ? "+" : "") + cur.level],
+                [`升级提升（每 4 级一次，上限 ${cap} 级）`, (cur.level > 0 ? "+" : "") + cur.level],
                 ["特性（种族传承 / 背景 / 专长 / 职业 / 神话道途）", (cur.feat > 0 ? "+" : "") + cur.feat],
                 ["手工（装备等外部加值）", <NumBox key="m" value={cur.manual} min={-20} max={40} onChange={(v) => act.setAttrManual(a.id, v)} />],
               ]}
@@ -148,7 +153,7 @@ export function Attrs(props: { db: Db }) {
           <Sect title="升级提升（每 4 级 +1）">
             <StatRows
               dense
-              items={ATTR_LEVELS.map((lv) => [
+              items={attrLevels(cap).map((lv) => [
                 `${lv} 级`,
                 <SearchSelect
                   key="s"

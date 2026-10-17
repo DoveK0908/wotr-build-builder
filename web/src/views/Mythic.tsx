@@ -1,6 +1,6 @@
 ﻿import React, { useMemo, useState } from "react";
 import type { Db } from "../types";
-import { act, useBuild } from "../store";
+import { LEGEND_PATH_ID, act, useBuild } from "../store";
 import {
   MYTHIC_LATE_START, choiceVerdict, derive, evalPrereqs, label, mythicHeroPath, mythicSource, ownedFeatures,
   pathStartRank, prereqText, rankRootSlots,
@@ -131,10 +131,15 @@ export function Mythic(props: { db: Db }) {
                     <span className="mpcard-glyph">{p.name.slice(0, 1)}</span>
                     <span className="mpcard-name">{p.name}</span>
                     <span className="mpcard-sub">
-                      第 {pathStartRank(db, p)} 阶起
-                      {bad && r?.fail.length ? " · 需要 " + r.fail.join("、") : ""}
+                      {p.id === LEGEND_PATH_ID
+                        ? "第 8 阶起 · 等级上限 40（每职业仍 20）"
+                        : `第 ${pathStartRank(db, p)} 阶起${bad && r?.fail.length ? " · 需要 " + r.fail.join("、") : ""}`}
                     </span>
-                    {bad ? <span className="mpcard-badge badge no">门槛未达</span> : null}
+                    {bad ? (
+                      <span className="mpcard-badge badge no">门槛未达</span>
+                    ) : p.id === LEGEND_PATH_ID ? (
+                      <span className="mpcard-badge badge">特殊</span>
+                    ) : null}
                   </button>
                 );
               })}
