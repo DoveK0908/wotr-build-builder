@@ -361,6 +361,49 @@ class Extractor:
         return self.g.by_guid(g)
 
     # ── 前置条件 ────────────────────────────────────────────────────────
+    # ── 前置里的「条件」组件 ────────────────────────────────────────────
+    # PrerequisiteCondition 挂的是一个 ContextCondition* 对象：
+    #   OrAndLogic{Operation: And/Or, ConditionsChecker:{Conditions:[...]}}
+    #   ContextConditionHasFact{m_Fact, Not}           → 有没有某个特性
+    #   ContextConditionCharacterClass{m_Class, MinLevel, Not} → 某职业等级
+    # 这里把它们压成 {op, not, conds:[{t:"fact"|"class", id, min?, not}]}，
+    # 前端就能真的算出来，而不是一律显示「条件复杂」。
+    def condition_tree(self, c) -> dict | None:
+        if not isinstance(c, dict):
+            return None
+        t = (c.get("$type") or "").split(", ")[-1]
+        not_ = bool(c.get("Not"))
+        if t == "OrAndLogic":
+            chk = c.get("ConditionsChecker") or {}
+            subs = [self.condition_tree(x) for x in (chk.get("Conditions") or [])]
+            subs = [x for x in subs if x]
+            if not subs:
+                return None
+            return {"op": str(chk.get("Operation") or "And").lower(), "not": not_, "conds": subs}
+        if t == "ContextConditionHasFact":
+            fid = ref(c.get("m_Fact"))
+            return {"t": "fact", "id": fid, "not": not_} if fid else None
+        if t == "ContextConditionCharacterClass":
+            cid = ref(c.get("m_Class"))
+            lvl = c.get("MinLevel")
+            if not cid:
+                return None
+            return {"t": "class", "id": cid, "min": lvl if isinstance(lvl, int) else 1, "not": not_}
+        if t == "ContextConditionAlignment":
+            return {"t": "align", "v": str(c.get("Alignment") or ""), "not": not_}
+        if t == "ContextConditionBuffRank":
+            # UseFactInsteadBuff: 该「特性」的层数（= 拿了几遍）要 ≥ RankValue
+            src = c.get("Fact") if c.get("UseFactInsteadBuff") else c.get("Buff")
+            rv = (c.get("RankValue") or {}).get("Value")
+            fid = ref(src)
+            if fid and isinstance(rv, int):
+                return {"t": "factrank", "id": fid, "min": rv, "not": not_}
+        if t == "IsUnitMythicLevel" and c.get("CheckMinLevel"):
+            mn = (c.get("MinLevel") or {}).get("Value")
+            if isinstance(mn, int):
+                return {"t": "mrank", "min": mn, "not": not_}
+        return {"t": "other", "type": t, "not": not_}
+
     def prereqs(self, d: dict) -> list[dict]:
         out = []
         for c in d.get("Components") or []:
@@ -406,7 +449,9 @@ class Extractor:
                 p["spont"] = bool(c.get("OnlySpontaneous"))
                 p["v"] = c.get("RequiredSpellLevel")
             elif kind == "condition":
-                p["raw"] = json.dumps(c.get("Condition"), ensure_ascii=False)[:600]
+                p["cond"] = self.condition_tree(c.get("Condition"))
+            elif kind == "castertype":
+                p["arcane"] = bool(c.get("IsArcane"))
             elif kind == "classlevels":
                 p["fake"] = ref(c.get("m_FakeClass"))
                 p["class"] = ref(c.get("m_ActualClass"))

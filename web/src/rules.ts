@@ -636,9 +636,19 @@ export function levelCtxList(db: Db, build: Build, d: Derived): LevelCtx[] {
     for (const [cid, list] of Object.entries(sel)) {
       if (clv[cid]) curArch.push(...list);
     }
+    // 特性「层数」：数一数这个构筑里拿了几遍（重复可选的专长会出现在多个等级）
+    const factCount: Record<string, number> = {};
+    const bump = (id?: string | null) => {
+      if (id) factCount[id] = (factCount[id] || 0) + 1;
+    };
+    for (const lv of trunc.levels) for (const v of Object.values(lv.picks || {})) bump(v);
+    for (const rk of trunc.ranks) for (const v of Object.values(rk.picks || {})) bump(v);
+    for (const v of Object.values(trunc.racePicks || {})) bump(v);
+    for (const v of Object.values(trunc.bgPicks || {})) bump(v);
     out.push({
       atLevel: L,
       classLevels: clv,
+      factCount,
       attrs: attrsAtLevel(db, build, L),
       idSet: o.ids,
       alignment: build.alignment,
@@ -962,6 +972,8 @@ export interface LevelCtx {
   maxSpellLevel?: Record<string, number>;
   /** 评估点上的神话阶层（判定 PrerequisiteMythicLevel 用） */
   rank?: number;
+  /** 特性 id -> 拿了几遍（判定「该特性层数 >= N」用） */
+  factCount?: Record<string, number>;
 }
 
 // ── 阵营限制 ────────────────────────────────────────────────────────────────
@@ -1121,6 +1133,62 @@ export function alignmentLocks(db: Db, build: Build): Record<string, string[]> {
   return out;
 }
 
+/** 前置里的「条件」组件树（pipeline 导出的 PrerequisiteCondition 内容） */
+export interface CondNode {
+  /** 叶子类型：fact 有某特性 / class 某职业等级 / align 阵营 / mrank 神话阶层 / other 未解析 */
+  t?: "fact" | "factrank" | "class" | "align" | "mrank" | "other";
+  id?: string | null;
+  v?: string;
+  min?: number;
+  type?: string;
+  not?: boolean;
+  /** OrAndLogic */
+  op?: "and" | "or";
+  conds?: CondNode[];
+}
+
+const flip = (v: Verdict): Verdict => (v === "ok" ? "no" : v === "no" ? "ok" : "unknown");
+
+function evalCondNode(db: Db, ctx: LevelCtx, node: CondNode | null | undefined, depth = 0): Verdict {
+  if (!node || depth > 4) return "unknown";
+  const base = (): Verdict => {
+    if (node.op && node.conds) {
+      const vs = node.conds.map((c) => evalCondNode(db, ctx, c, depth + 1));
+      if (node.op === "and") {
+        if (vs.some((v) => v === "no")) return "no";
+        return vs.every((v) => v === "ok") ? "ok" : "unknown";
+      }
+      if (vs.some((v) => v === "ok")) return "ok";
+      return vs.every((v) => v === "no") ? "no" : "unknown";
+    }
+    switch (node.t) {
+      case "fact":
+        return node.id ? (ctx.idSet.has(node.id) ? "ok" : "no") : "unknown";
+      case "class": {
+        if (!node.id || !db.classes[node.id]) return "unknown";
+        const have = (ctx.classLevels || {})[node.id] || 0;
+        return have >= (node.min || 1) ? "ok" : "no";
+      }
+      case "mrank":
+        return typeof ctx.rank === "number" ? (ctx.rank >= (node.min || 1) ? "ok" : "no") : "unknown";
+      case "factrank": {
+        if (!node.id) return "unknown";
+        const have = (ctx.factCount || {})[node.id] || 0;
+        return have >= (node.min || 1) ? "ok" : "no";
+      }
+      case "align": {
+        const toks = String(node.v || "").split(",").map((x) => x.trim()).filter(Boolean);
+        if (!toks.length || !ctx.alignment) return "unknown";
+        return alignAllows(ctx.alignment, toks) ? "ok" : "no";
+      }
+      default:
+        return "unknown"; // ContextConditionBuffRank 之类，规划器里判不出来
+    }
+  };
+  const v = base();
+  return node.not ? flip(v) : v;
+}
+
 export function evalPrereq(db: Db, ctx: LevelCtx, p: Prereq): Verdict {
   const has = (id?: string | null) => !!id && ctx.idSet.has(id);
   const num2 = (v: unknown) => (typeof v === "number" ? v : undefined);
@@ -1205,10 +1273,30 @@ export function evalPrereq(db: Db, ctx: LevelCtx, p: Prereq): Verdict {
       if (mx === undefined) return "unknown";
       return mx >= need ? "ok" : "no";
     }
-    case "casterspell":
-    case "castertype":
-    case "spellbook":
-      return "unknown"; // 需要完整的法术书模型才能判定，先不拦
+    case "casterspell": {
+      const need = num2(p.v) ?? 1;
+      const any = Object.values(ctx.maxSpellLevel || {}).some((v) => v >= need);
+      return any ? "ok" : "unknown";
+    }
+    case "castertype": {
+      // PrerequisiteCasterType：只要有对应类型的施法职业即可（奥术 / 神术）
+      const want = !!(p as unknown as { arcane?: boolean }).arcane;
+      let anyCaster = false;
+      for (const [cid, n] of Object.entries(ctx.classLevels || {})) {
+        if (!n) continue;
+        const c = db.classes[cid];
+        if (!c || !c.spellbookId) continue;
+        const sb = db.spellbooks[c.spellbookId];
+        if (!sb) continue;
+        anyCaster = true;
+        if (!!sb.isArcane === want) return "ok";
+      }
+      return anyCaster ? "no" : "unknown";
+    }
+    case "spellbook": {
+      const any = Object.values(ctx.maxSpellLevel || {}).some((v) => v >= 0);
+      return any ? "ok" : "unknown";
+    }
     case "mrank": {
       const need = num2(p.v) ?? 1;
       if (ctx.rank === undefined) return "unknown";
@@ -1219,7 +1307,12 @@ export function evalPrereq(db: Db, ctx: LevelCtx, p: Prereq): Verdict {
       // 主角/同伴身份、剧情进度（etude）——规划器不判定，也不拦人
       return "unknown";
     case "condition":
+      // PrerequisiteCondition：pipeline 把它拆成了可求值的条件树
+      return evalCondNode(db, ctx, (p as unknown as { cond?: CondNode }).cond);
     case "weaponcond":
+      // PrerequisiteConditionForWeaponCategory 是「有该武器擅长时才附加一个条件」的展示项，
+      // 真正的门槛由同蓝图的 PrerequisiteProficiency 表达（已算）——这里不判、也不拦
+      return "ok";
     case "replacestat":
     case "selpossible":
     case "classlevels":
@@ -1233,7 +1326,9 @@ export function evalPrereqs(db: Db, ctx: LevelCtx, list: Prereq[] | undefined): 
   verdict: Verdict; details: { p: Prereq; v: Verdict }[];
 } {
   if (!list || !list.length) return { verdict: "ok", details: [] };
-  const details = list.map((p) => ({ p, v: evalPrereq(db, ctx, p) }));
+  const details = list
+    .filter((p) => prereqText(db, p) !== "")
+    .map((p) => ({ p, v: evalPrereq(db, ctx, p) }));
   const all = details.filter((d) => (d.p.group || "All") !== "Any");
   const any = details.filter((d) => (d.p.group || "All") === "Any");
   let verdict: Verdict = "ok";
@@ -1263,6 +1358,39 @@ export function choiceVerdict(db: Db, ctx: LevelCtx, fid: string, opts?: {
 }
 
 // ── 中文描述用的前置条件文本 ────────────────────────────────────────────
+/** 把条件树翻成一句中文（判不出来的那一支写「条件复杂」） */
+function condText(db: Db, node: CondNode | null | undefined, depth = 0): string {
+  if (!node || depth > 3) return "条件复杂";
+  if (node.op && node.conds) {
+    const parts = node.conds.map((c) => condText(db, c, depth + 1)).filter(Boolean);
+    const joined = parts.join(node.op === "and" ? " 且 " : " 或 ");
+    return `${node.not ? "非（" : ""}${joined}${node.not ? "）" : ""}`;
+  }
+  const one = (() => {
+    switch (node.t) {
+      case "fact": {
+        const f = node.id ? db.features[node.id] : undefined;
+        return `已有：${f && f.name ? f.name : "某个特性"}`;
+      }
+      case "class": {
+        const c = node.id ? db.classes[node.id] : undefined;
+        return `${c ? label(c) : "某个职业"} 等级 ≥ ${node.min || 1}`;
+      }
+      case "mrank":
+        return `神话阶层 ≥ ${node.min || 1}`;
+      case "factrank": {
+        const f = node.id ? db.features[node.id] : undefined;
+        return `已有 ${node.min || 1} 层：${f && f.name ? f.name : "某个特性"}`;
+      }
+      case "align":
+        return `阵营：${node.v || "?"}`;
+      default:
+        return node.type ? `条件复杂（${node.type}）` : "条件复杂";
+    }
+  })();
+  return node.not ? `非（${one}）` : one;
+}
+
 export function prereqText(db: Db, p: Prereq): string {
   const nm = (id?: unknown) => (typeof id === "string" ? label(db.features[id]) : "?");
   switch (p.k) {
@@ -1304,6 +1432,8 @@ export function prereqText(db: Db, p: Prereq): string {
     case "mrank": return `神话阶层 ≥ ${p.v}`;
     case "mainchar": return p.companion ? "仅同伴角色" : "仅主角";
     case "etude": return "剧情进度限定（游戏内按剧情解锁）";
+    case "condition": return condText(db, (p as unknown as { cond?: CondNode }).cond);
+    case "weaponcond": return ""; // 展示项（武器专长触发附加条件），不构成门槛
     default: return "条件复杂，需在游戏内确认";
   }
 }

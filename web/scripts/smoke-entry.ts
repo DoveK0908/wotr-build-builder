@@ -7,7 +7,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { Db, FeatureEntry, MythicPathEntry, Preset, Prereq } from "../src/types";
 import {
-  BASE_LEVEL, LEGEND_PATH_ID, MAX_LEVEL, act, buildStore, emptyBuild, levelCap, migrate, serialize, deserialize,
+  BASE_LEVEL, LEGEND_PATH_ID, MAX_LEVEL, act, buildStore, emptyBuild, emptyLevel, emptyRank, levelCap, migrate, serialize, deserialize,
 } from "../src/store";
 import { applyPreset } from "../src/presets";
 import type { Build } from "../src/store";
@@ -1028,6 +1028,52 @@ export function run(dir: string): void {
       Object.keys(db.features).some((id) => !!byId[id]),
       "至少有一部分特性有真实图标",
     );
+  }
+
+  // ── 前置里的条件树（PrerequisiteCondition）──────────────────────────
+  {
+    const conds: { id: string; p: any }[] = [];
+    for (const [fid, f] of Object.entries(db.features)) {
+      for (const pr of ((f as any).prereq || []) as any[]) {
+        if (pr.k === "condition" && !pr.hide) conds.push({ id: fid, p: pr });
+      }
+    }
+    ok(conds.length > 0, `有非隐藏的条件前置（${conds.length} 条）`);
+    const texts = conds.map((c) => prereqText(db, c.p));
+    ok(!texts.some((t) => t.includes("条件复杂")), "条件前置全部能翻成具体条件（没有「条件复杂」）");
+    ok(texts.some((t) => /已有 \d+ 层/.test(t)), "重复可选专长显示成「已有 N 层」");
+    // 层数判定：额外奥秘 需要「未拿满 3 层」
+    const ea = conds.find((c) => (db.features[c.id] as any).name === "额外奥秘");
+    if (ea) {
+      const b1 = emptyBuild();
+      const d1 = derive(db, b1);
+      const c1 = levelCtxList(db, b1, d1)[0];
+      ok(evalPrereq(db, c1, ea.p) === "ok", "空构筑下「额外奥秘」的前置通过（还没拿 3 层）");
+      const b3 = emptyBuild();
+      for (let i = 0; i < 3; i += 1) {
+        b3.levels[i] = { ...emptyLevel(), classId: Object.keys(db.classes)[0], picks: { x: ea.id } };
+      }
+      const d3 = derive(db, b3);
+      const c3 = levelCtxList(db, b3, d3)[2];
+      ok(evalPrereq(db, c3, ea.p) === "no", "拿了 3 次「额外奥秘」后前置不再通过");
+    }
+    // 施法类型
+    const ct = Object.entries(db.features)
+      .flatMap(([fid, f]) => (((f as any).prereq || []) as any[]).filter((p) => p.k === "castertype").map((p) => ({ fid, p })))[0];
+    if (ct) {
+      const bw = emptyBuild();
+      const wiz = Object.values(db.classes).find((c) => c.name === "法师");
+      if (wiz) {
+        for (let i = 0; i < 5; i += 1) bw.levels[i] = { ...emptyLevel(), classId: wiz.id };
+        const dw = derive(db, bw);
+        const cw = levelCtxList(db, bw, dw)[4];
+        const b0 = emptyBuild();
+        const d0 = derive(db, b0);
+        const c0 = levelCtxList(db, b0, d0)[0];
+        ok(evalPrereq(db, cw, ct.p) === "ok", "有奥术施法职业时「奥术施法者」前置通过");
+        ok(evalPrereq(db, c0, ct.p) === "unknown", "没有职业时不误判成失败");
+      }
+    }
   }
 
   const total = pass + fails.length;

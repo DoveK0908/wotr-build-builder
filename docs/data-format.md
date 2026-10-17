@@ -94,6 +94,29 @@
 
 前端对 `stat`/`clvl`/`alvl`/`feat`/`nofeat`/`oneof`/`align`/`chlvl`/`mrank` 这类可判定的做三态判定（`可用`/`前置不足`/`无法判定`），`condition` 这种逻辑树太复杂的保留原文展示，不拦人；`mainchar`（仅主角/仅同伴）与 `etude`（剧情进度）恒为 `无法判定`，不拦人。
 
+## 条件树：`PrerequisiteCondition` 怎么变成可算的前置（2026-10-17）
+
+游戏里 29 条专长前置不是「有某特性/某属性」这种单条判断，而是一棵 `OrAndLogic` 条件树
+（`ConditionsChecker.Operation` + `Conditions[]`，节点带 `Not`）。管线把树拆成可求值的小结构：
+
+| 叶子类型（`t`） | 来源组件 | 字段 | 前端怎么算 |
+| --- | --- | --- | --- |
+| `fact` | `ContextConditionHasFact` | `id` | 构筑里有没有这个特性 |
+| `factrank` | `ContextConditionBuffRank` | `id` + `min` | 这个特性**拿了几遍** ≥ min（`UseFactInsteadBuff` 时取 `Fact`） |
+| `class` | `ContextConditionCharacterClass` | `id` + `min` | 该职业等级 ≥ min |
+| `mrank` | `IsUnitMythicLevel` | `min` | 神话阶层 ≥ min |
+| `align` | `ContextConditionAlignment` | `v` | 阵营是否在允许集合里 |
+| `other` | `ContextConditionBuffRank` 之外的 Buff 类 | `type` | 判不出来 → 不拦人（显示「条件复杂（类型名）」） |
+
+要点：
+
+- `factrank` 是这批条件里最关键的一类 —— 「额外奥秘 / 额外奥能技艺 / 额外科研发现 / 额外救赎 / 额外狂暴特技」
+  这些**可以重复拿、但有上限**的专长，游戏就是用「该特性层数 < 3」来表达上限。判定时要数
+  「这个构筑里选了几遍」，不能只看集合里有没有（`LevelCtx.factCount`）。
+- `weaponcond`（`PrerequisiteConditionForWeaponCategory`）只是「有某武器擅长时才附带一条额外条件」的**展示项**，
+  真正的门槛由同一蓝图上的 `PrerequisiteProficiency` 表达；它的文案是空串，明细里会被滤掉，不参与判定。
+- 文案：`factrank` → 「已有 N 层：X」、`fact` → 「已有：X」、树 → 用「且 / 或」连接，`Not` 包一层「非（…）」。
+
 ## 已知的无害异常
 
 - 2 条非特性引用解析不到，直接原样展示：`02b4bdf2ef7b4296923219f361caec92`（不在库里）、`daca06a3f3355664bba1e87e67f3b5b3`（`Races/MongrelmanRace.jbp`，非玩家种族）
