@@ -135,6 +135,26 @@ export function expandFeature(db: Db, id: string, depth = 0): string[] {
   return out;
 }
 
+/**
+ * AddFacts 只在**擅长**上收：职业的擅长是 `FighterProficiencies → AddFacts → 擅长(轻/中/重甲…)`，
+ * 这一层必须跟着走，否则「擅长盔甲（重型）」这类专长在逐级选择时判不出前置。
+ * 但不能像 expandFeature 那样把 addFacts 全展开 —— 有些 addFacts 指向的特性自己也带属性加值
+ * （例如恶魔之相），叠起来会重复计算。
+ */
+export function factProficiencies(db: Db, id: string, depth = 0): string[] {
+  if (depth > 3) return [];
+  const f = db.features[id];
+  if (!f || !f.addFacts) return [];
+  const out: string[] = [];
+  for (const sub of f.addFacts) {
+    const g = db.features[sub];
+    if (!g) continue;
+    if (g.proficiencies) out.push(sub);
+    out.push(...factProficiencies(db, sub, depth + 1));
+  }
+  return out;
+}
+
 // ── 槽位与嵌套链 ────────────────────────────────────────────────────────
 /**
  * 「槽位里选中的那个东西本身还是个选择表」时，往下继续要的那一层。
@@ -379,6 +399,7 @@ export function ownedFeatures(db: Db, build: Build): Owned {
   const addAuto = (id: string) => {
     auto.add(id);
     for (const x of expandFeature(db, id)) ids.add(x);
+    for (const x of factProficiencies(db, id)) ids.add(x);
   };
 
   // 种族特性 + 种族自带选择表

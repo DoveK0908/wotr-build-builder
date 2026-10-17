@@ -503,6 +503,18 @@ class Extractor:
         pf = self.proficiencies(d)
         if pf:
             e["proficiencies"] = pf
+        # AddFacts：组件级「顺带给你这些特性」——职业的擅长就是这么来的
+        # （FighterProficiencies 只挂 AddFacts，真正给擅长的是它引用的那些擅长特性）
+        facts: list[str] = []
+        for c in d.get("Components") or []:
+            t = str(c.get("$type") or "").split(", ")[-1]
+            if t == "AddFacts":
+                for x in c.get("m_Facts") or []:
+                    r = ref(x)
+                    if r and r not in facts:
+                        facts.append(r)
+        if facts:
+            e["addFacts"] = facts
         gr = self.grants(d)
         if gr:
             e.update(gr)

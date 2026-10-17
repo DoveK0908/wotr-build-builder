@@ -997,6 +997,25 @@ export function run(dir: string): void {
     act.reset();
   }
 
+  // ── 职业擅长随职业实时进 derived（战士 / 法师同一级对比）──────────────
+  {
+    act.reset();
+    const fighter = Object.values(db.classes).find((c) => /FighterClass/.test(c.key || ""))!.id;
+    const wizard = Object.values(db.classes).find((c) => /WizardClass/.test(c.key || ""))!.id;
+    eq(derive(db, buildStore.get()).proficiencies.weapon.length, 0, "没选职业时没有任何武器擅长");
+    act.setClass(0, fighter);
+    const fp = derive(db, buildStore.get()).proficiencies;
+    ok(fp.weapon.length > 0 || fp.armor.length > 0, "战士第 1 级就带出武器/护甲擅长", JSON.stringify(fp));
+    act.setClass(0, wizard);
+    const wp = derive(db, buildStore.get()).proficiencies;
+    ok(
+      JSON.stringify(wp) !== JSON.stringify(fp),
+      "换职业后擅长跟着变",
+      `战士=${JSON.stringify(fp)} 法师=${JSON.stringify(wp)}`,
+    );
+    act.reset();
+  }
+
   // ── 图标索引（从本机游戏 blueprint.assets 导出）────────────────────────
   {
     const byId = db.icons?.byId || {};

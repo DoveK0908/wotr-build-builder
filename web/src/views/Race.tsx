@@ -47,8 +47,7 @@ export function Race(props: { db: Db }) {
               glyph={r.name.slice(0, 1)}
               name={r.name}
               sub={r.nameEn}
-              mark={(r.statBonuses || []).length > 0 || r.selectableStat}
-              sel={build.race === r.id}
+                  sel={build.race === r.id}
               onClick={() =>
                 act.patch((b) => {
                   b.race = r.id;

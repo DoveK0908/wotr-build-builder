@@ -130,6 +130,8 @@ export interface FeatureEntry {
   statBonuses?: StatBonus[];
   skillPointsPerLevel?: number;
   proficiencies?: { armor?: string[]; weapon?: string[] };
+  /** AddFacts 组件引用的特性（职业擅长这类「顺带给你」的东西） */
+  addFacts?: string[];
   replace?: boolean;
   /** 这个槽位本身不检查候选的前置条件（战士/牧师的额外专长类槽位等） */
   ignorePrereq?: boolean;

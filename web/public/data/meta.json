@@ -1,6 +1,6 @@
 {
  "gameDir": "D:\\SteamLibrary\\steamapps\\common\\Pathfinder Second Adventure",
- "generated": "2026-10-17 11:52:25",
+ "generated": "2026-10-17 15:43:41",
  "blueprints": 236661,
  "localization": {
   "zh": 110401,
@@ -37,7 +37,7 @@
   "rules.json": 3619,
   "classes.json": 141693,
   "archetypes.json": 280950,
-  "features.json": 8264629,
+  "features.json": 8448158,
   "spells.json": 647728,
   "spellLists.json": 66940,
   "spellbooks.json": 47390,
@@ -46,5 +46,5 @@
   "mythic.json": 46033,
   "meta.json": 857
  },
- "seconds": 6.5
+ "seconds": 8.7
 }
