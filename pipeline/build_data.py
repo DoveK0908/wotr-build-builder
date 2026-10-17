@@ -1347,7 +1347,10 @@ def build(game_dir: str, out_dir: str) -> dict:
     sizes["features.json"] = dump("features.json", features)
     # 特性库太大（解压后 8.6 MB / 压缩后约 1.4 MB），浏览器端按 4 片并行下载，
     # 见 web/src/load.ts；features.json 本身保留，给工具与自检脚本用。
+    # 描述文本占 2.7 MB（约三分之一），网页端首屏不需要它：拆成 featureDesc.json 后台再取。
     ids = list(features.keys())
+    desc = {k: features[k].pop("desc") for k in ids if "desc" in features[k]}
+    sizes["featureDesc.json"] = dump("featureDesc.json", desc)
     FEATURE_SHARDS = 4
     per = (len(ids) + FEATURE_SHARDS - 1) // FEATURE_SHARDS
     for i in range(FEATURE_SHARDS):

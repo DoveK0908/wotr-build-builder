@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import type { Db } from "./types";
-import { loadDb } from "./load";
+import { loadDb, loadFeatureDesc } from "./load";
 import { act, deserialize, levelCap, shareUrl, useBuild } from "./store";
 import { attrMod, derive, mythicSpellbook } from "./rules";
 import {
@@ -37,7 +37,25 @@ export function App() {
   const build = useBuild();
 
   useEffect(() => {
-    loadDb((p) => setPct(Math.round((p.done / p.total) * 100))).then(setDb).catch((e) => setErr(String(e)));
+    loadDb((p) => setPct(Math.round((p.done / p.total) * 100)))
+      .then((d) => {
+        setDb(d);
+        // 描述文本占 3 MB：首屏先不等它，取到后再并回 features（组件照旧读 f.desc）
+        void loadFeatureDesc()
+          .then((desc) => {
+            let n = 0;
+            for (const [id, text] of Object.entries(desc)) {
+              const f = d.features[id];
+              if (f) {
+                f.desc = text;
+                n += 1;
+              }
+            }
+            if (n) setDb({ ...d });
+          })
+          .catch(() => undefined);
+      })
+      .catch((e) => setErr(String(e)));
   }, []);
 
   // 打开时如果链接里带了构筑代码，就读进来

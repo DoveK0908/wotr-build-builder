@@ -1424,8 +1424,14 @@ function condText(db: Db, node: CondNode | null | undefined, depth = 0): string 
   return node.not ? `非（${one}）` : one;
 }
 
+/** 前置文案里引用到没有中文名的内部特性时，别显示「（未命名）」 */
+function featName(db: Db, id: string): string {
+  const t = label(db.features[id]);
+  return t === "（未命名）" ? "内部特性" : t;
+}
+
 export function prereqText(db: Db, p: Prereq): string {
-  const nm = (id?: unknown) => (typeof id === "string" ? label(db.features[id]) : "?");
+  const nm = (id?: unknown) => (typeof id === "string" ? featName(db, id) : "?");
   switch (p.k) {
     case "feat": return `需要：${nm(p.id)}`;
     case "hasfeature": return `需要：${nm(p.id)}`;

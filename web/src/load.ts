@@ -85,3 +85,10 @@ export function fmtBytes(n: number): string {
   if (n > 1024 * 1024) return (n / 1024 / 1024).toFixed(1) + " MB";
   return Math.round(n / 1024) + " KB";
 }
+
+/** 描述文本单独一份（约 3 MB），首屏之后再取，取到后并回 features 里 */
+export async function loadFeatureDesc(): Promise<Record<string, string>> {
+  const res = await fetch("./data/featureDesc.json");
+  if (!res.ok) throw new Error(`加载 ./data/featureDesc.json 失败：${res.status}`);
+  return (await res.json()) as Record<string, string>;
+}
