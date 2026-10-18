@@ -3,7 +3,7 @@ import type { Db } from "../types";
 import { act, useBuild } from "../store";
 import { alignAllows, alignConflicts, alignNeedText, alignTokensOf, childFeatures, derive, evalPrereqs, label, ownedFeatures, prereqText } from "../rules";
 import { Chip, Desc } from "../ui";
-import { DetailHead, IconGrid, ListPane, ListRow, Sect, StatRows, ThreePane } from "../pane";
+import { DetailHead, IconGrid, ListPane, ListRow, PinBar, Sect, StatRows, ThreePane } from "../pane";
 import { openDetail } from "../detail";
 import { featureIcon } from "../skin";
 
@@ -13,6 +13,8 @@ export function Deity(props: { db: Db }) {
   const build = useBuild();
   const [q, setQ] = useState("");
   const [hover, setHover] = useState<string | null>(null);
+  /** 点一下锁定查看这一位神祇（再点一次取消） */
+  const [pinned, setPinned] = useState<string | null>(null);
   const rules = db.rules;
 
   const deitySlot = rules.deitySelection ? db.features[rules.deitySelection] : null;
@@ -30,7 +32,7 @@ export function Deity(props: { db: Db }) {
   }, [db, deitySlot, build.alignment, q]);
 
   const conflicts = useMemo(() => alignConflicts(db, build), [db, build]);
-  const focusId = hover || build.deity || opts[0]?.id || null;
+  const focusId = pinned || hover || build.deity || opts[0]?.id || null;
   const focus = focusId ? db.features[focusId] : null;
   const focusChildren = focus ? childFeatures(db, focus) : [];
   const focusToks = focus ? alignTokensOf(focus.prereq) : [];
@@ -85,7 +87,10 @@ export function Deity(props: { db: Db }) {
               sel={build.deity === o.id}
               title={o.bad ? `需要 ${o.need}` : o.f?.nameEn}
               onHover={() => setHover(o.id)}
-              onClick={() => !o.bad && act.setDeity(build.deity === o.id ? null : o.id)}
+              onClick={() => {
+                if (!o.bad) act.setDeity(build.deity === o.id ? null : o.id);
+                setPinned((cur) => (cur === o.id ? null : o.id));
+              }}
             />
           ))}
           {opts.length === 0 && <div className="muted small" style={{ padding: "8px 10px" }}>没有匹配项</div>}
@@ -102,6 +107,13 @@ export function Deity(props: { db: Db }) {
               title={label(focus)}
               en={focus.nameEn}
               big
+            />
+            <PinBar
+              pinned={pinned === focus.id}
+              onUnpin={() => {
+                setHover(focus.id);
+                setPinned(null);
+              }}
             />
             <div className="row wrap">
               {focusToks.length > 0 ? (

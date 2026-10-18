@@ -4,7 +4,7 @@ import { act, useBuild } from "../store";
 import { backgroundRoot, childFeatures, label } from "../rules";
 import { Chip, Desc } from "../ui";
 import { reachable } from "../pick";
-import { DetailHead, IconGrid, ListPane, ListRow, Sect, StatRows, ThreePane } from "../pane";
+import { DetailHead, IconGrid, ListPane, ListRow, PinBar, Sect, StatRows, ThreePane } from "../pane";
 import { featureIcon } from "../skin";
 
 /** 游戏里背景的显示顺序（照实机 1704xx / 1705xx 那组截图抄的，不是数据顺序） */
@@ -39,6 +39,8 @@ export function Background(props: { db: Db }) {
   const { db } = props;
   const build = useBuild();
   const [hover, setHover] = useState<string | null>(null);
+  /** 点一下锁定查看这一项（再点一次取消） */
+  const [pinned, setPinned] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const [open1, setOpen1] = useState<string | null>(null); // 展开的大类
   const [open2, setOpen2] = useState<string | null>(null); // 展开的二级选择表（如自然学者）
@@ -125,7 +127,7 @@ export function Background(props: { db: Db }) {
     });
   };
 
-  const focusId = hover || picked || rootOptions[0] || null;
+  const focusId = pinned || hover || picked || rootOptions[0] || null;
   const focus = focusId ? db.features[focusId] : null;
   const focusChildren = focus ? childFeatures(db, focus) : [];
 
@@ -142,7 +144,11 @@ export function Background(props: { db: Db }) {
         sub={depth === 1 ? f?.nameEn : undefined}
         arrow={group ? expanded : undefined}
         sel={group ? expanded : picked === id}
-        onClick={onOpen || (() => pick(depth === 1 ? [id] : [pickedGroup || "", id]))}
+        title={pinned === id ? "点击取消固定" : "点击固定这一项"}
+        onClick={() => {
+          setPinned((cur) => (cur === id ? null : id));
+          (onOpen || (() => pick(depth === 1 ? [id] : [pickedGroup || "", id])))();
+        }}
         onHover={() => setHover(id)}
       />
     );
@@ -189,11 +195,12 @@ export function Background(props: { db: Db }) {
                                 name={kidName}
                                 arrow={kidGroup ? open2 === kid : undefined}
                                 sel={kidGroup ? open2 === kid : picked === kid}
-                                onClick={() =>
-                                  kidGroup
-                                    ? setOpen2((cur) => (cur === kid ? null : kid))
-                                    : pick([gid, kid])
-                                }
+                                title={pinned === kid ? "点击取消固定" : "点击固定这一项"}
+                                onClick={() => {
+                                  setPinned((cur) => (cur === kid ? null : kid));
+                                  if (kidGroup) setOpen2((cur) => (cur === kid ? null : kid));
+                                  else pick([gid, kid]);
+                                }}
                                 onHover={() => setHover(kid)}
                               />
                               {kidGroup && open2 === kid && (
@@ -208,7 +215,11 @@ export function Background(props: { db: Db }) {
                                         glyph={label(db.features[leaf]).slice(0, 1)}
                                         name={label(db.features[leaf])}
                                         sel={picked === leaf}
-                                        onClick={() => pick([gid, kid, leaf])}
+                                        title={pinned === leaf ? "点击取消固定" : "点击固定这一项"}
+                                        onClick={() => {
+                                          setPinned((cur) => (cur === leaf ? null : leaf));
+                                          pick([gid, kid, leaf]);
+                                        }}
                                         onHover={() => setHover(leaf)}
                                       />
                                     ))}
@@ -235,6 +246,13 @@ export function Background(props: { db: Db }) {
               title={label(focus)}
               en={focus.nameEn}
               big
+            />
+            <PinBar
+              pinned={pinned === focus.id}
+              onUnpin={() => {
+                setHover(focus.id);
+                setPinned(null);
+              }}
             />
             {focus.desc ? <Desc text={focus.desc} limit={900} /> : <div className="muted small">没有说明文本。</div>}
 

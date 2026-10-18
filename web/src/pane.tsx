@@ -156,6 +156,18 @@ export function DetailHead(props: {
   );
 }
 
+/** 锁定详情时出现的小按钮：点它回到「详情跟随鼠标」 */
+export function PinBar(props: { pinned: boolean; onUnpin: () => void }) {
+  if (!props.pinned) return null;
+  return (
+    <div className="row" style={{ marginBottom: 6 }}>
+      <button type="button" className="btn sm ghost" title="解除锁定，详情重新跟随鼠标" onClick={props.onUnpin}>
+        跟随鼠标
+      </button>
+    </div>
+  );
+}
+
 /** 图标 + 名称的网格（游戏里「可选项」那种裸网格） */
 export function IconGrid(props: {
   items: { id: string; name: string; ico?: string | null; glyph?: string; title?: string }[];
@@ -264,6 +276,8 @@ export function AlignWheel(props: {
   labels?: Record<string, string>;
   onPick?: (id: string) => void;
   onHover?: (id: string | null) => void;
+  /** 点一下（不可选的也能点）——用来把详情固定在这个阵营上 */
+  onFocus?: (id: string) => void;
 }) {
   const centerId = "TrueNeutral";
   const centerLock = props.locks?.[centerId];
@@ -280,7 +294,10 @@ export function AlignWheel(props: {
             key={id}
             className={"aw-w" + (sel ? " sel" : "") + (lock ? " lock" : "")}
             onMouseEnter={props.onHover ? () => props.onHover!(id) : undefined}
-            onClick={props.onPick && !lock ? () => props.onPick!(id) : undefined}
+            onClick={() => {
+              props.onFocus?.(id);
+              if (!lock) props.onPick?.(id);
+            }}
           >
             <title>{name + (lock ? `　不可选：${lock.join("；")}` : "")}</title>
             <path className="aw-fill" d={wWedge(deg)} />
@@ -294,7 +311,10 @@ export function AlignWheel(props: {
       <g
         className={"aw-c" + (props.value === centerId ? " sel" : "") + (centerLock ? " lock" : "")}
         onMouseEnter={props.onHover ? () => props.onHover!(centerId) : undefined}
-        onClick={props.onPick && !centerLock ? () => props.onPick!(centerId) : undefined}
+        onClick={() => {
+          props.onFocus?.(centerId);
+          if (!centerLock) props.onPick?.(centerId);
+        }}
       >
         <title>{(props.labels?.[centerId] || props.abbr(centerId)) + (centerLock ? `　不可避免：${centerLock.join("；")}` : "")}</title>
         <circle className="aw-cback" cx={120} cy={120} r={W_R0 - 4} />

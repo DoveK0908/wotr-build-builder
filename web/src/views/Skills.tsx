@@ -3,13 +3,15 @@ import type { Db } from "../types";
 import { act, useBuild } from "../store";
 import { derive, attrMod, num } from "../rules";
 import { Chip, Meter, NumBox } from "../ui";
-import { ListPane, ListRow, Sect, StatBox, StatRows, ThreePane } from "../pane";
+import { ListPane, ListRow, PinBar, Sect, StatBox, StatRows, ThreePane } from "../pane";
 
 /** 第 ⑤ 步：技能 */
 export function Skills(props: { db: Db }) {
   const { db } = props;
   const build = useBuild();
   const [hover, setHover] = useState<string | null>(null);
+  /** 点一下锁定在这一项（再点一次取消）；锁住后不再跟着鼠标跑 */
+  const [pinned, setPinned] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const d = useMemo(() => derive(db, build), [db, build]);
   const cls = Object.keys(d.classLevels);
@@ -23,7 +25,7 @@ export function Skills(props: { db: Db }) {
     return s;
   }, [db, cls.join(",")]);
 
-  const focusId = hover || d.skills[0]?.id || null;
+  const focusId = pinned || hover || d.skills[0]?.id || null;
   const focus = d.skills.find((s) => s.id === focusId) || null;
 
   const list = useMemo(() => {
@@ -59,8 +61,9 @@ export function Skills(props: { db: Db }) {
                 }
                 badge={isClass ? <span className="badge ok">本职</span> : undefined}
                 sel={focusId === s.id}
+                title={pinned === s.id ? "点击取消固定" : "点击固定这一项"}
                 onHover={() => setHover(s.id)}
-                onClick={() => setHover(s.id)}
+                onClick={() => setPinned((cur) => (cur === s.id ? null : s.id))}
               />
             );
           })}
@@ -89,6 +92,14 @@ export function Skills(props: { db: Db }) {
                 </div>
               )}
             </div>
+
+            <PinBar
+              pinned={pinned === focus.id}
+              onUnpin={() => {
+                setHover(focus.id);
+                setPinned(null);
+              }}
+            />
 
             <Sect title="投入点数">
               <div className="row">

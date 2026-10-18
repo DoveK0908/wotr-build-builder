@@ -3,7 +3,7 @@ import type { Db, SpellEntry } from "../types";
 import { act, useBuild } from "../store";
 import { derive, label } from "../rules";
 import { Chip, Meter } from "../ui";
-import { DetailHead, ListPane, ListRow, Sect, StatBox, StatRows, ThreePane } from "../pane";
+import { DetailHead, ListPane, ListRow, PinBar, Sect, StatBox, StatRows, ThreePane } from "../pane";
 import { featureIcon } from "../skin";
 
 const RANGE_CN: Record<string, string> = {
@@ -82,6 +82,8 @@ export function Spells(props: { db: Db; focusBook?: string; focusLevel?: number 
   });
   const [lvl, setLvl] = useState(focusLevel && focusLevel > 0 ? focusLevel : 1);
   const [hover, setHover] = useState<string | null>(null);
+  /** 点一下锁定这一条（再点一次取消）；换环位 / 换法术书时自动失效 */
+  const [pinned, setPinned] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const [showAll, setShowAll] = useState(true);
 
@@ -130,7 +132,10 @@ export function Spells(props: { db: Db; focusBook?: string; focusLevel?: number 
     return kw ? base.filter((s) => (s.name + " " + (s.nameEn || "")).toLowerCase().includes(kw)) : base;
   }, [pool, q, showAll]);
 
-  const focusId = hover && pool.some((s) => s.id === hover) ? hover : list[0]?.id || null;
+  // 固定的法术只在这一环的候选里才生效：切环位 / 换法术书后自动回到跟随鼠标
+  const pinnedId = pinned && pool.some((s) => s.id === pinned) ? pinned : null;
+  const focusId =
+    pinnedId || (hover && pool.some((s) => s.id === hover) ? hover : list[0]?.id || null);
   const focus = focusId ? db.spells[focusId] : null;
   const isChosen = !!focus && chosen.has(focus.id);
 
@@ -163,8 +168,9 @@ export function Spells(props: { db: Db; focusBook?: string; focusLevel?: number 
               sub={SCHOOL_CN[s.school || ""] || s.school || s.nameEn}
               num={chosen.has(s.id) ? "●" : undefined}
               sel={focusId === s.id}
+              title={pinnedId === s.id ? "点击取消固定" : "点击固定这一条"}
               onHover={() => setHover(s.id)}
-              onClick={() => setHover(s.id)}
+              onClick={() => setPinned((cur) => (cur === s.id ? null : s.id))}
             />
           ))}
           {list.length === 0 && <div className="muted small" style={{ padding: 10 }}>这一环没有可选法术</div>}
@@ -183,6 +189,14 @@ export function Spells(props: { db: Db; focusBook?: string; focusLevel?: number 
                 TYPE_CN[focus.type || ""] || focus.type || "法术"
               }`}
               big
+            />
+
+            <PinBar
+              pinned={pinnedId === focus.id}
+              onUnpin={() => {
+                setHover(focus.id);
+                setPinned(null);
+              }}
             />
 
             <Sect title="法术详情">

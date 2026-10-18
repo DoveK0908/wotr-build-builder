@@ -3,7 +3,7 @@ import type { Db } from "../types";
 import { act, useBuild } from "../store";
 import { alignConflicts, alignmentLocks } from "../rules";
 import { Chip } from "../ui";
-import { AlignWheel, DetailHead, Sect, StatRows, ThreePane } from "../pane";
+import { AlignWheel, DetailHead, PinBar, Sect, StatRows, ThreePane } from "../pane";
 
 const ABBR: Record<string, string> = {
   LawfulGood: "LG",
@@ -23,6 +23,8 @@ export function Align(props: { db: Db }) {
   const build = useBuild();
   const rules = db.rules;
   const [hover, setHover] = useState<string | null>(null);
+  /** 点一下锁定这个阵营的详情（再点一次取消） */
+  const [pinned, setPinned] = useState<string | null>(null);
 
   const locks = useMemo(() => alignmentLocks(db, build), [db, build]);
   const conflicts = useMemo(() => alignConflicts(db, build), [db, build]);
@@ -35,7 +37,7 @@ export function Align(props: { db: Db }) {
 
   // 游戏里左栏轮盘上方写着「当前阵营」，中栏标题跟着鼠标走。
   const current = rules.alignments.find((a) => a.id === build.alignment);
-  const focusId = hover || build.alignment || "TrueNeutral";
+  const focusId = pinned || hover || build.alignment || "TrueNeutral";
   const focus = rules.alignments.find((a) => a.id === focusId);
   const focusLock = focusId ? locks[focusId] : undefined;
 
@@ -56,11 +58,13 @@ export function Align(props: { db: Db }) {
               labels={labels}
               onPick={pick}
               onHover={setHover}
+              onFocus={(id) => setPinned((cur) => (cur === id ? null : id))}
             />
           </div>
           <div className="alwheel-name">{current ? current.name : "尚未选择"}</div>
           <div className="muted small" style={{ padding: "0 8px" }}>
             点扇形或正中那格即可选择；灰掉的表示当前职业 / 变体 / 神祇不允许。
+            点一下会把该阵营的详情固定在中栏（再点一次取消）。
           </div>
           <div className="lp-foot">
             <span>共 {rules.alignments.length} 个阵营</span>
@@ -73,8 +77,15 @@ export function Align(props: { db: Db }) {
             glyph={abbr(focusId)}
             title={focus ? focus.name : "阵营"}
             en={abbr(focusId)}
-            sub={build.alignment === focusId ? "当前阵营" : "鼠标悬停预览"}
+            sub={build.alignment === focusId ? "当前阵营" : pinned === focusId ? "固定查看" : "鼠标悬停预览"}
             big
+          />
+          <PinBar
+            pinned={pinned === focusId}
+            onUnpin={() => {
+              setHover(focusId);
+              setPinned(null);
+            }}
           />
           <div className="row wrap">
             {focusLock ? (
