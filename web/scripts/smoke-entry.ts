@@ -1272,6 +1272,22 @@ export function run(dir: string): void {
     if (csP) {
       const c0 = levelCtxList(db, emptyBuild(), derive(db, emptyBuild()))[0];
       eq(evalPrereq(db, c0, csP as Prereq), "no", "没有施法职业时 casterspell 不通过");
+      // 牧师是神术职业，能施放 1 环即满足（自发变体才被 "自发" 前置拦住）
+      const cleric = Object.values(db.classes).find((c) => c.name === "牧师");
+      const oracle = Object.values(db.classes).find((c) => c.name === "先知");
+      if (cleric && oracle) {
+        const bc = emptyBuild();
+        for (let i = 0; i < 4; i += 1) bc.levels[i] = { ...emptyLevel(), classId: cleric.id };
+        const cc = levelCtxList(db, bc, derive(db, bc))[3];
+        eq(evalPrereq(db, cc, csP as Prereq), "ok", "牧师 4 级能满足「能施放 1 环神术」");
+        const bo = emptyBuild();
+        for (let i = 0; i < 4; i += 1) bo.levels[i] = { ...emptyLevel(), classId: oracle.id };
+        const co = levelCtxList(db, bo, derive(db, bo))[3];
+        eq(evalPrereq(db, co, csP as Prereq), "ok", "先知（自发神术）也能满足（该前置没要求非自发）");
+        const spontOnly = { ...csP, spont: true } as unknown as Prereq;
+        eq(evalPrereq(db, cc, spontOnly), "no", "要求自发时牧师不通过");
+        eq(evalPrereq(db, co, spontOnly), "ok", "要求自发时先知通过");
+      }
     }
   }
 

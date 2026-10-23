@@ -1439,7 +1439,7 @@ export function evalPrereq(db: Db, ctx: LevelCtx, p: Prereq, depth = 0, subject 
         if (!n) continue;
         const c = db.classes[cid];
         const sb = c?.spellbookId ? db.spellbooks[c.spellbookId] : undefined;
-        if (!sb || !sb.isArcane) continue;
+        if (!sb) continue;
         if (!!sb.isArcane !== wantArcane) continue;
         if (sb.isAlchemist || sb.isMythic) continue;
         if (onlySpont && !sb.spontaneous) continue;
