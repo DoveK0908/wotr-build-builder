@@ -1424,10 +1424,11 @@ export function evalPrereq(db: Db, ctx: LevelCtx, p: Prereq, depth = 0, subject 
     case "paramweapon":
       return has(p.id as string) ? "ok" : "no";
     case "classspell": {
+      // PrerequisiteClassSpellLevel：该职业的法术书当前能施放到第几环；没这个职业（或没有法术书）就不满足
       const cid = String(p.class);
       const need = num2(p.v) ?? 1;
       const mx = ctx.maxSpellLevel?.[cid];
-      if (mx === undefined) return "unknown";
+      if (mx === undefined) return "no";
       return mx >= need ? "ok" : "no";
     }
     case "casterspell": {

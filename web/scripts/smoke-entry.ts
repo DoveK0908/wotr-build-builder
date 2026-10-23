@@ -1295,6 +1295,15 @@ export function run(dir: string): void {
     }
   }
 
+    // classspell：没有该职业（或该职业没有法术书）时不满足，而不是「判不出来」
+    const any70 = Object.values(db.features).find((f) => (f.prereq || []).some((p) => p.k === "classspell"));
+    const csp = any70?.prereq?.find((p) => p.k === "classspell");
+    ok(!!csp, "找到 classspell 前置", any70?.name || "");
+    if (csp) {
+      const c0 = levelCtxList(db, emptyBuild(), derive(db, emptyBuild()))[0];
+      eq(evalPrereq(db, c0, csp as Prereq), "no", "没有该职业时 classspell 不通过");
+    }
+
   const total = pass + fails.length;
   if (fails.length === 0) {
     console.log(`### ALL CHECKS PASSED ###  (${pass}/${total})`);
