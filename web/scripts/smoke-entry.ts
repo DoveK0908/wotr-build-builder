@@ -42,6 +42,7 @@ import {
   backgroundRoot,
   levelCtxList,
   levelRootSlots,
+  label,
   livePicks,
   mythicHeroPath,
   mythicSource,
@@ -1118,6 +1119,53 @@ export function run(dir: string): void {
     ok(csv.startsWith("\ufeff") && csv.includes("导出测试"), "CSV 带 BOM 且含标题");
     const tsv = toTsv(t);
     ok(tsv.split("\n").some((l) => l.split("\t").length === 7), "TSV 用制表符分列");
+  }
+
+  /* ── 导出表把嵌套选择写全（战斗特技里再选的专长）── */
+  {
+    const bn = emptyBuild();
+    const fighter = Object.values(db.classes).find((c) => c.name === "战士");
+    if (fighter) {
+      bn.levels[0] = { ...emptyLevel(), classId: fighter.id };
+      const slot = levelRootSlots(db, bn, 1).find((s) => label(s) === "专长");
+      ok(!!slot, "1 级有「专长」槽位");
+      if (slot) {
+        // 专长 › 战斗特技 › 猛力攻击
+        bn.levels[0].picks[slot.id] = "c5158a6622d0b694a99efb1d0025d2c1";
+        bn.levels[0].picks["c5158a6622d0b694a99efb1d0025d2c1"] = "9972f33f977fc724c838e59641b2fca5";
+        const nt = buildTable(db, bn);
+        ok(nt.rows[0][2].includes("战斗特技 › 猛力攻击"), "导出专长列写出嵌套链：战斗特技 › 猛力攻击");
+      }
+      const nb = buildTable(db, bn);
+      ok(/BAB \+1/.test(nb.rows[0][6]), "导出备注写该级 BAB（战士 1 级 = +1）");
+      ok(/BAB \+1/.test(nb.rows[1][6]), "空职业行沿用累计 BAB（战士 1 级后仍 +1）");
+    }
+  }
+
+  /* ── 逐级 BAB / 偷袭进 LevelCtx，能判 BaseAttackBonus 前置 ── */
+  {
+    const bb = emptyBuild();
+    const fighter = Object.values(db.classes).find((c) => c.name === "战士");
+    if (fighter) {
+      for (let i = 0; i < 12; i += 1) bb.levels[i] = { ...emptyLevel(), classId: fighter.id };
+      const cs = levelCtxList(db, bb, derive(db, bb));
+      ok(cs[0].bab === 1 && cs[11].bab === 12, "战士第 1/12 级 BAB 分别为 +1/+12");
+      // 重击专攻：只有 BAB ≥ 9 一条前置
+      const crit = "8ac59959b1b23c347a0361dc97cc786d";
+      const f = db.features[crit];
+      ok(!!f && f.name === "重击专攻", "找到「重击专攻」（BAB ≥ 9）");
+      if (f) {
+        ok(evalPrereqs(db, cs[7], f.prereq).verdict === "no", "战士 8 级（BAB +8）判为不满足");
+        ok(evalPrereqs(db, cs[8], f.prereq).verdict === "ok", "战士 9 级（BAB +9）判为满足");
+        ok(prereqText(db, f.prereq[0]) === "基础攻击加值 ≥ 9", "BAB 前置文案用中文");
+      }
+    }
+    // 偷袭骰
+    const sneakFeat = db.features["9f0187869dc23744292c0e5bb364464e"];
+    if (sneakFeat) {
+      const no = { ...levelCtxList(db, emptyBuild(), derive(db, emptyBuild()))[0] };
+      ok(evalPrereqs(db, no, sneakFeat.prereq).verdict !== "ok", "没有偷袭骰时「熟练偷袭者」不满足");
+    }
   }
 
   const total = pass + fails.length;

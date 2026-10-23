@@ -3,7 +3,7 @@ import type { Db } from "../types";
 import { LEGEND_PATH_ID, act, useBuild } from "../store";
 import {
   MYTHIC_LATE_START, choiceVerdict, derive, evalPrereqs, label, mythicHeroPath, mythicSource, ownedFeatures,
-  MYTHIC_RANK_LEVELS, levelForRank, pathStartRank, prereqText, rankRootSlots,
+  MYTHIC_RANK_LEVELS, babAt, levelForRank, pathStartRank, prereqText, rankRootSlots, sneakAt,
 } from "../rules";
 import { Chip, Collapse } from "../ui";
 import { AutoList, SlotChain } from "../pick";
@@ -23,6 +23,8 @@ export function Mythic(props: { db: Db }) {
     const o = ownedFeatures(db, build);
     return {
       atLevel: 20,
+      bab: babAt(db, build, 20),
+      sneak: sneakAt(db, o.ids),
       classLevels: derived.classLevels,
       attrs: derived.attrs,
       idSet: o.ids,

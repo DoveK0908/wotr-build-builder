@@ -2,7 +2,7 @@ import React, { useMemo, useState } from "react";
 import type { ClassEntry, Db } from "../types";
 import { BASE_LEVEL, act, levelCap, useBuild } from "../store";
 import {
-  alignAllows, alignNeedText, alignOverrideOf, alignTokensOf, classLevels, classSelectableAt, derive,
+  alignAllows, alignNeedText, alignOverrideOf, alignTokensOf, babAt, classLevels, classSelectableAt, derive,
   evalPrereqs, label, prereqText,
 } from "../rules";
 import { ClassNumbers, GrowthTable, ListPane, ListRow, Sect, StatBox, StatRows, ThreePane } from "../pane";
@@ -128,6 +128,7 @@ export function ClassPlan(props: { db: Db }) {
   const preCtx = useMemo(
     () => ({
       atLevel: level,
+      bab: babAt(db, build, level),
       classLevels: derived.classLevels,
       attrs: derived.attrs,
       idSet: new Set<string>(),

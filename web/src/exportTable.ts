@@ -1,9 +1,10 @@
-import type { Db } from "./types";
+import type { Db, FeatureEntry } from "./types";
 import { ATTRS, levelCap } from "./store";
 import type { Build } from "./store";
 import {
   attrMod,
   backgroundRoot,
+  babAt,
   derive,
   label,
   levelForRank,
@@ -56,6 +57,42 @@ function slotName(db: Db, id: string): string {
   return label(db.features[id]);
 }
 
+/**
+ * 把一个根槽位下面「活着的」选择链翻成人能读的一段文字。
+ * 战斗特技 › 战斗流派专长 › 弓术 这种嵌套全部写出来，不能只报根槽位。
+ * 参数化专长（武器专攻之类）把参数一并写进去。
+ */
+function chainWalk(db: Db, root: FeatureEntry, picks?: Record<string, string>, params?: Record<string, string>) {
+  const parts: string[] = [];
+  const labels: string[] = [];
+  let leaf: FeatureEntry | undefined;
+  let slot: FeatureEntry | undefined = root;
+  for (let guard = 0; slot && guard < 8; guard += 1) {
+    const choice = picks?.[slot.id];
+    if (!choice) break;
+    const f = db.features[choice];
+    const p = f?.paramVariants?.[params?.[choice] ?? ""];
+    parts.push(p ?? slotName(db, choice));
+    labels.push(slotName(db, choice));
+    leaf = f;
+    if (!f || !f.choices || !f.choices.length) break;
+    slot = f;
+  }
+  return {
+    text: parts.length ? parts.join(" › ") : null,
+    leaf,
+    labels,
+  };
+}
+
+/** 这个选择算「专长」吗：链上任何一层是专长槽，或者选出来的东西带 Feat 标签 */
+const FEAT_LABEL = /专长|专精|流派|特技|秘闻|天赋|绝技|发现|启示|戒律|原力|联结|契约|诅咒|血承|祝福|圣恩/;
+function isFeatPick(labels: string[], leaf?: FeatureEntry): boolean {
+  if (labels.some((l) => FEAT_LABEL.test(l))) return true;
+  const g = leaf?.groups || [];
+  return g.includes("Feat") || g.includes("CombatFeat") || g.includes("MythicFeat");
+}
+
 /** 某一级里所有「要选的东西」，按列分类 */
 function levelCells(db: Db, build: Build, idx: number) {
   const lv = build.levels[idx];
@@ -66,17 +103,15 @@ function levelCells(db: Db, build: Build, idx: number) {
 
   const slots = levelRootSlots(db, build, idx + 1);
   for (const s of slots) {
-    const v = lv.picks?.[s.id];
-    if (!v) continue;
-    // 参数化的专长把参数一起写出来
-    const p = db.features[v]?.paramVariants?.[lv.params?.[v] ?? ""];
-    const text = p ?? slotName(db, v);
-    const slotLabel = slotName(db, s.id);
-    if (/专长/.test(slotLabel) || /专长/.test(text)) feat.push(text);
-    else other.push(text);
+    const w = chainWalk(db, s, lv.picks, lv.params);
+    if (!w.text) continue;
+    if (isFeatPick(w.labels, w.leaf)) feat.push(w.text);
+    else other.push(w.text);
   }
   const ab = lv.ability ? ATTR_CN[lv.ability] ?? lv.ability : "";
   if (ab) notes.push(`属性 +1：${ab}`);
+  // 这一级结束时的基础攻击加值（专长的 BAB 前置就是拿它对）
+  notes.push(`BAB +${babAt(db, build, idx + 1)}`);
   const cls = lv.classId ? label(db.classes[lv.classId]) : "";
   const arch = lv.classId ? (build.classArchetypes[lv.classId] || []).map((a) => label(db.archetypes[a])).join("/") : "";
   return { cls: arch ? `${cls}（${arch}）` : cls, feat, other, notes };
@@ -88,10 +123,8 @@ function rankCells(db: Db, build: Build, rank: number) {
   const out: string[] = [];
   if (!r) return out;
   for (const s of rankRootSlots(db, build, rank)) {
-    const v = r.picks?.[s.id];
-    if (!v) continue;
-    const p = db.features[v]?.paramVariants?.[r.params?.[v] ?? ""];
-    out.push(p ?? slotName(db, v));
+    const w = chainWalk(db, s, r.picks, r.params);
+    if (w.text) out.push(w.text);
   }
   return out;
 }

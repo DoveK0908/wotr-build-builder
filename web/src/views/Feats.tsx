@@ -2,7 +2,7 @@ import React, { useMemo, useState } from "react";
 import type { AttrId, Db } from "../types";
 import { act, levelCap, useBuild } from "../store";
 import {
-  choiceVerdict, derive, evalPrereqs, featuresAtClassLevel, isNamed, label, levelCtxList, levelRootSlots,
+  babAt, choiceVerdict, derive, evalPrereqs, featuresAtClassLevel, isNamed, label, levelCtxList, levelRootSlots,
   levelForRank, mythicRank, prereqText, rankRootSlots, ranksAtLevel,
 } from "../rules";
 import { Chip, Collapse, SearchSelect } from "../ui";
@@ -38,13 +38,16 @@ export function Feats(props: { db: Db }) {
     const classLvl = lv.classId ? running[lv.classId] : 0;
     const uniqSlots = levelRootSlots(db, build, level);
     const missing = uniqSlots.filter((s) => !lv.picks[s.id]).length;
-    return { idx, level, lv, classLvl, uniqSlots, missing };
+    // 这一级结束时的 BAB 与偷袭骰 —— 专长的 BAB 前置就是拿它对
+    const bab = babAt(db, build, level);
+    return { idx, level, lv, classLvl, uniqSlots, missing, bab };
   });
 
   const totalMissing = info.reduce((a, i) => a + i.missing, 0);
   const fallback = info.find((i) => i.missing > 0)?.level || (firstEmpty < 0 ? 20 : firstEmpty + 1);
   const cur = info[(sel ?? fallback) - 1] || info[info.length - 1];
   const ctx = ctxs[cur.idx];
+  const sneakNow = ctx?.sneak ?? 0;
   const archList = (cur.lv.classId && build.classArchetypes[cur.lv.classId]) || [];
   const autoIds = (cur.lv.classId ? featuresAtClassLevel(db, cur.lv.classId, cur.classLvl, archList) : []).filter(
     (id) => isNamed(db.features[id]),
@@ -83,9 +86,12 @@ export function Feats(props: { db: Db }) {
               glyph={stepGlyph("class")}
               name={`第 ${i.level} 级`}
               sub={
-                i.lv.classId
-                  ? `${label(db.classes[i.lv.classId])}${i.classLvl > 1 ? ` 第 ${i.classLvl} 级` : ""}`
-                  : "未选职业"
+                <span>
+                  {i.lv.classId
+                    ? `${label(db.classes[i.lv.classId])}${i.classLvl > 1 ? ` 第 ${i.classLvl} 级` : ""}`
+                    : "未选职业"}
+                  {i.lv.classId ? <span className="muted">　BAB +{i.bab}</span> : null}
+                </span>
               }
               num={i.uniqSlots.length > 0 ? `${i.uniqSlots.length - i.missing}/${i.uniqSlots.length}` : undefined}
               badge={i.missing > 0 ? <span className="badge no">{i.missing} 项未选</span> : undefined}
@@ -242,6 +248,8 @@ export function Feats(props: { db: Db }) {
                 { k: "未选项", v: totalMissing },
                 { k: "本级要选", v: cur.uniqSlots.length },
                 { k: "本级未选", v: cur.missing },
+                { k: "本级 BAB", v: `+${cur.bab}` },
+                { k: "本级末偷袭", v: `${sneakNow} 骰` },
               ]}
             />
           </Sect>

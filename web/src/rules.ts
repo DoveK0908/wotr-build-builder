@@ -639,6 +639,29 @@ export function pointBuySpent(db: Db, build: Build): number {
   return sum;
 }
 
+/** 到第 level 级为止应有的基础攻击加值：各职业按自己的职业等级查表相加 */
+export function babAt(db: Db, build: Build, level: number): number {
+  const cl: Record<string, number> = {};
+  for (let i = 0; i < level && i < build.levels.length; i += 1) {
+    const cid = build.levels[i]?.classId;
+    if (cid) cl[cid] = (cl[cid] || 0) + 1;
+  }
+  let bab = 0;
+  for (const [cid, n] of Object.entries(cl)) bab += num(db.classes[cid]?.bab?.[n]);
+  return bab;
+}
+
+/** 偷袭骰数：把已拥有特性里所有 SneakAttack 加值加起来（游荡者/杀手/刺客按职业等级给） */
+export function sneakAt(db: Db, ids: Set<string>): number {
+  let n = 0;
+  for (const id of ids) {
+    for (const b of db.features[id]?.statBonuses || []) {
+      if (b.stat === "SneakAttack") n += num(b.value);
+    }
+  }
+  return n;
+}
+
 /** 每个等级内的上下文（用来算前置条件能不能满足） */
 export function levelCtxList(db: Db, build: Build, d: Derived): LevelCtx[] {
   const skillRanks: Record<string, number> = {};
@@ -695,6 +718,8 @@ export function levelCtxList(db: Db, build: Build, d: Derived): LevelCtx[] {
       profWeapon,
       maxSpellLevel: d.maxSpellLevel,
       rank: mythicRank(trunc),
+      bab: babAt(db, build, L),
+      sneak: sneakAt(db, o.ids),
     });
   }
   return out;
@@ -1007,6 +1032,10 @@ export interface LevelCtx {
   rank?: number;
   /** 特性 id -> 拿了几遍（判定「该特性层数 >= N」用） */
   factCount?: Record<string, number>;
+  /** 评估点上应有的基础攻击加值（判定 BaseAttackBonus 用） */
+  bab?: number;
+  /** 评估点上的偷袭骰数（判定 SneakAttack 用） */
+  sneak?: number;
 }
 
 // ── 阵营限制 ────────────────────────────────────────────────────────────────
@@ -1243,6 +1272,15 @@ export function evalPrereq(db: Db, ctx: LevelCtx, p: Prereq): Verdict {
       const need = num2(p.v) ?? 1;
       const key = CHECK_ALIAS[stat] || stat;
       if ((ATTRS as string[]).includes(key)) return ctx.attrs[key as AttrId] >= need ? "ok" : "no";
+      if (key === "BaseAttackBonus") {
+        // 逐级算出来的 BAB（职业表相加），不是最终攻击加值
+        if (ctx.bab === undefined) return "unknown";
+        return ctx.bab >= need ? "ok" : "no";
+      }
+      if (key === "SneakAttack") {
+        if (ctx.sneak === undefined) return "unknown";
+        return ctx.sneak >= need ? "ok" : "no";
+      }
       if (key.startsWith("Skill")) {
         // 这里比较的是技能点数，由调用方注入
         const ranks = ctx.skillRanks ? num(ctx.skillRanks[key]) : undefined;
@@ -1430,6 +1468,12 @@ function featName(db: Db, id: string): string {
   return t === "（未命名）" ? "内部特性" : t;
 }
 
+/** stat / statfull 里不出现在属性表与技能表里的那几个（游戏内部的「检定名」） */
+const STAT_CN: Record<string, string> = {
+  BaseAttackBonus: "基础攻击加值",
+  SneakAttack: "偷袭骰",
+};
+
 export function prereqText(db: Db, p: Prereq): string {
   const nm = (id?: unknown) => (typeof id === "string" ? featName(db, id) : "?");
   switch (p.k) {
@@ -1445,9 +1489,14 @@ export function prereqText(db: Db, p: Prereq): string {
       const s = String(p.stat || "");
       const attr = (ATTRS as string[]).includes(s) ? label(db.rules.attributes.find((a) => a.id === s)) : null;
       const sk = db.rules.skills.find((x) => x.id === (CHECK_ALIAS[s] || s));
-      return `${attr || sk?.name || s} ≥ ${p.v}`;
+      return `${attr || sk?.name || STAT_CN[s] || s} ≥ ${p.v}`;
     }
-    case "statfull": return `${p.stat} ≥ ${p.v}`;
+    case "statfull": {
+      const s = String(p.stat || "");
+      const attr = (ATTRS as string[]).includes(s) ? label(db.rules.attributes.find((a) => a.id === s)) : null;
+      const sk = db.rules.skills.find((x) => x.id === (CHECK_ALIAS[s] || s));
+      return `${attr || sk?.name || STAT_CN[s] || s} ≥ ${p.v}`;
+    }
     case "clvl": return `${db.classes[String(p.class)] ? label(db.classes[String(p.class)]) : "内部职业"} 职业等级 ≥ ${p.v}`;
     case "nocl": return `非 ${db.classes[String(p.class)] ? label(db.classes[String(p.class)]) : "内部职业"}`;
     case "chlvl": return `角色等级 ≥ ${p.v}`;

@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import type { Db } from "../types";
 import { act, useBuild } from "../store";
-import { alignAllows, alignConflicts, alignNeedText, alignTokensOf, childFeatures, derive, evalPrereqs, label, ownedFeatures, prereqText } from "../rules";
+import { alignAllows, alignConflicts, alignNeedText, alignTokensOf, babAt, childFeatures, derive, evalPrereqs, label, ownedFeatures, prereqText, sneakAt } from "../rules";
 import { Chip, Desc } from "../ui";
 import { DetailHead, IconGrid, ListPane, ListRow, PinBar, Sect, StatRows, ThreePane } from "../pane";
 import { openDetail } from "../detail";
@@ -42,6 +42,8 @@ export function Deity(props: { db: Db }) {
     const o = ownedFeatures(db, build);
     return {
       atLevel: 20,
+      bab: babAt(db, build, 20),
+      sneak: sneakAt(db, o.ids),
       classLevels: derived.classLevels,
       attrs: derived.attrs,
       idSet: o.ids,
