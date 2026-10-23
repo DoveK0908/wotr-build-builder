@@ -53,6 +53,8 @@ import {
   ownedFeatures,
   pathStartRank,
   pointBuySpent,
+  paramName,
+  pickedParams,
   prereqText,
   prereqForIndex,
   raceRootSlots,
@@ -1346,6 +1348,55 @@ export function run(dir: string): void {
     eq(ranksForLevel(17).join(","), "6", "17 级只对应第 6 阶");
     eq(ranksForLevel(19).join(","), "9", "19 级只对应第 9 阶");
     eq(ranksForLevel(1).length, 0, "1 级没有神话阶层");
+  }
+
+  /* ── 参数化选择：诡术师学识（宗教）给的领域 ── */
+  {
+    // 领域变体来自蓝图的 BlueprintParameterVariants（蓝图原文权威表）
+    const t2 = db.features["3e006bc9bbf0b884a8d8853350bee846"];
+    ok(!!t2 && t2.name === "学识（宗教）2阶", "找到「学识（宗教）2阶」参数化特性");
+    eq(t2?.paramGroup || "", "Domain", "学识（宗教）2阶 的参数组是 Domain");
+    ok((t2?.paramVariants || []).length > 30, "学识（宗教）2阶 有 30+ 个领域可选",
+      String((t2?.paramVariants || []).length));
+    const air = (t2?.paramVariants || []).find((v) => v.startsWith("空气领域|"));
+    ok(!!air, "可选领域里有「空气领域」");
+    const airId = air?.split("|")[1] || "";
+    eq(paramName(t2, airId), "空气领域", "paramName 能把领域 guid 还原成名字");
+    ok(!!db.features[airId], "空气领域的蓝图在特性表里");
+
+    // 选了领域之后，领域特性本身会加进角色（AddFeatureParametrized）
+    ok(!!t2?.paramGrants, "学识（宗教）2阶 标记了「参数会授予特性」");
+    const b = emptyBuild();
+    b.mythicPath = "8df873a8c6e48294abdb78c45834aa0a";
+    b.ranks = Array.from({ length: 10 }, emptyRank);
+    // 游戏里的操作只有一步：第 4 阶的「强化神话诡计」里选「学识（宗教）2阶」，
+    // 之后领域是参数化特性自己的参数（进程表把隐藏单选表与它一起带出来）
+    b.ranks[3].picks["5cd96c3460844fc458dc3e1656dafa42"] = "fd158d5f035346288776f18e76f6721e";
+    b.ranks[3].params["3e006bc9bbf0b884a8d8853350bee846"] = airId;
+    const o = ownedFeatures(db, b);
+    ok(o.ids.has("3e006bc9bbf0b884a8d8853350bee846"), "选中的参数化特性进 ids");
+    ok(o.ids.has(airId), "选完领域后，该领域特性进 ids（参数授予）");
+    eq(o.params["3e006bc9bbf0b884a8d8853350bee846"], airId, "参数记在 owned.params 里");
+
+    // 领域痴迷的前置就是「拥有学识（宗教）2阶」，选完领域后必须通过
+    const ctx = levelCtxList(db, b, derive(db, b))[Math.max(0, levelCap(b) - 1)];
+    const obsession = db.features["2de64f6a1f2baee4f9b7e52e3f046ec5"];
+    eq(evalPrereqs(db, ctx, obsession?.prereq || [], 0, "2de64f6a1f2baee4f9b7e52e3f046ec5").verdict, "ok",
+      "选完领域后「领域痴迷」的前置通过");
+
+    // 学识（宗教）2阶给两个领域：进程表把同一张选择表列了两次，所以要有两个参数位
+    b.ranks[3].picks["fd158d5f035346288776f18e76f6721e"] = "ae4e619162a44996b77973f3abd7781a";
+    b.ranks[3].picks["ae4e619162a44996b77973f3abd7781a"] = "3e006bc9bbf0b884a8d8853350bee846";
+    const two = pickedParams(db, rankRootSlots(db, b, 4).find((s) => s.id === "5cd96c3460844fc458dc3e1656dafa42")!,
+      b.ranks[3].picks);
+    eq(two.length, 2, "学识（宗教）2阶要选两个领域（进程表列了两次）");
+    if (two.length === 2) {
+      eq(two[1].key.endsWith("#2"), true, "第二个领域用 `id#2` 作键", two[1].key);
+      b.ranks[3].params[two[1].key] = "8c67207f838b43df9f2050de4ca035dd";
+      const o2 = ownedFeatures(db, b);
+      ok(o2.ids.has("8c67207f838b43df9f2050de4ca035dd"), "第二个领域也进 ids");
+      eq(o2.params[two[1].key], "8c67207f838b43df9f2050de4ca035dd", "第二个领域记在 params 里");
+    }
   }
 
   const total = pass + fails.length;

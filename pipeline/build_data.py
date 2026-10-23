@@ -360,6 +360,30 @@ class Extractor:
             return {}
         return self.g.by_guid(g)
 
+    # ── 参数化专长的蓝图变体表 ──────────────────────────────────────────
+    def param_blueprints(self, d: dict) -> list[str]:
+        """BlueprintParameterVariants → ['名字|guid', ...]
+
+        BlueprintParametrizedFeature.ExtractSelectionItems 对 Custom / FeatureSelection
+        直接 `ExtractItemsFromBlueprints(BlueprintParameterVariants.Dereference())`，
+        这是那两类参数的唯一权威来源（CustomParameterVariants 只在 Custom 时与
+        蓝图参数表混用，且给的是进程表本身，名字不可读，所以这里只读蓝图变体表）。
+        """
+        out: list[str] = []
+        seen: set[str] = set()
+        for u in d.get("BlueprintParameterVariants") or []:
+            g = ref(u)
+            if not g or g in seen:
+                continue
+            seen.add(g)
+            if g not in self.g.guid_path:
+                self.missing[g] += 1
+                continue
+            sub = self.g.by_guid(g)
+            nm = self.g.name(sub, self.zh) or sub.get("name") or g
+            out.append("%s|%s" % (nm, g))
+        return out
+
     # ── 前置条件 ────────────────────────────────────────────────────────
     # ── 前置里的「条件」组件 ────────────────────────────────────────────
     # PrerequisiteCondition 挂的是一个 ContextCondition* 对象：
@@ -518,6 +542,21 @@ class Extractor:
             e["param"] = d.get("ParameterType")
             if d.get("WeaponSubCategory"):
                 e["paramSub"] = d["WeaponSubCategory"]
+            if d.get("SelectionFeatureGroup"):
+                e["paramGroup"] = d["SelectionFeatureGroup"]
+            # AddFeatureParametrized：选完参数后，那个参数蓝图会作为特性加进角色
+            # （诡术师学识（宗教）2/3阶选的领域就是这样被真正获得的）
+            if any(
+                (str(c.get("$type") or "").split(", ")[-1]) == "AddFeatureParametrized"
+                for c in (d.get("Components") or [])
+            ):
+                e["paramGrants"] = True
+            # 参数类型是 FeatureSelection / Custom 时，游戏直接从
+            # BlueprintParameterVariants 取候选项（BlueprintParametrizedFeature.ExtractSelectionItems），
+            # 所以这两类必须按蓝图导出，不能靠名字反推（「学识（宗教）2阶」的 34 个领域只有这样才拿得到）
+            pv = self.param_blueprints(d)
+            if pv:
+                e["paramVariants"] = pv
         if t == "BlueprintProgression":
             e["progression"] = level_entries(d.get("LevelEntries"))
         if t == "BlueprintActivatableAbility":
@@ -1314,6 +1353,10 @@ def build(game_dir: str, out_dir: str) -> dict:
     for f in features.values():
         p = f.get("param")
         if not p:
+            continue
+        # 蓝图里已经给出权威变体表（FeatureSelection / Custom 的领域、狂暴特技等）就不再反推
+        if f.get("paramVariants"):
+            param_kinds[p] = param_kinds.get(p, 0) + 1
             continue
         opts = var_map.get(f.get("name") or "")
         if p == "SpellSchool":

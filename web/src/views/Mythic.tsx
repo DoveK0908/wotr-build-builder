@@ -6,7 +6,7 @@ import {
   MYTHIC_RANK_LEVELS, babAt, levelForRank, pathStartRank, prereqText, rankRootSlots, sneakAt,
 } from "../rules";
 import { Chip, Collapse } from "../ui";
-import { AutoList, SlotChain } from "../pick";
+import { AutoList, ParamField, SlotChain, pickedParams } from "../pick";
 import { openDetail } from "../detail";
 import { DetailHead, ListPane, MythicGrowth, Sect, StatBox, StatRows, ThreePane } from "../pane";
 import { ART, featureIcon, mythicCard, ui } from "../skin";
@@ -229,6 +229,19 @@ export function Mythic(props: { db: Db }) {
                   />
                 ))}
               </div>
+              {/* 神话阶里的参数化选择：诡术师学识（宗教）2/3 阶要挑领域 */}
+              {cur.slots.map((s) =>
+                pickedParams(db, s, curLv.picks).map(({ f, key }, i) => (
+                  <div key={`${s.id}:${key}`} style={{ marginTop: 6 }}>
+                    <ParamField
+                      f={f}
+                      index={i + 1}
+                      value={curLv.params[key] || null}
+                      onChange={(v) => act.setRankParam(cur.rank - 1, key, v)}
+                    />
+                  </div>
+                )),
+              )}
             </Sect>
           ) : (
             <div className="muted small mt8">这一阶没有要选的东西。</div>

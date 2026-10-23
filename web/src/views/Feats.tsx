@@ -6,7 +6,7 @@ import {
   levelForRank, mythicRank, prereqText, rankRootSlots, ranksAtLevel, ranksForLevel,
 } from "../rules";
 import { Chip, Collapse, SearchSelect } from "../ui";
-import { AutoList, SlotChain } from "../pick";
+import { AutoList, ParamField, SlotChain, pickedParams } from "../pick";
 import { openDetail } from "../detail";
 import { DetailHead, ListPane, ListRow, Sect, StatBox, StatRows, ThreePane } from "../pane";
 import { featureIcon } from "../skin";
@@ -177,6 +177,19 @@ export function Feats(props: { db: Db }) {
                     ))}
                   </div>
                 )}
+                {/* 神话阶里的参数化选择：诡术师学识（宗教）2/3 阶要挑领域 */}
+                {slots.map((sl) =>
+                  pickedParams(db, sl, rank.picks).map(({ f, key }, i) => (
+                    <div key={`${sl.id}:${key}`} style={{ marginTop: 6 }}>
+                      <ParamField
+                        f={f}
+                        index={i + 1}
+                        value={rank.params[key] || null}
+                        onChange={(v) => act.setRankParam(mr - 1, key, v)}
+                      />
+                    </div>
+                  )),
+                )}
               </Sect>
             );
           })}
@@ -208,23 +221,20 @@ export function Feats(props: { db: Db }) {
             ) : null;
           })()}
 
-          {Object.entries(cur.lv.picks).map(([sid, cid]) => {
-            const f = db.features[cid];
-            if (!f?.param) return null;
-            const variants = f.paramVariants || [];
-            if (!variants.length) return null;
-            return (
-              <Sect key={sid} title={`${label(f)} 的参数（${f.param}）`}>
-                <SearchSelect
-                  value={cur.lv.params[f.id] || null}
-                  options={mergeParamOptions(variants)}
-                  onChange={(v) => act.setParam(cur.idx, f.id, v)}
-                  placeholder="选择参数"
-                  width={260}
+          {/* 参数化专长的参数（武器种类 / 法术 / 学派 / 诡术师学识宗教的领域…）：
+              跟着「活着的选择链」走，嵌套在槽位里的选中项也要出参数框 */}
+          {cur.uniqSlots.map((sl) =>
+            pickedParams(db, sl, cur.lv.picks).map(({ f, key }, i) => (
+              <Sect key={`${sl.id}:${key}`} title={`${label(f)} 的参数（${f.param}）`}>
+                <ParamField
+                  f={f}
+                  index={i + 1}
+                  value={cur.lv.params[key] || null}
+                  onChange={(v) => act.setParam(cur.idx, key, v)}
                 />
               </Sect>
-            );
-          })}
+            )),
+          )}
 
           {autoIds.length > 0 && (
             <Collapse title={`本级自动获得（${autoIds.length}）`}>
@@ -274,16 +284,4 @@ export function Feats(props: { db: Db }) {
   );
 }
 
-/** 从参数标签里把「名字|guid」拆成选项 */
-function mergeParamOptions(variants: string[]) {
-  const seen = new Set<string>();
-  const out: { id: string; label: string; hint?: string }[] = [];
-  for (const v of variants) {
-    const [nm, gid] = v.split("|");
-    const id = gid || nm;
-    if (seen.has(id)) continue;
-    seen.add(id);
-    out.push({ id, label: nm, hint: gid ? undefined : nm });
-  }
-  return out;
-}
+/** 参数标签的「名字|guid」拆分见 pick.tsx 的 mergeParamOptions */

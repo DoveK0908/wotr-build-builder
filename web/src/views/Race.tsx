@@ -122,7 +122,8 @@ export function Race(props: { db: Db }) {
                           }
                           const chosen = v ? db.features[v] : null;
                           if (chosen?.param) {
-                            const pv = (chosen.paramVariants || [])[0] || "";
+                            // paramVariants 是「名字|guid」，真正要存的是 guid
+                            const pv = (chosen.paramVariants || [])[0]?.split("|")[1] || "";
                             if (pv) b.raceParams[chosen.id] = pv;
                           }
                         })

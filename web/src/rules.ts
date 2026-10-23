@@ -403,6 +403,78 @@ export interface Owned {
   auto: Set<string>;
 }
 
+/**
+ * 参数键 → (特性 id, 序号)。
+ * 同一个参数化特性可能要选两次（诡术师学识（宗教）2/3 阶各给两个领域），
+ * 第二个起存成 `特性id#2`、`特性id#3`…；
+ * 判断「是否拥有该特性」和「选的参数授予什么」时用的是去掉序号的特性 id。
+ */
+function splitParamKey(key: string): [string, number] {
+  const i = key.indexOf("#");
+  if (i < 0) return [key, 1];
+  return [key.slice(0, i), Number(key.slice(i + 1)) || 1];
+}
+
+/**
+ * 参数化专长的参数显示名。
+ * 数据里 paramVariants 是「名字|guid」，参数存的是 guid（旧数据只有名字时按名字比对）。
+ */
+export function paramName(f: { paramVariants?: string[] } | undefined, param: string | undefined): string | null {
+  if (!f || !param) return null;
+  for (const v of f.paramVariants || []) {
+    const [nm, gid] = v.split("|");
+    if (nm === param || gid === param) return nm;
+  }
+  return param;
+}
+
+/**
+ * 沿「活着的选择链」收集所有还需要再选一次参数的已选项。
+ *
+ * 参数化专长（武器专攻、法术专精、诡术师学识（宗教）的领域…）选完专长本身
+ * 还要再选一个参数，参数框得跟着槽位走，不能只看这一级的 picks 键。
+ * 选中的东西可能是个进程表（学识宗教2阶 = Progression → 隐藏单选表 →
+ * Parametrized），所以要用 expandFeature 把整个展开结果都看一遍。
+ *
+ * 参数可以要不止一个：学识（宗教）2 阶的进程表把同一张选择表列了两次，
+ * 游戏里就是「选两个领域」，这里按展开时出现的次数给出几个输入位
+ * （第 1 个用 feature id 作键，第 2 个起用 `id#2`、`id#3`…）。
+ */
+export function pickedParams(
+  db: Db, root: FeatureEntry, picks: Record<string, string>,
+): { f: FeatureEntry; key: string }[] {
+  const out: { f: FeatureEntry; key: string }[] = [];
+  const count: Record<string, number> = {};
+  let slot: FeatureEntry | null = root;
+  for (let d = 0; slot && d < 8; d += 1) {
+    const cid = picks[slot.id];
+    if (!cid) break;
+    for (const id of expandFeature(db, cid)) {
+      const f = db.features[id];
+      if (!f || !(f.paramVariants || []).length) continue;
+      const n = (count[id] || 0) + 1;
+      count[id] = n;
+      out.push({ f, key: n === 1 ? id : `${id}#${n}` });
+    }
+    const f = db.features[cid];
+    slot = f && f.choices && f.choices.length ? f : null;
+  }
+  return out;
+}
+
+/**
+ * 参数化特性选完参数后，参数那个蓝图本身会不会变成角色身上的特性。
+ *
+ * 游戏里靠 `AddFeatureParametrized` 组件（AddFeatureParametrized.cs:13-19
+ * `Progression.Features.AddFeature(param.Value.Blueprint)`）实现 —— 全库只有
+ * 诡术师的「学识（宗教）2/3阶」两个蓝图带这个组件（选的领域就是这样拿到的）。
+ * 其余参数化专长（武器专攻、法术专精…）只是给自己挂一个参数，不会另外授予特性。
+ */
+function addParamGrant(db: Db, feat: string, param: string, ids: Set<string>) {
+  if (!db.features[feat]?.paramGrants || !param) return;
+  for (const x of expandFeature(db, param)) ids.add(x);
+}
+
 
 export function ownedFeatures(db: Db, build: Build): Owned {
   const ids = new Set<string>();
@@ -438,9 +510,11 @@ export function ownedFeatures(db: Db, build: Build): Owned {
     ids.add(p.slot);
     for (const x of expandFeature(db, p.choice)) ids.add(x);
   }
-  for (const [f, p] of Object.entries(build.raceParams || {})) {
+  for (const [key, p] of Object.entries(build.raceParams || {})) {
+    const [f] = splitParamKey(key);
     if (!p || !ids.has(f)) continue;
-    params[f] = p;
+    params[key] = p;
+    addParamGrant(db, f, p, ids);
   }
 
   // 背景：一条链「大类 → 具体 → 子选择（如德鲁伊戏法）」，只取真正选中的那条
@@ -475,9 +549,11 @@ export function ownedFeatures(db: Db, build: Build): Owned {
       ids.add(p.slot);
       for (const x of expandFeature(db, p.choice)) ids.add(x);
     }
-    for (const [f, p] of Object.entries(lv.params || {})) {
+    for (const [key, p] of Object.entries(lv.params || {})) {
+      const [f] = splitParamKey(key);
       if (!p || !ids.has(f)) continue;
-      params[f] = p;
+      params[key] = p;
+      addParamGrant(db, f, p, ids);
     }
   }
 
@@ -502,9 +578,11 @@ export function ownedFeatures(db: Db, build: Build): Owned {
         ids.add(p.slot);
         for (const x of expandFeature(db, p.choice)) ids.add(x);
       }
-      for (const [f, p] of Object.entries(lv.params || {})) {
+      for (const [key, p] of Object.entries(lv.params || {})) {
+        const [f] = splitParamKey(key);
         if (!p || !ids.has(f)) continue;
-        params[f] = p;
+        params[key] = p;
+        addParamGrant(db, f, p, ids);
       }
     }
   }

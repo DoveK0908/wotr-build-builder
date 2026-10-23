@@ -1,6 +1,6 @@
 {
  "gameDir": "D:\\SteamLibrary\\steamapps\\common\\Pathfinder Second Adventure",
- "generated": "2026-10-23 15:54:50",
+ "generated": "2026-10-23 18:13:09",
  "blueprints": 236661,
  "localization": {
   "zh": 110401,
@@ -31,18 +31,18 @@
   }
  },
  "warnings": [],
- "skippedShadowDeleted": 26,
+ "skippedShadowDeleted": 27,
  "parseErrors": 0,
  "sizes": {
   "rules.json": 3619,
   "classes.json": 143712,
   "archetypes.json": 280266,
-  "features.json": 8645542,
+  "features.json": 9359646,
   "featureDesc.json": 3170676,
-  "features-0.json": 1246365,
-  "features-1.json": 1888573,
-  "features-2.json": 1363742,
-  "features-3.json": 1221078,
+  "features-0.json": 1264433,
+  "features-1.json": 2141506,
+  "features-2.json": 1382666,
+  "features-3.json": 1645257,
   "spells.json": 647728,
   "spellLists.json": 66940,
   "spellbooks.json": 49047,
@@ -51,5 +51,5 @@
   "mythic.json": 42429,
   "meta.json": 988
  },
- "seconds": 7.6
+ "seconds": 7.2
 }

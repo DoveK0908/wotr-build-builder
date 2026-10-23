@@ -2,7 +2,7 @@ import React, { useMemo, useState } from "react";
 import type { Db } from "../types";
 import type { Build } from "../store";
 import { act, deserialize, levelCap, serialize, shareUrl, useBuild } from "../store";
-import { attrBreakdown, attrMod, alignmentLocks, derive, label, ownedFeatures } from "../rules";
+import { attrBreakdown, attrMod, alignmentLocks, derive, label, ownedFeatures, paramName } from "../rules";
 import { Chip, Collapse, Confirm, Modal } from "../ui";
 import { AlignWheel, GrowthTable, IconGrid, Sect, StatBox, StatRows, ThreePane } from "../pane";
 import { openDetail } from "../detail";
@@ -65,7 +65,13 @@ export function Summary(props: { db: Db }) {
       const picks = Object.entries(lv.picks || {}).map(([sid, cid]) => ({
         slot: label(db.features[sid]),
         val: label(db.features[cid]),
-        param: lv.params[cid],
+        // 同一个参数化专长可能要选多个参数（诡术师学识（宗教）给两个领域），
+        // 键是 `特性id`、`特性id#2`…，这里把它们连起来显示
+        param: Object.entries(lv.params || {})
+          .filter(([k]) => k === cid || k.startsWith(`${cid}#`))
+          .map(([, v]) => paramName(db.features[cid], v))
+          .filter(Boolean)
+          .join("、") || undefined,
       }));
       return { level: i + 1, classId: lv.classId, classLevel: lv.classId ? running[lv.classId] : 0, ability: lv.ability, picks };
     });

@@ -125,7 +125,11 @@ export interface FeatureEntry {
   mythicSpellList?: string;
   param?: string;
   paramSub?: string;
+  /** 参数所属的选择组（SelectionFeatureGroup），例如诡术师学识（宗教）是 Domain */
+  paramGroup?: string;
   paramVariants?: string[];
+  /** 选完参数后参数蓝图本身会作为特性加进角色（AddFeatureParametrized） */
+  paramGrants?: boolean;
   missing?: boolean;
   statBonuses?: StatBonus[];
   skillPointsPerLevel?: number;

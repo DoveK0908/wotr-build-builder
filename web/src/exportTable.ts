@@ -6,8 +6,10 @@ import {
   backgroundRoot,
   babAt,
   derive,
+  expandFeature,
   label,
   levelRootSlots,
+  paramName,
   pointBuySpent,
   rankRootSlots,
   ranksForLevel,
@@ -59,7 +61,7 @@ function slotName(db: Db, id: string): string {
 /**
  * 把一个根槽位下面「活着的」选择链翻成人能读的一段文字。
  * 战斗特技 › 战斗流派专长 › 弓术 这种嵌套全部写出来，不能只报根槽位。
- * 参数化专长（武器专攻之类）把参数一并写进去。
+ * 参数化专长（武器专攻、诡术师学识（宗教）给的领域之类）把参数一并写进去。
  */
 function chainWalk(db: Db, root: FeatureEntry, picks?: Record<string, string>, params?: Record<string, string>) {
   const parts: string[] = [];
@@ -70,11 +72,19 @@ function chainWalk(db: Db, root: FeatureEntry, picks?: Record<string, string>, p
     const choice = picks?.[slot.id];
     if (!choice) break;
     const f = db.features[choice];
-    const p = f?.paramVariants?.[params?.[choice] ?? ""];
-    parts.push(p ?? slotName(db, choice));
     labels.push(slotName(db, choice));
     leaf = f;
-    if (!f || !f.choices || !f.choices.length) break;
+    // 参数化专长：参数可能是 `id` 也可能是 `id#2`（学识宗教给两个领域）
+    const withParam = paramLabels(db, choice, params);
+    parts.push(withParam.length ? withParam.join("、") : slotName(db, choice));
+    if (!f || !f.choices || !f.choices.length) {
+      // 选中的是进程表（如学识（宗教）2阶）：真正的参数化特性藏在展开里
+      if (!withParam.length) {
+        const deep = paramLabelsOfExpansion(db, choice, params);
+        if (deep.length) parts[parts.length - 1] += `（${deep.join("、")}）`;
+      }
+      break;
+    }
     slot = f;
   }
   return {
@@ -82,6 +92,27 @@ function chainWalk(db: Db, root: FeatureEntry, picks?: Record<string, string>, p
     leaf,
     labels,
   };
+}
+
+/** 特性自身挂着的参数名（`id`、`id#2`… 都算） */
+function paramLabels(db: Db, id: string, params?: Record<string, string>): string[] {
+  const out: string[] = [];
+  for (const [k, v] of Object.entries(params || {})) {
+    if (k !== id && !k.startsWith(`${id}#`)) continue;
+    const nm = paramName(db.features[id], v);
+    if (nm) out.push(nm);
+  }
+  return out;
+}
+
+/** 进程表/中转表展开出来的参数化特性所选的参数 */
+function paramLabelsOfExpansion(db: Db, id: string, params?: Record<string, string>): string[] {
+  const out: string[] = [];
+  for (const x of expandFeature(db, id)) {
+    if (x === id) continue;
+    for (const nm of paramLabels(db, x, params)) if (!out.includes(nm)) out.push(nm);
+  }
+  return out;
 }
 
 /** 这个选择算「专长」吗：链上任何一层是专长槽，或者选出来的东西带 Feat 标签 */

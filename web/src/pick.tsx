@@ -1,8 +1,8 @@
 import React, { useMemo, useState } from "react";
 import type { Db, FeatureEntry, SpellEntry } from "./types";
-import { label, livePicks, ownedFeatures, prereqForIndex, prereqText } from "./rules";
+import { label, livePicks, ownedFeatures, prereqForIndex, prereqText, expandFeature } from "./rules";
 import type { Verdict } from "./rules";
-import { Chip, Desc, Modal, VerdictTag } from "./ui";
+import { Chip, Desc, Modal, SearchSelect, VerdictTag } from "./ui";
 import { ART, featureIcon, ui } from "./skin";
 import { useBuild } from "./store";
 
@@ -347,5 +347,62 @@ export function SlotChain(props: {
         />
       )}
     </>
+  );
+}
+
+/** 从参数标签里把「名字|guid」拆成可选项（旧数据只有名字时兜底用名字当 id） */
+export function mergeParamOptions(variants: string[]) {
+  const seen = new Set<string>();
+  const out: { id: string; label: string }[] = [];
+  for (const v of variants) {
+    const [nm, gid] = v.split("|");
+    const id = gid || nm;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push({ id, label: nm });
+  }
+  return out;
+}
+
+/** SelectionFeatureGroup → 中文 */
+export function paramGroupText(group: string | undefined): string {
+  if (group === "Domain") return "领域";
+  if (group === "Bloodline") return "血统";
+  if (group === "School") return "学派";
+  if (group === "Deity") return "神祇";
+  return "参数";
+}
+
+/**
+ * 沿「活着的选择链」收集所有还需要再选一次参数的已选项。
+ * 实现在 rules.ts（纯规则，能在无头自检里跑），这里只是转出给视图用。
+ */
+export { pickedParams } from "./rules";
+
+/** 参数化专长的参数选择行 */
+export function ParamField(props: {
+  f: FeatureEntry;
+  value: string | null;
+  onChange: (id: string | null) => void;
+  /** 同一个特性要选多个参数时的序号提示（1 表示第一个，或省略） */
+  index?: number;
+  width?: number;
+}) {
+  const { f, value, onChange, index = 1, width = 260 } = props;
+  const kind = paramGroupText(f.paramGroup);
+  return (
+    <div className="row" style={{ gap: 8, alignItems: "center", marginTop: 4 }}>
+      <span className="muted small">
+        {label(f)} 的{kind}
+        {index > 1 ? `（第 ${index} 个）` : ""}
+      </span>
+      <SearchSelect
+        value={value}
+        options={mergeParamOptions(f.paramVariants || [])}
+        onChange={onChange}
+        placeholder={`选择${kind}`}
+        width={width}
+      />
+    </div>
   );
 }
