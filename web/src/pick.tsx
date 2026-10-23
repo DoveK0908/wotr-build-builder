@@ -154,7 +154,7 @@ export function PickModal(props: {
   const reqFor = props.slotId ? prereqForIndex(db).get(props.slotId) || [] : [];
 
   return (
-    <Modal wide title={`${props.title} — 候选 ${ids.length} 项`} onClose={props.onClose}>
+    <Modal wide fixed title={`${props.title} — 候选 ${ids.length} 项`} onClose={props.onClose}>
       <div className="pick">
         <div className="pick-left">
           <div className="pick-bar">

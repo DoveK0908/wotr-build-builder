@@ -262,23 +262,35 @@ input.text:focus, textarea.text:focus, .cl-search:focus { border-color: var(--ac
   border: 1px solid var(--line2); border-radius: 14px; overflow: hidden;
   box-shadow: 0 24px 60px rgba(0, 0, 0, .7);
 }
+/* 宽弹窗（选取 / 详情 / 预置） */
 .modal.wide { width: min(1080px, 96vw); }
-.modal-head { display: flex; align-items: center; justify-content: space-between; padding: 9px 14px; border-bottom: 1px solid var(--line); background: #2a2137; }
+/* 固定高度的宽弹窗（选取面板用）：右栏详情长短不一时窗口整体不再上下跳 */
+.modal.wide.fixed { height: min(740px, 88vh); }
+.modal-head { display: flex; align-items: center; justify-content: space-between; padding: 9px 14px; border-bottom: 1px solid var(--line); background: #2a2137; flex: none; }
 .modal-head .x { background: transparent; border: 0; color: var(--fg2); font-size: 21px; cursor: pointer; line-height: 1; }
 .modal-head .x:hover { color: var(--no); }
-.modal-body { padding: 12px 14px; overflow: auto; }
-.pick { display: grid; grid-template-columns: 1.25fr 1fr; gap: 12px; }
-.pick-left { display: flex; flex-direction: column; min-width: 0; }
-.pick-bar { display: flex; align-items: center; gap: 9px; margin-bottom: 7px; flex-wrap: wrap; }
+/* 弹窗体是 flex 列：内容自己滚，外层不撑高 */
+.modal-body { padding: 12px 14px; overflow: auto; flex: 1 1 auto; min-height: 0; }
+.modal.wide.fixed .modal-body { display: flex; flex-direction: column; overflow: hidden; }
+.pick { display: grid; grid-template-columns: 1.25fr 1fr; gap: 12px; flex: 1 1 auto; min-height: 0; align-items: stretch; }
+.pick-left { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.pick-bar { display: flex; align-items: center; gap: 9px; margin-bottom: 7px; flex-wrap: wrap; flex: none; }
 .pick-bar .cl-search { flex: 1 1 140px; }
-.pick-list { max-height: 52vh; overflow: auto; border: 1px solid var(--line); border-radius: 9px; }
+/* 两侧各自内部滚动，且始终预留滚动条槽位——避免出现/消失滚动条时横向抖动 */
+.pick-list {
+  flex: 1 1 auto; min-height: 0; overflow: auto; scrollbar-gutter: stable;
+  border: 1px solid var(--line); border-radius: 9px;
+}
 .pick-row { display: flex; align-items: center; gap: 8px; padding: 4px 9px; cursor: pointer; border-bottom: 1px solid #241d31; }
 .pick-row:hover { background: #2a2137; }
 .pick-row.focus { background: #322647; }
 .pick-row.sel { background: #3d2d55; }
 .pick-name { flex: 0 1 auto; }
-.pick-right { background: #1c1626; border: 1px solid var(--line); border-radius: 9px; padding: 10px 12px; max-height: 52vh; overflow: auto; }
-.pick-foot { display: flex; align-items: center; gap: 10px; justify-content: flex-end; margin-top: 10px; }
+.pick-right {
+  background: #1c1626; border: 1px solid var(--line); border-radius: 9px;
+  padding: 10px 12px; min-height: 0; overflow: auto; scrollbar-gutter: stable;
+}
+.pick-foot { display: flex; align-items: center; gap: 10px; justify-content: flex-end; margin-top: 10px; flex: none; }
 .prereq { margin: 8px 0; }
 .prereq-title { color: var(--muted); font-size: 12px; margin-bottom: 3px; }
 .prereq ul { margin: 0; padding-left: 16px; }
@@ -302,6 +314,9 @@ input.text:focus, textarea.text:focus, .cl-search:focus { border-color: var(--ac
 
 @media (max-width: 900px) {
   .pick { grid-template-columns: 1fr; }
+  /* 单栏时两段各自限高，弹窗仍是固定高度，不会因为详情长短而伸缩 */
+  .pick-list { flex: none; max-height: 38vh; }
+  .pick-right { flex: none; max-height: 38vh; }
   .grid2 { grid-template-columns: 1fr; }
 }
 
@@ -416,7 +431,7 @@ input.text:focus, textarea.text:focus, .cl-search:focus { border-color: var(--ac
 }
 
 /* 书页正文 */
-.book-body { flex: 1 1 auto; min-height: 0; overflow: auto; }
+.book-body { flex: 1 1 auto; min-height: 0; overflow: auto; scrollbar-gutter: stable; }
 .detail-pane { padding: 14px 18px 26px; max-width: 1560px; width: 100%; margin: 0 auto; }
 
 /* 底部导航（游戏：« ‹ 返回 下一项 › » + 右侧上下文按钮） */

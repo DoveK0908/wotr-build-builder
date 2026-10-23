@@ -290,7 +290,15 @@ export function Collapse(props: { title: React.ReactNode; children: React.ReactN
   );
 }
 
-export function Modal(props: { title: string; onClose: () => void; children: React.ReactNode; wide?: boolean }) {
+export function Modal(props: {
+  title: string;
+  onClose: () => void;
+  children: React.ReactNode;
+  wide?: boolean;
+  /** 固定高度（矮屏仍受 88vh 限制）。用于「左列表 + 右详情」这类弹窗：
+   *  鼠标扫过列表时右栏内容长短变化，窗口不会跟着上下伸缩抖动。 */
+  fixed?: boolean;
+}) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") props.onClose(); };
     document.addEventListener("keydown", onKey);
@@ -298,7 +306,7 @@ export function Modal(props: { title: string; onClose: () => void; children: Rea
   });
   return (
     <div className="modal-mask" onMouseDown={(e) => { if (e.target === e.currentTarget) props.onClose(); }}>
-      <div className={"modal" + (props.wide ? " wide" : "")}>
+      <div className={"modal" + (props.wide ? " wide" : "") + (props.fixed ? " fixed" : "")}>
         <header className="modal-head">
           <h3>{props.title}</h3>
           <button type="button" className="x" onClick={props.onClose}>×</button>
