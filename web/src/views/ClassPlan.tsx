@@ -145,7 +145,7 @@ export function ClassPlan(props: { db: Db }) {
   );
   const reqsOf = (c?: ClassEntry) => {
     if (!c?.prereq) return [] as { v: string; text: string; k: string }[];
-    return evalPrereqs(db, preCtx, c.prereq)
+    return evalPrereqs(db, preCtx, c.prereq, 0, c.id)
       .details.filter((d) => !d.p.hide)
       .map((d) => ({ v: d.v as string, text: prereqText(db, d.p), k: d.p.k }));
   };

@@ -189,7 +189,7 @@ export function Feats(props: { db: Db }) {
               const f = db.features[cid];
               const pr = f?.prereq || [];
               if (!pr.length) continue;
-              const res = evalPrereqs(db, ctx, pr);
+              const res = evalPrereqs(db, ctx, pr, 0, cid);
               if (res.verdict !== "no") continue;
               const why = (res.details || [])
                 .filter((d) => d.v === "no")

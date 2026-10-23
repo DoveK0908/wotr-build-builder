@@ -1168,6 +1168,113 @@ export function run(dir: string): void {
     }
   }
 
+  /* ── 前置语义对齐游戏源码（prof 取或 / notprof / clvl.Not / oneof 0 项）── */
+  {
+    const shieldFocus = db.features["ac57069b6bf8c904086171683992a92a"];
+    ok(!!shieldFocus && shieldFocus.name === "盾牌专攻", "找到「盾牌专攻」");
+    const prof = shieldFocus?.prereq?.find((p) => p.k === "prof");
+    ok(!!prof && ((prof.armor as string[]) || []).length >= 2, "盾牌专攻的擅长前置是多值", JSON.stringify(prof?.armor || []));
+    if (prof) {
+      const onlyLight = { ...levelCtxList(db, emptyBuild(), derive(db, emptyBuild()))[0], profArmor: ["LightShield"] };
+      eq(evalPrereq(db, onlyLight as never, prof as Prereq), "ok", "只擅长轻盾也算满足盾牌专攻（游戏是「或」）");
+      const none = { ...onlyLight, profArmor: [], profWeapon: [] };
+      eq(evalPrereq(db, none as never, prof as Prereq), "no", "什么盾都不擅长时盾牌专攻不满足");
+    }
+    const np = { k: "notprof", armor: ["Light", "Heavy"] } as unknown as Prereq;
+    const hasLight = { ...levelCtxList(db, emptyBuild(), derive(db, emptyBuild()))[0], profArmor: ["Light"] };
+    eq(evalPrereq(db, hasLight as never, np), "ok", "notprof：只擅长轻甲也通过（有一项不擅长即可）");
+    const hasBoth = { ...hasLight, profArmor: ["Light", "Heavy"] };
+    eq(evalPrereq(db, hasBoth as never, np), "no", "notprof：全都会就不通过");
+
+    const notFighter = { k: "clvl", class: Object.values(db.classes).find((c) => c.name === "战士")?.id, v: 1, not: true } as unknown as Prereq;
+    const ctx0 = levelCtxList(db, emptyBuild(), derive(db, emptyBuild()))[0];
+    eq(evalPrereq(db, ctx0 as never, notFighter), "ok", "clvl.Not：没有该职业等级时通过");
+    const fb = emptyBuild();
+    const fighter = Object.values(db.classes).find((c) => c.name === "战士");
+    if (fighter) {
+      fb.levels[0] = { ...emptyLevel(), classId: fighter.id };
+      eq(evalPrereq(db, levelCtxList(db, fb, derive(db, fb))[0] as never, notFighter), "no", "clvl.Not：已是该职业则不通过");
+    }
+
+    const zero = db.features["ce72662a812b1f242849417b2c784b5e"];
+    const zeroP = zero?.prereq?.find((p) => p.k === "oneof" && Number(p.amount) === 0);
+    ok(!!zeroP, "找到 Amount=0 的 oneof 前置（迷惑之刃）", zero?.name || "");
+    if (zeroP) {
+      eq(evalPrereqs(db, ctx0 as never, [zeroP as Prereq]).verdict, "ok", "oneof Amount=0 视为无实际限制");
+      ok(prereqText(db, zeroP as Prereq).includes("无实际限制"), "Amount=0 在前置文案里写明无实际限制");
+    }
+  }
+
+  /* ── 前置语义（二）：replacestat / classlevels / oneof.restrict / selpossible / casterspell ── */
+  {
+    const magus = Object.values(db.classes).find((c) => c.name === "魔战士");
+    const fighter = Object.values(db.classes).find((c) => c.name === "战士");
+    ok(!!magus && !!fighter, "找到「魔战士」与「战士」");
+
+    // 完美重击：ReplaceStatForPrerequisites 把 BaseAttackBonus 按 MagusBaseAttack 抬高
+    const perf = db.features["36837f00fc2f5d043847e37ba6af187c"];
+    ok(!!perf, "找到「完美重击」");
+    if (magus && perf) {
+      const bm = emptyBuild();
+      for (let i = 0; i < 9; i += 1) bm.levels[i] = { ...emptyLevel(), classId: magus.id };
+      const cm = levelCtxList(db, bm, derive(db, bm))[8];
+      const rawBab = cm.bab ?? 0;
+      const p8 = { k: "stat", stat: "BaseAttackBonus", v: rawBab + 2 } as unknown as Prereq;
+      eq(evalPrereq(db, cm, p8), "no", "魔战士 9 级：BAB 还不够 BAB+2 的专长");
+      const cmPerf = { ...cm, idSet: new Set([...cm.idSet, "36837f00fc2f5d043847e37ba6af187c"]) };
+      eq(evalPrereq(db, cmPerf as never, p8), "ok", "完美重击按职业等级改写 BAB 后满足该专长");
+    }
+
+    // 战士训练（ClassLevelsForPrerequisites）：魔战士等级的一半折算成战士等级。
+    // 它的 m_ForSelection 指向「专长」选择表，所以只对专长表里的子项生效 —— subject 必须传该表里的专长。
+    if (magus && fighter) {
+      const bm = emptyBuild();
+      for (let i = 0; i < 8; i += 1) bm.levels[i] = { ...emptyLevel(), classId: magus.id };
+      const cm = levelCtxList(db, bm, derive(db, bm))[7];
+      const pF = { k: "clvl", class: fighter.id, v: 4 } as unknown as Prereq;
+      eq(evalPrereq(db, cm, pF), "no", "纯魔战士没有战士等级");
+      const cmWf = { ...cm, idSet: new Set([...cm.idSet, "2b636b9e8dd7df94cbd372c52237eebf"]) };
+      const featSel = db.features["247a4068296e8be42890143f451b4b45"];
+      const subject = (featSel?.choices || [])[0] || "";
+      ok(!!subject, "专长选择表有子项可作 subject");
+      eq(evalPrereq(db, cmWf as never, pF, 0, subject), "ok", "战士训练让魔战士 8 级算作战士 4 级（判专长表子项时）");
+      eq(evalPrereq(db, cmWf as never, pF, 0, "not-in-that-selection"), "no", "战士训练不适用于专长表以外的特性");
+    }
+
+    // 活神 / 拉兹米尔卧底：m_RestrictIfNot 取反 =「最多 N-1 项」
+    const liveGod = db.features["464ffaf88140474a949618bec7955e78"];
+    const restrictP = liveGod?.prereq?.find((p) => p.k === "oneof" && p.restrict);
+    ok(!!restrictP, "找到带 restrict 的 oneof（活神）");
+    if (restrictP) {
+      const gods = (restrictP.ids as string[]) || [];
+      const c0 = levelCtxList(db, emptyBuild(), derive(db, emptyBuild()))[0];
+      eq(evalPrereq(db, c0, restrictP as Prereq), "ok", "一个神都没信时「活神」成立");
+      const one = { ...c0, idSet: new Set([...c0.idSet, gods[0]]) };
+      eq(evalPrereq(db, one as never, restrictP as Prereq), "no", "已信一位神时「活神」不成立");
+      ok(prereqText(db, restrictP as Prereq).includes("最多"), "restrict 的前置文案写成「最多只能有其中 N 项」");
+    }
+
+    // 防御扩充：该选择表的子项全拿完之后就不再可选
+    const expDef = db.features["d741f298dfae8fc40b4615aaf83b6548"];
+    const selP = expDef?.prereq?.find((p) => p.k === "selpossible");
+    ok(!!selP && !!selP.id, "防御扩充的 selpossible 拿到了选择表 id");
+    if (selP && expDef) {
+      const kids = expDef.choices || [];
+      const c0 = levelCtxList(db, emptyBuild(), derive(db, emptyBuild()))[0];
+      const full = { ...c0, idSet: new Set([...c0.idSet, ...kids]) };
+      eq(evalPrereq(db, full as never, selP as Prereq), "no", "防御扩充的子项全拿完后不再通过");
+    }
+
+    // 以战筑信：能施放 1 环神术（非自发）
+    const warFaith = db.features["b9bee4e4e15573546b76a8d942ce914b"];
+    const csP = warFaith?.prereq?.find((p) => p.k === "casterspell");
+    ok(!!csP, "找到 casterspell 前置（以战筑信）");
+    if (csP) {
+      const c0 = levelCtxList(db, emptyBuild(), derive(db, emptyBuild()))[0];
+      eq(evalPrereq(db, c0, csP as Prereq), "no", "没有施法职业时 casterspell 不通过");
+    }
+  }
+
   const total = pass + fails.length;
   if (fails.length === 0) {
     console.log(`### ALL CHECKS PASSED ###  (${pass}/${total})`);

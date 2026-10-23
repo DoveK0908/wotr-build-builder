@@ -1,4 +1,4 @@
-﻿import React, { useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import type { Db } from "../types";
 import { LEGEND_PATH_ID, act, useBuild } from "../store";
 import {
@@ -43,7 +43,7 @@ export function Mythic(props: { db: Db }) {
     const out: Record<string, { verdict: string; fail: string[]; text: string }> = {};
     for (const p of Object.values(db.mythic.paths)) {
       const list = p.prereq || [];
-      const res = evalPrereqs(db, ctxBase, list);
+      const res = evalPrereqs(db, ctxBase, list, 0, p.id);
       out[p.id] = {
         verdict: res.verdict,
         fail: res.details.filter((d) => d.v === "no").map((d) => prereqText(db, d.p)),

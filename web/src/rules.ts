@@ -989,7 +989,7 @@ export function derive(db: Db, build: Build): Derived {
       const f = db.features[cid];
       const pr = f?.prereq || [];
       if (!pr.length) continue;
-      const res = evalPrereqs(db, ctx, pr);
+      const res = evalPrereqs(db, ctx, pr, 0, cid);
       if (res.verdict !== "no") continue;
       const why = (res.details || []).filter((d) => d.v === "no").map((d) => prereqText(db, d.p)).join("、");
       unfinished.push(`第 ${i + 1} 级「${label(f)}」前置不满足${why ? "：" + why : ""}`);
@@ -1251,7 +1251,81 @@ function evalCondNode(db: Db, ctx: LevelCtx, node: CondNode | null | undefined, 
   return node.not ? flip(v) : v;
 }
 
-export function evalPrereq(db: Db, ctx: LevelCtx, p: Prereq): Verdict {
+/** 某个「检定名」（属性 / BAB / 偷袭 / 技能）在当前上下文里的原始值（不含 replacestat 改写） */
+function statValue(db: Db, ctx: LevelCtx, stat: string): number | undefined {
+  const key = CHECK_ALIAS[stat] || stat;
+  if ((ATTRS as string[]).includes(key)) return ctx.attrs[key as AttrId];
+  // 逐级算出来的 BAB（职业表相加），不是最终攻击加值
+  if (key === "BaseAttackBonus") return ctx.bab;
+  if (key === "SneakAttack") return ctx.sneak;
+  if (key.startsWith("Skill")) {
+    // 这里比较的是技能点数，由调用方注入
+    return ctx.skillRanks ? num(ctx.skillRanks[key], Number.NaN) : undefined;
+  }
+  return undefined;
+}
+
+/** ReplaceStatForPrerequisites.ResultStat：判前置时把一个属性值改写掉（六种策略） */
+function applyReplace(db: Db, ctx: LevelCtx, q: Prereq, old: number): number {
+  const lvOf = (cid: unknown) => num(ctx.classLevels[String(cid || "")] || 0);
+  switch (String(q.policy || "")) {
+    case "NewStat": {
+      const v = statValue(db, ctx, String(q.new || ""));
+      return v === undefined ? old : Math.max(old, v);
+    }
+    case "ClassLevel":
+      return Math.max(old, lvOf(q.class));
+    case "ClassLevelStacking":
+      return old + lvOf(q.class);
+    case "SpecificNumber":
+      return Math.max(old, num(q.num as number));
+    case "Summand":
+      return old + num(q.num as number);
+    // 魔战士：BAB 按职业等级折算（源码 float*0.25f+0.75f 取整）
+    case "MagusBaseAttack":
+      return old + Math.trunc(lvOf(q.class) * 0.25 + 0.75);
+    default:
+      return old;
+  }
+}
+
+/** 已拥有特性里那些「改写器」组件的汇总（它们不是门槛，是判别人前置时怎么算数） */
+interface PrereqExtras {
+  /** 旧属性名 -> 改写器列表 */
+  replaceStats: Record<string, Prereq[]>;
+  /** 被折算的职业 -> 折算来源（ClassLevelsForPrerequisites） */
+  classLevelBonus: Record<string, { class: string; mod: number; sum: number; sel: string }[]>;
+}
+const EXTRAS_CACHE = new WeakMap<object, PrereqExtras>();
+
+function prereqExtras(db: Db, ctx: LevelCtx): PrereqExtras {
+  const hit = EXTRAS_CACHE.get(ctx.idSet);
+  if (hit) return hit;
+  const out: PrereqExtras = { replaceStats: {}, classLevelBonus: {} };
+  for (const id of ctx.idSet) {
+    for (const q of db.features[id]?.prereq || []) {
+      if (q.k === "replacestat") {
+        const old = String(q.old || "");
+        if (old) (out.replaceStats[old] ||= []).push(q);
+      } else if (q.k === "classlevels") {
+        const fake = String(q.fake || "");
+        if (!fake) continue;
+        // m_ForSelection 在源码里是跟「正在被判定前置的特性」（base.OwnerBlueprint）比，
+        // 不是跟持有者比，所以这里只记下来，判定时再用 subject 过滤
+        (out.classLevelBonus[fake] ||= []).push({
+          class: String(q.class || ""),
+          mod: num(q.mod as number),
+          sum: num(q.sum as number),
+          sel: String(q.sel || ""),
+        });
+      }
+    }
+  }
+  EXTRAS_CACHE.set(ctx.idSet, out);
+  return out;
+}
+
+export function evalPrereq(db: Db, ctx: LevelCtx, p: Prereq, depth = 0, subject = ""): Verdict {
   const has = (id?: string | null) => !!id && ctx.idSet.has(id);
   const num2 = (v: unknown) => (typeof v === "number" ? v : undefined);
   switch (p.k) {
@@ -1264,35 +1338,41 @@ export function evalPrereq(db: Db, ctx: LevelCtx, p: Prereq): Verdict {
       const ids = (p.ids as string[]) || [];
       const need = num2(p.amount) ?? 1;
       const n = ids.filter((x) => ctx.idSet.has(x)).length;
+      // m_RestrictIfNot：源码 CheckInternal 是 `if (IsDeity || num >= Amount) return !m_RestrictIfNot;`
+      // 所以要取反时变成「最多 Amount-1 项」（如「活神」= 最多信一位神）
+      if (p.restrict) return n < Math.max(1, need) ? "ok" : "no";
       return n >= need ? "ok" : "no";
     }
     case "stat":
     case "statfull": {
       const stat = String(p.stat || "");
       const need = num2(p.v) ?? 1;
-      const key = CHECK_ALIAS[stat] || stat;
-      if ((ATTRS as string[]).includes(key)) return ctx.attrs[key as AttrId] >= need ? "ok" : "no";
-      if (key === "BaseAttackBonus") {
-        // 逐级算出来的 BAB（职业表相加），不是最终攻击加值
-        if (ctx.bab === undefined) return "unknown";
-        return ctx.bab >= need ? "ok" : "no";
-      }
-      if (key === "SneakAttack") {
-        if (ctx.sneak === undefined) return "unknown";
-        return ctx.sneak >= need ? "ok" : "no";
-      }
-      if (key.startsWith("Skill")) {
-        // 这里比较的是技能点数，由调用方注入
-        const ranks = ctx.skillRanks ? num(ctx.skillRanks[key]) : undefined;
-        if (ranks === undefined) return "unknown";
-        return ranks >= need ? "ok" : "no";
+      let got = statValue(db, ctx, stat);
+      if (got !== undefined) {
+        // ReplaceStatForPrerequisites：已拥有的改写器会把这个值抬高（如魔战士的完美重击按职业等级算 BAB）
+        for (const q of prereqExtras(db, ctx).replaceStats[String(p.stat || "")] || []) {
+          got = applyReplace(db, ctx, q, got);
+        }
+        return got >= need ? "ok" : "no";
       }
       return "unknown";
     }
     case "clvl": {
       // 前置里也会引用怪物 / NPC / 神话内部职业（不在 classes.json 里）：玩家永远拿不到，按「无法判定」算，不拦人也不显示
       if (!db.classes[String(p.class)]) return "unknown";
-      const n = num(ctx.classLevels[String(p.class)] || 0);
+      const cid = String(p.class);
+      let n = num(ctx.classLevels[cid] || 0);
+      // ClassLevelsForPrerequisites：别的职业等级折算成本职业等级（如「战士训练」让魔战士等级算作战士等级）
+      for (const b of prereqExtras(db, ctx).classLevelBonus[cid] || []) {
+        // m_ForSelection 只对「该选择表的子项」生效（源码是拿 base.OwnerBlueprint 比）
+        if (b.sel) {
+          const sel = db.features[b.sel];
+          if (!subject || !sel || !(sel.choices || []).includes(subject)) continue;
+        }
+        n += Math.trunc(b.mod * num(ctx.classLevels[b.class] || 0) + b.sum);
+      }
+      // PrerequisiteClassLevel.Not：反过来的「不是这个职业」
+      if (p.not) return n < (num2(p.v) ?? 1) ? "ok" : "no";
       return n >= (num2(p.v) ?? 1) ? "ok" : "no";
     }
     case "nocl":
@@ -1317,19 +1397,22 @@ export function evalPrereq(db: Db, ctx: LevelCtx, p: Prereq): Verdict {
       return "no";
     }
     case "prof": {
+      // PrerequisiteProficiency.CheckInternal：每个数组内部「任意一项擅长即成立」，
+      // 最后 return checkWeapon || checkArmor —— 是「或」不是「与」
       const arm = (p.armor as string[]) || [];
       const wep = (p.weapon as string[]) || [];
       if (!arm.length && !wep.length) return "unknown";
-      const okA = arm.every((x) => (ctx.profArmor || []).includes(x));
-      const okW = wep.every((x) => (ctx.profWeapon || []).includes(x));
-      return okA && okW ? "ok" : "no";
+      const okA = arm.some((x) => (ctx.profArmor || []).includes(x));
+      const okW = wep.some((x) => (ctx.profWeapon || []).includes(x));
+      return okA || okW ? "ok" : "no";
     }
     case "notprof": {
+      // PrerequisiteNotProficient：任意一项「不擅长」即成立，最后同样取或
       const arm = (p.armor as string[]) || [];
       const wep = (p.weapon as string[]) || [];
-      const hasA = arm.some((x) => (ctx.profArmor || []).includes(x));
-      const hasW = wep.some((x) => (ctx.profWeapon || []).includes(x));
-      return hasA || hasW ? "no" : "ok";
+      const missA = arm.some((x) => !(ctx.profArmor || []).includes(x));
+      const missW = wep.some((x) => !(ctx.profWeapon || []).includes(x));
+      return missA || missW ? "ok" : "no";
     }
     case "ispet":
     case "pet":
@@ -1345,9 +1428,26 @@ export function evalPrereq(db: Db, ctx: LevelCtx, p: Prereq): Verdict {
       return mx >= need ? "ok" : "no";
     }
     case "casterspell": {
+      // PrerequisiteCasterTypeSpellLevel：要有「对应类型（奥术/神术）+ 是否自发」的施法职业，
+      // 且它当前能施放 v 环；炼金与神话法术书不算
       const need = num2(p.v) ?? 1;
-      const any = Object.values(ctx.maxSpellLevel || {}).some((v) => v >= need);
-      return any ? "ok" : "unknown";
+      const wantArcane = !!p.arcane;
+      const onlySpont = !!p.spont;
+      let matched = false;
+      let best = 0;
+      for (const [cid, n] of Object.entries(ctx.classLevels || {})) {
+        if (!n) continue;
+        const c = db.classes[cid];
+        const sb = c?.spellbookId ? db.spellbooks[c.spellbookId] : undefined;
+        if (!sb || !sb.isArcane) continue;
+        if (!!sb.isArcane !== wantArcane) continue;
+        if (sb.isAlchemist || sb.isMythic) continue;
+        if (onlySpont && !sb.spontaneous) continue;
+        matched = true;
+        best = Math.max(best, num(ctx.maxSpellLevel?.[cid]));
+      }
+      if (!matched) return "no";
+      return best >= need ? "ok" : "no";
     }
     case "castertype": {
       // PrerequisiteCasterType：只要有对应类型的施法职业即可（奥术 / 神术）
@@ -1385,23 +1485,40 @@ export function evalPrereq(db: Db, ctx: LevelCtx, p: Prereq): Verdict {
       // 真正的门槛由同蓝图的 PrerequisiteProficiency 表达（已算）——这里不判、也不拦
       return "ok";
     case "replacestat":
-    case "selpossible":
     case "classlevels":
-      return "unknown";
+      // 这两个不是门槛，而是「持有者被判定前置时怎么算数」的改写器（已由 prereqExtras 消费），
+      // 它们出现在自己蓝图的 Components 里，不该拦人也别显示成条件。
+      return "ok";
+    case "selpossible": {
+      // PrerequisiteSelectionPossible：该选择表里还有「没拿过、且前置满足」的子项。
+      // 注意：游戏只在 selectionState 非空（正站在该选择表里挑）时才判它，
+      // 我们这儿没有这个上下文，按「该表是否还有空位」理解，判不出来就放行。
+      const sid = String(p.id || "");
+      const sel = sid ? db.features[sid] : undefined;
+      if (!sel || depth > 2) return "unknown";
+      const left = (sel.choices || []).filter((c) => !ctx.idSet.has(c));
+      if (!left.length) return "no";
+      const any = left.some((c) => evalPrereqs(db, ctx, db.features[c]?.prereq, depth + 1, c).verdict === "ok");
+      return any ? "ok" : "unknown";
+    }
     default:
       return "unknown";
   }
 }
 
-export function evalPrereqs(db: Db, ctx: LevelCtx, list: Prereq[] | undefined): {
+export function evalPrereqs(db: Db, ctx: LevelCtx, list: Prereq[] | undefined, depth = 0, subject = ""): {
   verdict: Verdict; details: { p: Prereq; v: Verdict }[];
 } {
   if (!list || !list.length) return { verdict: "ok", details: [] };
   const details = list
     .filter((p) => prereqText(db, p) !== "")
-    .map((p) => ({ p, v: evalPrereq(db, ctx, p) }));
-  const all = details.filter((d) => (d.p.group || "All") !== "Any");
+    .map((p) => ({ p, v: evalPrereq(db, ctx, p, depth, subject) }));
+  const all = details.filter((d) => (d.p.group || "All") === "All");
   const any = details.filter((d) => (d.p.group || "All") === "Any");
+  // ForcedTrue：游戏里「任一满足就整条通过」（BlueprintCharacterClass.MeetsPrerequisites 的
+  // case ForcedTrue 直接 return true；专长那边的 MeetsPrerequisites 把它并进或分支，
+  // 而专长蓝图里目前一条 ForcedTrue 都没有，只在 6 条神话道途上出现）
+  if (details.some((d) => d.p.group === "ForcedTrue" && d.v === "ok")) return { verdict: "ok", details };
   let verdict: Verdict = "ok";
   for (const d of all) {
     if (d.v === "no") { verdict = "no"; break; }
@@ -1425,7 +1542,7 @@ export function choiceVerdict(db: Db, ctx: LevelCtx, fid: string, opts?: {
     // 已经拿过的专长不能再拿（Ranks>1 的可以叠）
     if (opts?.excludeIds?.has(fid)) return "unknown";
   }
-  return evalPrereqs(db, ctx, f.prereq).verdict;
+  return evalPrereqs(db, ctx, f.prereq, 0, fid).verdict;
 }
 
 // ── 中文描述用的前置条件文本 ────────────────────────────────────────────
@@ -1483,6 +1600,10 @@ export function prereqText(db: Db, p: Prereq): string {
     case "oneof": {
       const need = typeof p.amount === "number" ? p.amount : 1;
       const names = ((p.ids as string[]) || []).map(nm).join(" / ");
+      // m_RestrictIfNot：语义翻成「最多 N-1 项」
+      if (p.restrict) return `最多只能有其中 ${Math.max(1, need) - 1} 项：${names}`;
+      // Amount = 0 时游戏里恒成立（PrerequisiteFeaturesFromList：num >= Amount 即通过），等于没有前置
+      if (need <= 0) return `（无实际限制：以下任选即可，也可以都不选）${names}`;
       return need > 1 ? `需要以下 ${need} 项：${names}` : `需要以下之一：${names}`;
     }
     case "stat": {
@@ -1512,7 +1633,17 @@ export function prereqText(db: Db, p: Prereq): string {
       return c ? `不能是「${label(c)}」的变体` : "不能是任意变体";
     }
     case "classspell": return `${label(db.classes[String(p.class)])} 能施放 ${p.v} 环法术`;
-    case "classlevels": return `${label(db.classes[String(p.class)])} 等级按 ${label(db.classes[String(p.fake)])} 计算`;
+    case "casterspell": {
+      const kind = p.arcane ? "奥术" : "神术";
+      const extra = p.spont ? "（自发施法）" : "";
+      return `能施放 ${p.v} 环${kind}法术${extra}`;
+    }
+    case "classlevels": return ""; // 改写器，不是门槛
+    case "replacestat": return ""; // 改写器，不是门槛
+    case "selpossible": {
+      const sel = p.id ? db.features[String(p.id)] : undefined;
+      return sel ? `「${featName(db, String(p.id))}」里还有可选项` : "";
+    }
     case "ispet":
     case "pet": return "（宠物专用条件）";
     case "paramfeat": return `需要：${nm(p.id)}（某一种选择）`;

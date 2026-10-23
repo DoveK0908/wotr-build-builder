@@ -61,7 +61,7 @@ export function Deity(props: { db: Db }) {
   /** 游戏的神祇页中间是一张「先决条件」清单，每条前面一个对勾/灰圈。 */
   const reqs = useMemo(() => {
     if (!focus) return [];
-    const res = evalPrereqs(db, ctx, focus.prereq);
+    const res = evalPrereqs(db, ctx, focus.prereq, 0, focus.id);
     return res.details
       .filter((d) => !d.p.hide)
       .map((d) => ({ v: d.v as string, text: prereqText(db, d.p), k: d.p.k }));

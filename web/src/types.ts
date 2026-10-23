@@ -191,6 +191,8 @@ export interface SpellbookEntry {
   spellsPerLevel?: number;
   cantripsType?: string;
   isArcane?: boolean;
+  isMythic?: boolean;
+  isAlchemist?: boolean;
   spellsPerDay: number[][];
   spellsKnown?: number[];
 }

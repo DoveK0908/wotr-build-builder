@@ -419,6 +419,9 @@ class Extractor:
             elif kind == "oneof":
                 p["ids"] = refs(c.get("m_Features"))
                 p["amount"] = c.get("Amount")
+                # m_RestrictIfNot：把「至少 N 项」翻成「最多 N-1 项」（取反语义）
+                if c.get("m_RestrictIfNot"):
+                    p["restrict"] = True
             elif kind in ("stat", "statfull"):
                 p["stat"] = c.get("Stat")
                 p["v"] = c.get("Value")
@@ -453,16 +456,22 @@ class Extractor:
             elif kind == "castertype":
                 p["arcane"] = bool(c.get("IsArcane"))
             elif kind == "classlevels":
+                # ClassLevelsForPrerequisites：判「某职业等级」时把另一个职业的等级折算进来
                 p["fake"] = ref(c.get("m_FakeClass"))
                 p["class"] = ref(c.get("m_ActualClass"))
+                p["sel"] = ref(c.get("m_ForSelection"))   # 只对这一个选择表的子项生效（null = 全部）
                 p["mod"] = c.get("Modifier")
                 p["sum"] = c.get("Summand")
             elif kind == "replacestat":
+                # ReplaceStatForPrerequisites：不是前置，是「判定某条前置时把旧属性换成新属性」的改写器
                 p["old"] = c.get("OldStat")
                 p["new"] = c.get("NewStat")
+                p["policy"] = c.get("Policy")          # NewStat / ClassLevel / ClassLevelStacking / SpecificNumber / Summand / MagusBaseAttack
+                p["num"] = c.get("SpecificNumber")     # Policy 为 SpecificNumber / Summand 时用
                 p["class"] = ref(c.get("m_CharacterClass"))
             elif kind == "selpossible":
-                p["id"] = ref(c.get("m_FeatureSelection"))
+                # PrerequisiteSelectionPossible：字段名是 m_ThisFeature（指向选择表自身），旧版蓝图叫 m_FeatureSelection
+                p["id"] = ref(c.get("m_ThisFeature") or c.get("m_FeatureSelection"))
             elif kind == "paramweapon":
                 p["id"] = ref(c.get("m_Feature"))
                 p["sub"] = c.get("WeaponSubCategory")
@@ -964,6 +973,13 @@ def build(game_dir: str, out_dir: str) -> dict:
         info["spellsPerLevel"] = sd.get("SpellsPerLevel")
         info["cantripsType"] = sd.get("CantripsType")
         info["isArcane"] = bool(sd.get("IsArcane"))
+        info["isMythic"] = bool(sd.get("IsMythic"))
+        # BlueprintSpellbook.IsAlchemist => GetComponent<IsAlchemistSpellbook>()（组件型标记）
+        comps = sd.get("Components") or []
+        info["isAlchemist"] = any(
+            str(c.get("$type", "")).split(",")[-1].strip() == "IsAlchemistSpellbook"
+            for c in comps
+        )
         spd = ref(sd.get("m_SpellsPerDay"))
         if spd:
             tbl = g.by_guid(spd)
