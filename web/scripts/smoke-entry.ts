@@ -1196,12 +1196,16 @@ export function run(dir: string): void {
       eq(evalPrereq(db, levelCtxList(db, fb, derive(db, fb))[0] as never, notFighter), "no", "clvl.Not：已是该职业则不通过");
     }
 
+    // Amount=0 的 oneof 不是「无限制」，而是「至少持有其中一项」
+    // （PrerequisiteFeaturesFromList.CheckInternal 只在 num++ 后比较 num>=Amount，循环走完 return m_RestrictIfNot=false）
     const zero = db.features["ce72662a812b1f242849417b2c784b5e"];
     const zeroP = zero?.prereq?.find((p) => p.k === "oneof" && Number(p.amount) === 0);
     ok(!!zeroP, "找到 Amount=0 的 oneof 前置（迷惑之刃）", zero?.name || "");
     if (zeroP) {
-      eq(evalPrereqs(db, ctx0 as never, [zeroP as Prereq]).verdict, "ok", "oneof Amount=0 视为无实际限制");
-      ok(prereqText(db, zeroP as Prereq).includes("无实际限制"), "Amount=0 在前置文案里写明无实际限制");
+      eq(evalPrereqs(db, ctx0 as never, [zeroP as Prereq]).verdict, "no", "一项都没拿时 Amount=0 的 oneof 不通过");
+      const withOne = { ...ctx0, idSet: new Set([...ctx0.idSet, ((zeroP.ids as string[]) || [])[0]]) };
+      eq(evalPrereqs(db, withOne as never, [zeroP as Prereq]).verdict, "ok", "持有其中一项时 Amount=0 的 oneof 通过");
+      ok(prereqText(db, zeroP as Prereq).includes("之一"), "Amount=0 的前置文案写成「需要以下之一」");
     }
   }
 

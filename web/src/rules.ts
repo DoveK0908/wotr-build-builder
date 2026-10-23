@@ -1336,11 +1336,14 @@ export function evalPrereq(db: Db, ctx: LevelCtx, p: Prereq, depth = 0, subject 
       return has(p.id as string) ? "no" : "ok";
     case "oneof": {
       const ids = (p.ids as string[]) || [];
-      const need = num2(p.amount) ?? 1;
+      // PrerequisiteFeaturesFromList.CheckInternal：只有「持有某项」时才 num++ 并检查 num >= Amount，
+      // 一项都没持有时循环走完直接 return m_RestrictIfNot（false）。所以 Amount<=0 等价于「至少一项」，
+      // 不是「无限制」。IsDeity 时则只要有一项就通过（与 Amount 无关），即同「至少一项」。
+      const need = Math.max(1, num2(p.amount) ?? 1);
       const n = ids.filter((x) => ctx.idSet.has(x)).length;
-      // m_RestrictIfNot：源码 CheckInternal 是 `if (IsDeity || num >= Amount) return !m_RestrictIfNot;`
-      // 所以要取反时变成「最多 Amount-1 项」（如「活神」= 最多信一位神）
-      if (p.restrict) return n < Math.max(1, need) ? "ok" : "no";
+      // m_RestrictIfNot：源码 `if (...) return !m_RestrictIfNot;`，末尾 `return m_RestrictIfNot;`
+      // 即取反后是「最多 need-1 项」（如「活神」= 最多信一位神）
+      if (p.restrict) return n < need ? "ok" : "no";
       return n >= need ? "ok" : "no";
     }
     case "stat":
@@ -1598,12 +1601,10 @@ export function prereqText(db: Db, p: Prereq): string {
     case "hasfeature": return `需要：${nm(p.id)}`;
     case "nofeat": return `无以下特性：${nm(p.id)}`;
     case "oneof": {
-      const need = typeof p.amount === "number" ? p.amount : 1;
+      const need = Math.max(1, num(p.amount as number));
       const names = ((p.ids as string[]) || []).map(nm).join(" / ");
       // m_RestrictIfNot：语义翻成「最多 N-1 项」
-      if (p.restrict) return `最多只能有其中 ${Math.max(1, need) - 1} 项：${names}`;
-      // Amount = 0 时游戏里恒成立（PrerequisiteFeaturesFromList：num >= Amount 即通过），等于没有前置
-      if (need <= 0) return `（无实际限制：以下任选即可，也可以都不选）${names}`;
+      if (p.restrict) return `最多只能有其中 ${need - 1} 项：${names}`;
       return need > 1 ? `需要以下 ${need} 项：${names}` : `需要以下之一：${names}`;
     }
     case "stat": {
