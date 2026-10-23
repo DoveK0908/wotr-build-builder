@@ -182,6 +182,7 @@ export function Feats(props: { db: Db }) {
                   pickedParams(db, sl, rank.picks).map(({ f, key }, i) => (
                     <div key={`${sl.id}:${key}`} style={{ marginTop: 6 }}>
                       <ParamField
+                        db={db}
                         f={f}
                         index={i + 1}
                         value={rank.params[key] || null}
@@ -227,6 +228,7 @@ export function Feats(props: { db: Db }) {
             pickedParams(db, sl, cur.lv.picks).map(({ f, key }, i) => (
               <Sect key={`${sl.id}:${key}`} title={`${label(f)} 的参数（${f.param}）`}>
                 <ParamField
+                  db={db}
                   f={f}
                   index={i + 1}
                   value={cur.lv.params[key] || null}

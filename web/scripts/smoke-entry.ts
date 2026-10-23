@@ -53,6 +53,7 @@ import {
   ownedFeatures,
   pathStartRank,
   pointBuySpent,
+  paramDesc,
   paramName,
   pickedParams,
   prereqText,
@@ -1363,6 +1364,19 @@ export function run(dir: string): void {
     const airId = air?.split("|")[1] || "";
     eq(paramName(t2, airId), "空气领域", "paramName 能把领域 guid 还原成名字");
     ok(!!db.features[airId], "空气领域的蓝图在特性表里");
+    // 选项说明：领域只看名字其实看不出给什么，参数下拉要能显示蓝图说明
+    ok((db.features[airId]?.desc || "").includes("闪电"), "空气领域有说明文本（参数下拉里显示）",
+      (db.features[airId]?.desc || "").slice(0, 24));
+    const noDesc = (t2?.paramVariants || [])
+      .map((v) => v.split("|")[1])
+      .filter((g) => !(paramDesc(db, g) || "").trim());
+    eq(noDesc.length, 0, "学识（宗教）2阶 的每个可选领域都有说明文本（同名兜底也算）", noDesc.join(","));
+    // 「自由领域」的诡术师版蓝图没有 m_Description，要与牧师版同名领域取说明
+    const lib = (t2?.paramVariants || []).find((v) => v.startsWith("自由领域|"));
+    ok(!!lib && !(db.features[lib.split("|")[1]]?.desc || "").trim(),
+      "自由领域的诡术师版蓝图本身没有说明");
+    ok((paramDesc(db, lib?.split("|")[1]) || "").includes("自由之魂"),
+      "自由领域能通过同名兜底拿到说明");
 
     // 选了领域之后，领域特性本身会加进角色（AddFeatureParametrized）
     ok(!!t2?.paramGrants, "学识（宗教）2阶 标记了「参数会授予特性」");

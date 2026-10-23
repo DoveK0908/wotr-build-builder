@@ -419,6 +419,36 @@ function splitParamKey(key: string): [string, number] {
  * 参数化专长的参数显示名。
  * 数据里 paramVariants 是「名字|guid」，参数存的是 guid（旧数据只有名字时按名字比对）。
  */
+/**
+ * 取参数选项的说明文本。
+ *
+ * 大部分领域/血统蓝图的说明就在自己身上；但个别领域（如诡术师的「自由领域」）
+ * 的 Trickster 版本蓝图连 m_Description 都是空的，而牧师版同名领域有说明。
+ * 参数框只是给玩家看「这个领域给什么」，所以同名的另一份蓝图拿来用即可，
+ * 而不是显示一行「没有说明」。
+ */
+const NAME_DESC_CACHE = new WeakMap<object, Map<string, string>>();
+
+export function paramDesc(db: Db, id: string | undefined): string | undefined {
+  if (!id) return undefined;
+  const own = db.features[id]?.desc;
+  if (own && own.trim()) return own;
+  const nm = db.features[id]?.name;
+  if (!nm) return undefined;
+  let m = NAME_DESC_CACHE.get(db);
+  if (!m) {
+    m = new Map<string, string>();
+    for (const f of Object.values(db.features)) {
+      const d = f.desc;
+      if (!d || !d.trim() || !f.name) continue;
+      const cur = m.get(f.name);
+      if (!cur || d.length > cur.length) m.set(f.name, d);
+    }
+    NAME_DESC_CACHE.set(db, m);
+  }
+  return m.get(nm);
+}
+
 export function paramName(f: { paramVariants?: string[] } | undefined, param: string | undefined): string | null {
   if (!f || !param) return null;
   for (const v of f.paramVariants || []) {

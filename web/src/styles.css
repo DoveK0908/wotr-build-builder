@@ -178,9 +178,10 @@ input.text:focus, textarea.text:focus, .cl-search:focus { border-color: var(--ac
 .ss-pop {
   z-index: 90; background: #221a2e; border: 1px solid var(--line2);
   border-radius: 10px; box-shadow: 0 14px 34px rgba(0, 0, 0, .6); overflow: hidden;
+  display: flex; flex-direction: column; max-height: min(560px, 76vh);
 }
-.ss-input { width: 100%; border: 0; border-bottom: 1px solid var(--line); background: #191323; color: var(--fg); padding: 7px 10px; font: inherit; outline: none; }
-.ss-list { max-height: 300px; overflow: auto; }
+.ss-input { width: 100%; border: 0; border-bottom: 1px solid var(--line); background: #191323; color: var(--fg); padding: 7px 10px; font: inherit; outline: none; flex: none; }
+.ss-list { max-height: 300px; overflow: auto; flex: 0 1 auto; }
 .ss-row { display: flex; align-items: center; gap: 8px; padding: 5px 10px; cursor: pointer; }
 .ss-row.hi { background: #332746; }
 .ss-row.sel { background: #40305a; }
@@ -188,7 +189,23 @@ input.text:focus, textarea.text:focus, .cl-search:focus { border-color: var(--ac
 .ss-row-label { flex: 1 1 auto; }
 .ss-row-hint { color: var(--muted); font-size: 12px; }
 .ss-empty { padding: 10px; color: var(--muted); }
-.ss-foot { display: flex; justify-content: space-between; padding: 5px 10px; background: #241c31; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+/* 下拉里当前高亮项的说明（领域/血统/法术这类只看名字不知道是什么的东西） */
+.ss-desc {
+  max-height: 168px; overflow: auto; padding: 7px 10px; border-top: 1px solid var(--line);
+  background: #1c1526; color: var(--fg2); font-size: 12px; line-height: 1.55;
+  flex: 0 1 auto; scrollbar-gutter: stable;
+}
+.ss-desc-title { color: var(--gold2); margin-bottom: 3px; }
+.ss-desc p { margin: 0 0 5px; }
+.ss-desc p:last-child { margin-bottom: 0; }
+/* 选定参数后，把该项的说明留在下面（领域/血统选完还得知道它给什么） */
+.param-desc {
+  margin-top: 4px; padding: 7px 10px; border-left: 2px solid var(--line2);
+  background: #1b1425; color: var(--fg2); font-size: 12px; line-height: 1.55;
+  max-width: 620px;
+}
+.param-desc-title { color: var(--gold2); margin-bottom: 3px; }
+.ss-foot { display: flex; justify-content: space-between; padding: 5px 10px; background: #241c31; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; flex: none; }
 
 /* ── 标签 ───────────────────────────────────────────── */
 .chip {

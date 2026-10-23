@@ -234,6 +234,7 @@ export function Mythic(props: { db: Db }) {
                 pickedParams(db, s, curLv.picks).map(({ f, key }, i) => (
                   <div key={`${s.id}:${key}`} style={{ marginTop: 6 }}>
                     <ParamField
+                      db={db}
                       f={f}
                       index={i + 1}
                       value={curLv.params[key] || null}

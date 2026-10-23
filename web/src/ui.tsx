@@ -21,15 +21,19 @@ export function SearchSelect(props: {
   disabled?: boolean;
   width?: number | string;
   className?: string;
+  /** 给定选项的说明文本：下拉里光标停在哪一项，就在列表下方显示它的说明 */
+  descOf?: (id: string) => string | undefined;
 }) {
-  const { value, options, onChange, placeholder = "选择…", clearable = true, disabled, width = 280, className } = props;
+  const {
+    value, options, onChange, placeholder = "选择…", clearable = true, disabled, width = 280, className, descOf,
+  } = props;
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [hi, setHi] = useState(0);
   const btnRef = useRef<HTMLButtonElement | null>(null);
   const popRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const [pos, setPos] = useState({ top: 0, left: 0, minW: 240, up: false });
+  const [pos, setPos] = useState({ top: 0, left: 0, minW: 240, up: false, maxH: 520 });
 
   const cur = useMemo(() => options.find((o) => o.id === value), [options, value]);
   const shown = useMemo(() => {
@@ -47,13 +51,15 @@ export function SearchSelect(props: {
   useLayoutEffect(() => {
     if (!open || !btnRef.current) return;
     const r = btnRef.current.getBoundingClientRect();
-    const below = window.innerHeight - r.bottom;
-    const up = below < 340 && r.top > below;
+    const below = window.innerHeight - r.bottom - 8;
+    const up = below < 360 && r.top > below;
+    const maxH = Math.max(220, Math.min(560, up ? r.top - 12 : below));
     setPos({
-      top: up ? Math.max(8, r.top - 348) : r.bottom + 4,
+      top: up ? Math.max(8, r.bottom - 4 - maxH) : r.bottom + 4,
       left: Math.min(r.left, Math.max(8, window.innerWidth - 440)),
       minW: Math.max(r.width, 240),
       up,
+      maxH,
     });
     setHi(0);
   }, [open]);
@@ -102,7 +108,7 @@ export function SearchSelect(props: {
         <div
           ref={popRef}
           className="ss-pop"
-          style={{ position: "fixed", top: pos.top, left: pos.left, minWidth: pos.minW }}
+          style={{ position: "fixed", top: pos.top, left: pos.left, minWidth: pos.minW, maxHeight: pos.maxH }}
         >
           <input
             ref={inputRef}
@@ -133,6 +139,18 @@ export function SearchSelect(props: {
               </div>
             ))}
           </div>
+          {descOf && (() => {
+            const opt = shown[hi] || cur || null;
+            const text = opt ? descOf(opt.id) : undefined;
+            return (
+              <div className="ss-desc">
+                {opt && <div className="ss-desc-title">{opt.label}</div>}
+                {text
+                  ? text.split("\n").filter((x) => x.trim()).map((p, i) => <p key={i}>{p}</p>)
+                  : <p className="muted">（这一项没有说明文本）</p>}
+              </div>
+            );
+          })()}
           <div className="ss-foot">
             <span>{shown.length} / {options.length} 项</span>
             {clearable && <span className="link" onClick={() => commit(null)}>清除选择</span>}

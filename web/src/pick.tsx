@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from "react";
 import type { Db, FeatureEntry, SpellEntry } from "./types";
-import { label, livePicks, ownedFeatures, prereqForIndex, prereqText, expandFeature } from "./rules";
+import {
+  label, livePicks, ownedFeatures, paramDesc, prereqForIndex, prereqText, expandFeature,
+} from "./rules";
 import type { Verdict } from "./rules";
 import { Chip, Desc, Modal, SearchSelect, VerdictTag } from "./ui";
 import { ART, featureIcon, ui } from "./skin";
@@ -387,22 +389,35 @@ export function ParamField(props: {
   /** 同一个特性要选多个参数时的序号提示（1 表示第一个，或省略） */
   index?: number;
   width?: number;
+  /** 用于给参数选项显示说明（领域/血统这些只看名字看不出内容） */
+  db?: Db;
 }) {
-  const { f, value, onChange, index = 1, width = 260 } = props;
+  const { f, value, onChange, index = 1, width = 260, db } = props;
   const kind = paramGroupText(f.paramGroup);
+  const descOf = (id: string) => (db ? paramDesc(db, id) : undefined);
+  const chosen = value && db?.features[value] ? label(db.features[value]) : null;
   return (
-    <div className="row" style={{ gap: 8, alignItems: "center", marginTop: 4 }}>
-      <span className="muted small">
-        {label(f)} 的{kind}
-        {index > 1 ? `（第 ${index} 个）` : ""}
-      </span>
-      <SearchSelect
-        value={value}
-        options={mergeParamOptions(f.paramVariants || [])}
-        onChange={onChange}
-        placeholder={`选择${kind}`}
-        width={width}
-      />
+    <div style={{ marginTop: 4 }}>
+      <div className="row" style={{ gap: 8, alignItems: "center" }}>
+        <span className="muted small">
+          {label(f)} 的{kind}
+          {index > 1 ? `（第 ${index} 个）` : ""}
+        </span>
+        <SearchSelect
+          value={value}
+          options={mergeParamOptions(f.paramVariants || [])}
+          onChange={onChange}
+          placeholder={`选择${kind}`}
+          width={width}
+          descOf={db ? descOf : undefined}
+        />
+      </div>
+      {chosen && db && (
+        <div className="param-desc">
+          <div className="param-desc-title">{chosen}</div>
+          <Desc text={paramDesc(db, value || undefined)} limit={400} />
+        </div>
+      )}
     </div>
   );
 }
