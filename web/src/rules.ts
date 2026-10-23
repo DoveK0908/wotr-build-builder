@@ -125,13 +125,27 @@ export function universalSlots(db: Db, level: number): FeatureEntry[] {
     .filter((f): f is FeatureEntry => !!f && !!f.choices && !skip.has(f.id));
 }
 
-/** 选出来的特性本身还可能是个「进程表」，要把里面的特性展开成一层的 id 列表 */
+/**
+ * 选出来的特性本身还可能是个「进程表」，要把里面的特性展开成一层的 id 列表。
+ *
+ * 还有一种是「中转表」：`IgnorePrerequisites:true` 且只有一个选项的隐藏选择表。
+ * 游戏里它的唯一作用就是把那个唯一选项塞给玩家（诡术师的学识（宗教）2/3阶就是这样：
+ * 进程表 → Selection（隐藏、忽略前置、只有一个选项）→ Parametrized），
+ * 所以这里也要跟着走一层，否则 Parametrized 永远不在 idSet 里。
+ * 判据不能只看「隐藏」——默认的专长/神祇选择表也是隐藏的，但选项有几百个。
+ */
 export function expandFeature(db: Db, id: string, depth = 0): string[] {
   if (depth > 4) return [];
   const f = db.features[id];
-  if (!f || !f.progression) return [id];
+  if (!f) return [id];
   const out = [id];
-  for (const e of f.progression) for (const sub of e.features) out.push(...expandFeature(db, sub, depth + 1));
+  if (f.progression) {
+    for (const e of f.progression) for (const sub of e.features) out.push(...expandFeature(db, sub, depth + 1));
+    return out;
+  }
+  if (f.ignorePrereq && f.choices?.length === 1) {
+    out.push(...expandFeature(db, f.choices[0], depth + 1));
+  }
   return out;
 }
 
@@ -534,6 +548,19 @@ export function ranksAtLevel(level: number): number {
 /** 第 rank 阶大约需要角色到几级 */
 export function levelForRank(rank: number): number {
   return MYTHIC_RANK_LEVELS[Math.max(0, Math.min(MYTHIC_RANK_LEVELS.length - 1, rank - 1))];
+}
+
+/**
+ * 反查：角色到 level 级时**新拿到**的所有神话阶层。
+ * 一般只有一阶，但解锁表里 18 级同时对应第 7、第 8 阶（剧情上是连续两个节点），
+ * 只取最大的那个会让第 7 阶的选择在导出的表里整行消失。
+ */
+export function ranksForLevel(level: number): number[] {
+  const out: number[] = [];
+  for (let r = 1; r <= MYTHIC_RANK_LEVELS.length; r += 1) {
+    if (MYTHIC_RANK_LEVELS[r - 1] === level) out.push(r);
+  }
+  return out;
 }
 
 export function mythicRank(build: Build): number {
@@ -1330,10 +1357,19 @@ export function evalPrereq(db: Db, ctx: LevelCtx, p: Prereq, depth = 0, subject 
   const num2 = (v: unknown) => (typeof v === "number" ? v : undefined);
   switch (p.k) {
     case "feat":
-    case "hasfeature":
-      return has(p.id as string) ? "ok" : "no";
-    case "nofeat":
+    case "hasfeature": {
+      const id = p.id as string;
+      // 有些前置直接指向「种族」（例如灵狐猛扑要求狐妖）：种族不进 idSet，要单独比
+      if (!has(id) && id && db.races?.[id]) return ctx.race === id ? "ok" : "no";
+      return has(id) ? "ok" : "no";
+    }
+    case "nofeat": {
+      // 「已有就不能再拿」由 BlueprintFeature.MeetsPrerequisites 的 GetRank >= Ranks 负责，
+      // 指向自己的 PrerequisiteNoFeature 是冗余的（包抄、学识（宗教）2/3阶 的进程表都有），
+      // 照字面判会让它一选完就自己否定自己。
+      if (p.id && p.id === subject) return "ok";
       return has(p.id as string) ? "no" : "ok";
+    }
     case "oneof": {
       const ids = (p.ids as string[]) || [];
       // PrerequisiteFeaturesFromList.CheckInternal：只有「持有某项」时才 num++ 并检查 num >= Amount，
@@ -1585,6 +1621,9 @@ function condText(db: Db, node: CondNode | null | undefined, depth = 0): string 
 
 /** 前置文案里引用到没有中文名的内部特性时，别显示「（未命名）」 */
 function featName(db: Db, id: string): string {
+  // 有些前置指向的是种族（例如灵狐猛扑要求狐妖），这类 id 不在 features 里
+  const race = db.races?.[id];
+  if (race) return `${label(race)}（种族）`;
   const t = label(db.features[id]);
   return t === "（未命名）" ? "内部特性" : t;
 }

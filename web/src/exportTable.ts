@@ -7,11 +7,10 @@ import {
   babAt,
   derive,
   label,
-  levelForRank,
   levelRootSlots,
   pointBuySpent,
   rankRootSlots,
-  ranksAtLevel,
+  ranksForLevel,
 } from "./rules";
 import { alignAbbr } from "./steps";
 
@@ -179,15 +178,16 @@ export function buildTable(db: Db, build: Build): Table {
   const rows: string[][] = [];
   for (let n = 1; n <= cap; n += 1) {
     const { cls, feat, other, notes } = levelCells(db, build, n - 1);
-    const rank = ranksAtLevel(n);
-    const isNewRank = rank > 0 && levelForRank(rank) === n;
+    // 一个等级可能同时解锁两阶（解锁表里 18 级对应第 7、第 8 阶），都要列出来，
+    // 否则第 7 阶选的東西在表里整行消失。
+    const ranks = ranksForLevel(n);
     rows.push([
       String(n),
       cls,
       feat.join("、"),
       other.join("、"),
-      isNewRank ? `第 ${rank} 阶` : "",
-      isNewRank ? rankCells(db, build, rank).join("、") : "",
+      ranks.length ? ranks.map((r) => `第 ${r} 阶`).join("、") : "",
+      ranks.map((r) => rankCells(db, build, r).join("、")).filter(Boolean).join("；"),
       notes.join("、"),
     ]);
   }

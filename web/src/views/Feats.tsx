@@ -3,7 +3,7 @@ import type { AttrId, Db } from "../types";
 import { act, levelCap, useBuild } from "../store";
 import {
   babAt, choiceVerdict, derive, evalPrereqs, featuresAtClassLevel, isNamed, label, levelCtxList, levelRootSlots,
-  levelForRank, mythicRank, prereqText, rankRootSlots, ranksAtLevel,
+  levelForRank, mythicRank, prereqText, rankRootSlots, ranksAtLevel, ranksForLevel,
 } from "../rules";
 import { Chip, Collapse, SearchSelect } from "../ui";
 import { AutoList, SlotChain } from "../pick";
@@ -149,14 +149,14 @@ export function Feats(props: { db: Db }) {
             </div>
           )}
 
-          {/* 并行的神话阶层：角色等级 N 与神话第 ceil(N/2) 阶同时推进 */}
-          {(() => {
-            const mr = Math.max(1, ranksAtLevel(cur.level) || (cur.level >= 6 ? 1 : 0));
+          {/* 并行的神话阶层：角色等级 N 与神话阶层同时推进。
+              18 级会同时解锁第 7、第 8 阶，两阶都要在这里填，否则第 7 阶没地方选。 */}
+          {(ranksForLevel(cur.level).length ? ranksForLevel(cur.level) : [Math.max(1, ranksAtLevel(cur.level))]).map((mr) => {
             const rank = build.ranks[mr - 1] || { picks: {}, params: {}, ability: null };
             const slots = rankRootSlots(db, build, mr);
             const reached = mythicRank(build) >= mr;
             return (
-              <Sect title={`同一步：神话第 ${mr} 阶${reached ? "" : "（还没排到这一阶）"}`}>
+              <Sect key={mr} title={`同一步：神话第 ${mr} 阶${reached ? "" : "（还没排到这一阶）"}`}>
                 {!reached ? (
                   <div className="muted small">
                     先把神话阶层排到第 {mr} 阶（「神话阶层」子页签），这里才能填它的选择。
@@ -171,7 +171,7 @@ export function Feats(props: { db: Db }) {
                         db={db}
                         root={sl}
                         picks={rank.picks}
-                        verdict={(fid) => choiceVerdict(db, ctxs[Math.min(ctxs.length - 1, mr * 2 - 1)] || ctx, fid)}
+                        verdict={(fid) => choiceVerdict(db, ctxs[Math.min(ctxs.length - 1, levelForRank(mr) - 1)] || ctx, fid)}
                         onChange={(sid, v) => act.setRankPick(mr - 1, sid, v)}
                       />
                     ))}
@@ -179,7 +179,7 @@ export function Feats(props: { db: Db }) {
                 )}
               </Sect>
             );
-          })()}
+          })}
 
           {/* 已选项的实时前置检查：改任何一步都会立刻重新判 */}
           {(() => {

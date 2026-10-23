@@ -23,6 +23,7 @@ import {
   MYTHIC_RANK_LEVELS,
   levelForRank,
   ranksAtLevel,
+  ranksForLevel,
   alignAllows,
   alignConflicts,
   alignTokensOf,
@@ -37,6 +38,7 @@ import {
   derive,
   evalPrereq,
   evalPrereqs,
+  expandFeature,
   attrBreakdown,
   attrRecommend,
   backgroundRoot,
@@ -1303,6 +1305,48 @@ export function run(dir: string): void {
       const c0 = levelCtxList(db, emptyBuild(), derive(db, emptyBuild()))[0];
       eq(evalPrereq(db, c0, csp as Prereq), "no", "没有该职业时 classspell 不通过");
     }
+
+  /* ── 前置语义（三）：种族前置 / 指向自身的 nofeat / 中转选择表 / 同一级多阶 ── */
+  {
+    const c0 = levelCtxList(db, emptyBuild(), derive(db, emptyBuild()))[0];
+
+    // 前置可以指向「种族」——灵狐猛扑要求狐妖；种族 id 不进 idSet，要单独比 ctx.race
+    const pounce = db.features["cd258f1bce80ef54580f6b236c82608c"];
+    ok(!!pounce && pounce.name === "灵狐猛扑", "找到「灵狐猛扑」");
+    const raceP = pounce?.prereq?.find((p) => p.k === "feat");
+    const kitsune = Object.values(db.races || {}).find((r) => r.name === "狐妖");
+    ok(!!kitsune, "种族表里有「狐妖」");
+    if (raceP && kitsune) {
+      eq(evalPrereq(db, { ...c0, race: kitsune.id } as never, raceP as Prereq), "ok", "狐妖能通过灵狐猛扑的种族前置");
+      eq(evalPrereq(db, { ...c0, race: HUMAN } as never, raceP as Prereq), "no", "人类过不了灵狐猛扑的种族前置");
+      ok(prereqText(db, raceP as Prereq).includes("种族"), "种族前置的文案标明「（种族）」", prereqText(db, raceP as Prereq));
+    }
+
+    // 指向自身的 nofeat 是冗余的（GetRank >= Ranks 已负责挡重复选取），
+    // 照字面判会让「选完之后」立刻否定自己 —— 包抄、学识（宗教）2/3 阶都是这个形状
+    const selfNo = { k: "nofeat", id: "422dab7309e1ad343935f33a4d6e9f11" } as unknown as Prereq;
+    const got = { ...c0, idSet: new Set([...c0.idSet, "422dab7309e1ad343935f33a4d6e9f11"]) };
+    eq(evalPrereq(db, got as never, selfNo, 0, "422dab7309e1ad343935f33a4d6e9f11"), "ok", "指向自身的 nofeat 被忽略");
+    eq(evalPrereq(db, got as never, selfNo, 0, "something-else"), "no", "对别的特性，指向它的 nofeat 照常生效");
+
+    // 中转选择表：IgnorePrerequisites 且只有一个选项，游戏里就是把那个唯一选项直接给玩家
+    // （诡术师 学识（宗教）2阶 = 进程表 → 隐藏单选表 → Parametrized）
+    const expanded = expandFeature(db, "fd158d5f035346288776f18e76f6721e");
+    ok(expanded.includes("3e006bc9bbf0b884a8d8853350bee846"), "学识（宗教）2阶 展开后含参数化特性（领域痴迷的前置）");
+    const basicFeats = "247a4068296e8be42890143f451b4b45";
+    eq(expandFeature(db, basicFeats).length, 1, "276 项的专长选择表不会被当成交转表展开");
+
+    const obsession = db.features["2de64f6a1f2baee4f9b7e52e3f046ec5"];
+    ok(!!obsession && obsession.name === "领域痴迷", "找到「领域痴迷」");
+    ok((obsession?.prereq || []).some((p) => p.k === "feat" && p.id === "3e006bc9bbf0b884a8d8853350bee846"),
+      "领域痴迷的前置里含学识（宗教）2阶的参数化特性");
+
+    // 同一个角色等级可以同时解锁两阶（第 7、8 阶都在 18 级），两阶都要出现在导出表里
+    eq(ranksForLevel(18).join(","), "7,8", "18 级同时对应第 7、8 阶");
+    eq(ranksForLevel(17).join(","), "6", "17 级只对应第 6 阶");
+    eq(ranksForLevel(19).join(","), "9", "19 级只对应第 9 阶");
+    eq(ranksForLevel(1).length, 0, "1 级没有神话阶层");
+  }
 
   const total = pass + fails.length;
   if (fails.length === 0) {
